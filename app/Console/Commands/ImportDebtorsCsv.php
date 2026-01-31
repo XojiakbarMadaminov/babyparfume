@@ -8,6 +8,7 @@ use App\Models\Client;
 use App\Models\Debtor;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
+use Illuminate\Support\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -72,6 +73,8 @@ class ImportDebtorsCsv extends Command
             $amount     = $this->toIntNullable(Arr::get($data, 'amount')) ?? 0;
             $currency   = strtoupper(trim((string) Arr::get($data, 'currency', 'UZS')));
             $note       = trim((string) Arr::get($data, 'note', '')) ?: null;
+            $rawDate    = Arr::get($data, 'date', Arr::get($data, 'debtor_date'));
+            $date       = $this->parseDateTimeNullable($rawDate);
             $rowStoreId = $this->resolveRowStoreId($data, $defaultStoreId);
             $debtorId   = $this->toIntNullable(Arr::get($data, 'debtor_id', Arr::get($data, 'id')));
 
@@ -163,6 +166,9 @@ class ImportDebtorsCsv extends Command
                         'currency'  => $currency,
                         'note'      => $note,
                     ];
+                    if ($date !== null) {
+                        $attributes['date'] = $date;
+                    }
                     if ($debtorId) {
                         $attributes['id'] = (int) $debtorId;
                     }
@@ -175,6 +181,9 @@ class ImportDebtorsCsv extends Command
                         $debtor->amount   = (int) $amount;
                         $debtor->currency = $currency;
                         $debtor->note     = $note;
+                        if ($date !== null) {
+                            $debtor->date = $date;
+                        }
                         $debtor->save();
                         $updated++;
                         $this->line("[update] Row {$rowNumber}: debtor=#{$debtor->id}");
@@ -225,6 +234,13 @@ class ImportDebtorsCsv extends Command
                 $key        = $header[$i] ?? (string) $i;
                 $data[$key] = $value;
             }
+            // Normalize alternate column names
+            if (array_key_exists('debtor_date', $data) && !array_key_exists('date', $data)) {
+                $data['date'] = $data['debtor_date'];
+            }
+            if (array_key_exists('debtor_note', $data) && !array_key_exists('note', $data)) {
+                $data['note'] = $data['debtor_note'];
+            }
         } else {
             // Positional: 0=full_name, 1=phone, 2=amount, 3=currency, 4=note, 5=store or store_id
             $data['full_name'] = $row[0] ?? '';
@@ -234,9 +250,37 @@ class ImportDebtorsCsv extends Command
             $data['note']      = $row[4] ?? '';
             $data['store']     = $row[5] ?? '';
             $data['id']        = $row[6] ?? '';
+            $data['date']      = $row[7] ?? '';
         }
 
         return $data;
+    }
+
+    protected function parseDateTimeNullable(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $raw = trim((string) $value);
+        if ($raw === '') {
+            return null;
+        }
+
+        try {
+            // Use start of day if time is not supplied
+            $dt = Carbon::parse($raw);
+            if (
+                str_contains($raw, ':') === false &&
+                preg_match('/^\d{4}-\d{1,2}-\d{1,2}$/', $raw)
+            ) {
+                $dt = $dt->startOfDay();
+            }
+
+            return $dt->toDateTimeString();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     protected function toIntNullable(mixed $value): ?int

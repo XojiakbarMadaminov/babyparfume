@@ -64,7 +64,7 @@ class ProductsTable
                     TextColumn::make('barcode')->label('Bar kod')->searchable(),
                     TextColumn::make('initial_price')->label('Kelgan narxi')->numeric(),
                     TextColumn::make('price')->label('Sotish narxi')->numeric(),
-                    TextColumn::make('category.name')->label('Kategoriyasi')->sortable()->searchable(),
+                    //                    TextColumn::make('category.name')->label('Kategoriyasi')->sortable()->searchable(),
                     TextColumn::make('type')->label('Turi')->badge()->formatStateUsing(fn ($state) => $state === 'package' ? 'Paket' : 'Razmer'),
                 ],
                 $stocks->map(function ($stock) {

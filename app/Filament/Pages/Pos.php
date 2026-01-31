@@ -29,12 +29,11 @@ class Pos extends Page
 {
     use HasNotifications, HasPageShield;
 
-//    protected static string|null|\UnitEnum $navigationGroup  = NavigationGroup::BaseActions;
+    //    protected static string|null|\UnitEnum $navigationGroup  = NavigationGroup::BaseActions;
     protected static ?string $title                          = 'Sotuv';
     protected string $view                                   = 'filament.pages.pos';
     protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-shopping-cart';
     protected static ?int $navigationSort                    = 1;
-
 
     public static function getRoutePath(Panel $panel): string
     {
@@ -310,7 +309,7 @@ class Pos extends Page
             ->where('stock_id', $row['stock_id'])
             ->value('quantity') ?? 0;
 
-        if ($qty > $available) {
+        if (false && $qty > $available) {
             Notification::make()
                 ->title('Yetarli miqdor yo‘q')
                 ->body("Skladda faqat {$available} dona mavjud.")
@@ -366,7 +365,7 @@ class Pos extends Page
             ->where('stock_id', $row['stock_id'])
             ->value('quantity') ?? 0;
 
-        if ($qty > $available) {
+        if (false && $qty > $available) {
             Notification::make()
                 ->title('Yetarli miqdor yo‘q')
                 ->body("Skladda faqat {$available} dona mavjud.")
@@ -590,7 +589,7 @@ class Pos extends Page
                     ->where('stock_id', $stockId)
                     ->value('quantity') ?? 0;
 
-                if ($qty > $available) {
+                if (false && $qty > $available) {
                     Notification::make()
                         ->title('Yetarli miqdor yo‘q')
                         ->body("{$item['name']} uchun maksimal {$available} dona mavjud.")
@@ -640,7 +639,7 @@ class Pos extends Page
                     ->where('stock_id', $stockId)
                     ->value('quantity');
 
-                if ($available === null || $qty > $available) {
+                if (false && ($available === null || $qty > $available)) {
                     $size         = \App\Models\ProductSize::find($sizeId);
                     $sizeName     = $size?->size ?? 'Razmer';
                     $availableQty = $available ?? 0;
@@ -766,12 +765,16 @@ class Pos extends Page
                     if (!empty($prepared['product_size_id'])) {
                         ProductStock::where('product_size_id', $prepared['product_size_id'])
                             ->where('stock_id', $prepared['stock_id'])
-                            ->decrement('quantity', $prepared['quantity']);
+                            ->update([
+                                'quantity' => \DB::raw('GREATEST(quantity - ' . (int) $prepared['quantity'] . ', 0)'),
+                            ]);
                     } else {
                         ProductStock::whereNull('product_size_id')
                             ->where('product_id', $prepared['product_id'])
                             ->where('stock_id', $prepared['stock_id'])
-                            ->decrement('quantity', $prepared['quantity']);
+                            ->update([
+                                'quantity' => \DB::raw('GREATEST(quantity - ' . (int) $prepared['quantity'] . ', 0)'),
+                            ]);
                     }
                 }
 
@@ -1148,7 +1151,7 @@ class Pos extends Page
                 ->where('stock_id', $stockId)
                 ->value('quantity');
 
-            if ($qty > $available) {
+            if (false && $qty > $available) {
                 Notification::make()
                     ->title('Yetarli miqdor yo‘q')
                     ->body("Razmer: <b>{$size->size}</b> uchun faqat <b>{$available}</b> dona mavjud.")
