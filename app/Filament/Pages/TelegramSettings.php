@@ -35,6 +35,7 @@ class TelegramSettings extends Page implements HasForms
         $this->form->fill([
             'bot_token'     => $settings?->bot_token ?? config('services.telegram.bot_token'),
             'sales_chat_id' => $settings?->sales_chat_id ?? config('services.telegram.sales_chat_id'),
+            'debt_chat_id'  => $settings?->sales_chat_id ?? config('services.telegram.debt_chat_id'),
         ]);
     }
 

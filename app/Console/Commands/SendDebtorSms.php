@@ -22,33 +22,63 @@ class SendDebtorSms extends Command
     private function processDebtors($debtors): void
     {
         $smsService = new SmsService;
+        $today      = \Carbon\Carbon::today();
 
         foreach ($debtors as $debtor) {
             $phone = $this->sanitizePhone($debtor->phone);
             if (strlen($phone) !== 12) {
-                $this->warn("Telefon raqam noto‘g‘ri formatda: {$debtor->phone} (id:{$debtor->id})");
+                $this->warn("Telefon raqam noto'g'ri formatda: {$debtor->phone} (id:{$debtor->id})");
+
                 continue;
             }
 
-            dd($this->shouldSendSms($debtor));
-            if (!$this->shouldSendSms($debtor)) {
+            $debtDate      = \Carbon\Carbon::parse($debtor->date);
+            $daysSinceDebt = $debtDate->diffInDays($today);
+
+            // Debtor uchun interval (kunlarda), default 15
+            $interval = (int) ($debtor->sms_interval ?? 15);
+            if ($interval < 1) {
+                $interval = 15;
+            }
+
+            if ($daysSinceDebt < $interval) {
                 continue;
             }
 
-            //            $message = "Sizda {$debtor->store_address}da joylashgan {$debtor->store_name} do'konidan {$debtor->amount} {$debtor->currency} qarzdorlik mavjud. Tez orada to'lang yoki {$debtor->store_phone} raqamiga murojaat qiling.";
-            $message = 'Bu Eskiz dan test';
-            $result  = $smsService->sendSms($phone, $message);
+            // Oxirgi SMS yuborilgan vaqtni tekshir
+            $lastSms = DB::table('debtor_sms_logs')
+                ->where('debtor_id', $debtor->id)
+                ->orderBy('sent_at', 'desc')
+                ->first();
 
-            if ($result['success']) {
-                DB::table('debtor_sms_logs')->insert([
-                    'debtor_id' => $debtor->id,
-                    'sent_at'   => now(),
-                ]);
+            $shouldSend = false;
 
-                $this->info("SMS yuborildi: {$phone} ({$debtor->full_name})");
+            if (!$lastSms) {
+                if ($daysSinceDebt >= $interval) {
+                    $shouldSend = true;
+                }
             } else {
-                Log::error("SMS yuborilmadi: {$phone}. Sabab: {$result['error']}");
-                $this->error("SMS yuborilmadi: {$phone}. Sabab: {$result['error']}");
+                $lastSent = Carbon::parse($lastSms->sent_at)->startOfDay();
+                if ($lastSent->diffInDays($today) >= $interval) {
+                    $shouldSend = true;
+                }
+            }
+
+            if ($shouldSend) {
+                $message = "{$debtor->store_address}da joylashgan {$debtor->store_name} do'konidan {$debtor->amount} {$debtor->currency} qarzdorlik mavjud. Ushbu xabar rasmiy eslatma hisoblanadi. Tez orada to'lang. Aloqa:+998913291187";
+                $result  = $smsService->sendSms($phone, $message);
+
+                if ($result['success']) {
+                    $this->info("SMS yuborildi: {$phone} ({$debtor->full_name})");
+
+                    DB::table('debtor_sms_logs')->insert([
+                        'debtor_id' => $debtor->id,
+                        'sent_at'   => now(),
+                    ]);
+                } else {
+                    Log::error("SMS yuborilmadi: {$phone}. Sabab: {$result['error']}");
+                    $this->error("SMS yuborilmadi: {$phone}. Sabab: {$result['error']}");
+                }
             }
         }
     }

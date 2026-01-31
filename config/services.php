@@ -38,6 +38,6 @@ return [
     'telegram' => [
         'bot_token'     => env('TELEGRAM_BOT_TOKEN'),
         'sales_chat_id' => env('TELEGRAM_SALES_CHAT_ID'),
+        'debt_chat_id'  => env('TELEGRAM_DEBT_CHAT_ID'),
     ],
-
 ];
