@@ -35,6 +35,7 @@ class Pos extends Page
     protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-shopping-cart';
     protected static ?int $navigationSort                    = 1;
 
+
     public static function getRoutePath(Panel $panel): string
     {
         return '/';
