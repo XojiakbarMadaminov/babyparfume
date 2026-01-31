@@ -6,6 +6,7 @@ use App\Models\Debtor;
 use App\Services\SmsService;
 use Illuminate\Support\Carbon;
 use App\Services\TelegramDebtNotifier;
+use Illuminate\Support\Facades\Log;
 
 class DebtorObserver
 {
@@ -23,13 +24,13 @@ class DebtorObserver
      */
     public function created(Debtor $debtor): void
     {
-        $message = "Siz uchun Qumtepada joylashgan Million parfume do'konidan {$debtor->amount} {$debtor->currency} qarzdorlik qayd etildi. To'lov uchun +998913291187.";
-        $this->sms->sendSms($debtor->phone, $message);
+        $message = "Siz uchun Qumtepada joylashgan {$debtor->store->name} do'konidan {$debtor->amount} {$debtor->currency} qarzdorlik qayd etildi. To'lov uchun +998913291187.";
+        $this->sms->sendSms($debtor->client->phone, $message);
 
         $telegramMessage = implode(PHP_EOL, [
             '🆕 <b>Yangi qarzdorlik</b>',
-            '👤 ' . ($debtor->full_name ?? 'Ism ko\'rsatilmagan'),
-            '📞 ' . $this->formatPhone($debtor->phone),
+            '👤 ' . ($debtor->client->full_name ?? 'Ism ko\'rsatilmagan'),
+            '📞 ' . $this->formatPhone($debtor->client->phone),
             '💰 ' . $this->formatAmount($debtor->amount, $debtor->currency),
             '🗓 ' . $this->formatDate($debtor->date),
         ]);
@@ -48,13 +49,13 @@ class DebtorObserver
             $diff           = $currentAmount - $originalAmount;
 
             if ($currentAmount == 0) {
-                $message = "Million parfume do'konidagi qarzdorligingiz to'liq yopildi. Hamkorligingiz uchun rahmat! Savollar bo‘lsa +998913291187.";
+                $message = "{$debtor->store->name} do'konidagi qarzdorligingiz to'liq yopildi. Hamkorligingiz uchun rahmat! Savollar bo‘lsa +998913291187.";
             } else {
                 // Qarz yangilandi (qisman to‘landi yoki qo‘shildi)
-                $message = "Million parfume do'konida qarzingiz yangilandi. Joriy qarzdorlik: {$debtor->amount} {$debtor->currency}. Savollar bo‘lsa +998913291187.";
+                $message = "{$debtor->store->name} do'konida qarzingiz yangilandi. Joriy qarzdorlik: {$debtor->amount} {$debtor->currency}. Savollar bo‘lsa +998913291187.";
             }
 
-            $this->sms->sendSms($debtor->phone, $message);
+            $this->sms->sendSms($debtor->client->phone, $message);
             $this->sendTelegramUpdate($debtor, $diff);
         }
     }
@@ -68,16 +69,16 @@ class DebtorObserver
         if ($diff > 0) {
             $telegramMessage = implode(PHP_EOL, [
                 '➕ <b>Qarz qo‘shildi</b>',
-                '👤 ' . ($debtor->full_name ?? 'Ism ko\'rsatilmagan'),
-                '📞 ' . $this->formatPhone($debtor->phone),
+                '👤 ' . ($debtor->client->full_name ?? 'Ism ko\'rsatilmagan'),
+                '📞 ' . $this->formatPhone($debtor->client->phone),
                 'Qo\'shimcha summa: ' . $this->formatAmount($diff, $debtor->currency),
                 'Jami qarz: ' . $this->formatAmount($debtor->amount, $debtor->currency),
             ]);
         } else {
             $telegramMessage = implode(PHP_EOL, [
                 '💸 <b>To‘lov qabul qilindi</b>',
-                '👤 ' . ($debtor->full_name ?? 'Ism ko\'rsatilmagan'),
-                '📞 ' . $this->formatPhone($debtor->phone),
+                '👤 ' . ($debtor->client->full_name ?? 'Ism ko\'rsatilmagan'),
+                '📞 ' . $this->formatPhone($debtor->client->phone),
                 'To‘lov summasi: ' . $this->formatAmount(abs($diff), $debtor->currency),
                 'Qolgan qarz: ' . $this->formatAmount($debtor->amount, $debtor->currency),
             ]);

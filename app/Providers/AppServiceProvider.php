@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Models\Debtor;
 use App\Models\Sale;
 use App\Models\Product;
+use App\Observers\DebtorObserver;
 use App\Observers\SaleObserver;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
@@ -25,6 +27,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Sale::observe(SaleObserver::class);
+        Debtor::observe(DebtorObserver::class);
 
         // Remove original product images after the optimized conversion is generated
         Event::listen(ConversionHasBeenCompletedEvent::class, function (ConversionHasBeenCompletedEvent $event) {
