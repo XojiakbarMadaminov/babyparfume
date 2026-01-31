@@ -50,7 +50,11 @@ class TelegramSettings extends Page implements HasForms
                         ->columnSpanFull(),
 
                     TextInput::make('sales_chat_id')
-                        ->label('Guruh chat ID')
+                        ->label('Sotuv uchun guruh chat ID')
+                        ->required()
+                        ->columnSpanFull(),
+                    TextInput::make('debt_chat_id')
+                        ->label('Qarzdorlik uchun guruh chat ID')
                         ->required()
                         ->columnSpanFull(),
                 ])
