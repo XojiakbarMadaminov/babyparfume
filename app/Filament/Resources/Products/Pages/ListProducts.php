@@ -14,11 +14,11 @@ class ListProducts extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('gallery')
-                ->label('Gallery')
-                ->icon('heroicon-o-photo')
-                ->color('gray')
-                ->url(ProductResource::getUrl('gallery')),
+//            Action::make('gallery')
+//                ->label('Gallery')
+//                ->icon('heroicon-o-photo')
+//                ->color('gray')
+//                ->url(ProductResource::getUrl('gallery')),
             CreateAction::make(),
         ];
     }

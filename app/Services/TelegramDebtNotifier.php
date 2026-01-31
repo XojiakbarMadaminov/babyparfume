@@ -16,7 +16,7 @@ class TelegramDebtNotifier
         $settings = TelegramSetting::query()->first();
 
         $this->botToken = $settings?->bot_token ?: config('services.telegram.bot_token');
-        $this->chatId   = $settings?->sales_chat_id ?: config('services.telegram.debt_chat_id');
+        $this->chatId   = $settings?->debt_chat_id ?: config('services.telegram.debt_chat_id');
     }
 
     /**
