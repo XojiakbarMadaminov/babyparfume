@@ -786,7 +786,7 @@ class Pos extends Page
                         ],
                         [
                             'amount'   => 0,
-                            'currency' => 'uzs',
+                            'currency' => 'UZS',
                             'date'     => now(),
                         ]
                     );
