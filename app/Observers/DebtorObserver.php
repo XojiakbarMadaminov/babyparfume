@@ -6,6 +6,7 @@ use App\Models\Debtor;
 use App\Services\SmsService;
 use Illuminate\Support\Carbon;
 use App\Services\TelegramDebtNotifier;
+use Illuminate\Support\Facades\Log;
 
 class DebtorObserver
 {
@@ -19,7 +20,8 @@ class DebtorObserver
      */
     public function created(Debtor $debtor): void
     {
-        $message = "Siz uchun {$debtor->store->address}da joylashgan {$debtor->store->name} do'konidan {$debtor->amount} {$debtor->currency} qarzdorlik qayd etildi. To'lov uchun +998913291187.";
+        Log::info('debtor', [$debtor->toArray()]);
+        $message = "Siz uchun {$debtor->store->address}da joylashgan {$debtor->store->name} do'konidan {$debtor->amount} UZS qarzdorlik qayd etildi. To'lov uchun +998913291187.";
         $this->sms->sendSms($debtor->client->phone, $message);
 
         $header = '🏬 <b>Do\'kon: ' . ($debtor->store->name ?? '-') . '</b>';
@@ -29,7 +31,7 @@ class DebtorObserver
             '🆕 <b>Yangi qarzdorlik</b>',
             '👤 ' . ($debtor->client->full_name ?? 'Ism ko\'rsatilmagan'),
             '📞 ' . $this->formatPhone($debtor->client->phone),
-            '💵 ' . $this->formatAmount($debtor->amount, $debtor->currency),
+            '💵 ' . $this->formatAmount($debtor->amount, 'UZS'),
             '📅 ' . $this->formatDate($debtor->date),
         ]);
 

@@ -66,6 +66,9 @@ class DebtorForm
                     ->rows(3)
                     ->maxLength(500)
                     ->columnSpanFull(),
+                TextInput::make('currency')
+                    ->default('UZS')
+                    ->hidden(),
             ]);
     }
 }

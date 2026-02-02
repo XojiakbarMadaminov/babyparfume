@@ -2,15 +2,15 @@
 
 namespace App\Models;
 
-use App\Models\Traits\HasCurrentStoreScope;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
+use App\Models\Traits\HasCurrentStoreScope;
 
 class Debtor extends Model
 {
     use HasCurrentStoreScope;
 
-    protected $table = 'debtors';
+    protected $table   = 'debtors';
     protected $guarded = [];
 
     public function transactions()
@@ -33,6 +33,12 @@ class Debtor extends Model
     protected function scopeStillInDebt(Builder $query): Builder
     {
         return $query->where('amount', '>', 0);
+    }
+
+    protected function scopeOverdue(Builder $query): Builder
+    {
+        return $query->where('amount', '>', 0)
+            ->where('date', '<', now()->subDays(20)->toDateString());
     }
 
     public function store()

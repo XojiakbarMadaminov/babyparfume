@@ -35,6 +35,9 @@ class ListDebtors extends ListRecords
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->scopes('stillInDebt')),
             'Qarzdorlik yopilganlar' => Tab::make(__('Qarzdorlik yopilganlar'))->badge(Debtor::scopes('zeroDebt')->count())
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->scopes('zeroDebt')),
+            'Muddati o`tgan qarzdorlar' => Tab::make(__('Muddati o`tgan qarzdorlar'))->badge(Debtor::scopes('overdue')->count())
+                ->badgeColor('danger')
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->scopes('overdue')),
         ];
     }
 }
