@@ -38,7 +38,7 @@
 <body>
 
 <div class="center">
-    <img src="{{ public_path('images/million_black_white_transparent.png') }}" alt="<<Mir obuv 9494>>" class="logo">
+    <img src="{{ public_path('images/million_black_white_transparent.png') }}" alt="{{$debtor->store->name}}" class="logo">
 </div>
 
 <div class="center">*** QARZDORLIK CHEKI ***</div>
