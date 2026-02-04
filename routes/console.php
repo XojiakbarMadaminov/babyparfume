@@ -9,4 +9,5 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('debtors:send-sms')->dailyAt('9:30')->timezone('Asia/Tashkent');
-Schedule::command('telegram:send-daily-summary')->dailyAt('23:30')->timezone('Asia/Tashkent');
+Schedule::command('debtors:send-daily-summary')->dailyAt('22:00')->timezone('Asia/Tashkent');
+Schedule::command('sales:send-daily-summary')->dailyAt('22:00')->timezone('Asia/Tashkent');

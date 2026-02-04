@@ -63,6 +63,9 @@
 @php
     $labelSize = $size ?? '30x20';
 
+    // Global setting for showing price on barcode labels
+    $showPriceOnBarcode = (bool) (\App\Models\GeneralSetting::query()->value('barcode_show_price') ?? false);
+
     // Sizing presets per label
     $presets = [
         '30x20' => [
@@ -147,9 +150,11 @@
 
         <div class="product-name" style="font-size: {{ $codeFont }}">{{ $product->barcode }}</div>
 
-        <div class="product-name" style="font-size: {{ $priceFont }}; font-weight: 700; margin-top: 1mm;">
-            {{ $priceStr }}
-        </div>
+        @if($showPriceOnBarcode)
+            <div class="product-name" style="font-size: {{ $priceFont }}; font-weight: 700; margin-top: 1mm;">
+                {{ $priceStr }}
+            </div>
+        @endif
     </div>
 @endforeach
 </body>

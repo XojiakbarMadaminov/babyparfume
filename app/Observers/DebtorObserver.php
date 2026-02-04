@@ -5,14 +5,14 @@ namespace App\Observers;
 use App\Models\Debtor;
 use App\Services\SmsService;
 use Illuminate\Support\Carbon;
-use App\Services\TelegramDebtNotifier;
+use App\Services\TelegramNotifier;
 use Illuminate\Support\Facades\Log;
 
 class DebtorObserver
 {
     public function __construct(
         protected SmsService $sms,
-        protected TelegramDebtNotifier $telegram,
+        protected TelegramNotifier $telegram,
     ) {}
 
     /**

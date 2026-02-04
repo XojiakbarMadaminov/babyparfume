@@ -6,7 +6,7 @@ use App\Models\TelegramSetting;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 
-class TelegramDebtNotifier
+class TelegramNotifier
 {
     protected ?string $botToken;
     protected ?string $chatId;
