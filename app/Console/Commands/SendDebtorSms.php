@@ -91,8 +91,14 @@ class SendDebtorSms extends Command
             ->where('s.send_sms', true)
             ->where('c.send_sms', true)
             ->where(function ($query) {
-                $query->where(fn ($q) => $q->where('d.currency', 'uzs')->where('d.amount', '>', 10000))
-                    ->orWhere(fn ($q) => $q->where('d.currency', '!=', 'uzs')->where('d.amount', '>', 0));
+                $query->where(function ($q) {
+                    $q->whereRaw('LOWER(d.currency) = ?', ['uzs'])
+                        ->where('d.amount', '>', 10000);
+                })
+                    ->orWhere(function ($q) {
+                        $q->whereRaw('LOWER(d.currency) != ?', ['uzs'])
+                            ->where('d.amount', '>', 0);
+                    });
             })
             ->orderBy('d.id')
             ->select(

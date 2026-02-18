@@ -4,6 +4,7 @@ use App\Models\Sale;
 use App\Models\Store;
 use App\Models\Debtor;
 use App\Models\Product;
+use App\Models\Client;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Route;
@@ -11,6 +12,35 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return redirect()->to('/admin/login');
 });
+
+// Client va debtor ma'lumotini telefon orqali olish
+Route::get('/client-debtor/{phone}', function ($phone) {
+    $sanitizedPhone = preg_replace('/[^0-9]/', '', $phone);
+    if (strlen($sanitizedPhone) == 9) {
+        $sanitizedPhone = '998' . $sanitizedPhone;
+    }
+
+    $client = Client::where('phone', $sanitizedPhone)
+        ->orWhere('phone', $phone)
+        ->first();
+
+    if (!$client) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Client topilmadi'
+        ], 404);
+    }
+
+    $debtors = Debtor::where('client_id', $client->id)
+        ->with(['store', 'transactions'])
+        ->get();
+
+    return response()->json([
+        'success' => true,
+        'client' => $client,
+        'debtors' => $debtors
+    ]);
+})->name('client.debtor.by.phone');
 
 // debtor uchun
 Route::get('/debtor/{debtor}/check-pdf', function (Debtor $debtor) {
