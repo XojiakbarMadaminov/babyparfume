@@ -563,10 +563,6 @@
                             </th>
                             <th scope="col"
                                 class="px-3 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                Kelgan narxi
-                            </th>
-                            <th scope="col"
-                                class="px-3 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                 Sotish narxi
                             </th>
                             <th scope="col"
@@ -648,18 +644,6 @@
                                     @endunless
 
 
-                                </td>
-
-                                {{-- Kelgan narxi --}}
-                                <td class="px-3 py-3 text-right">
-                                    <div>
-                                        <input type="number"
-                                               disabled
-                                               value="{{ $row['initial_price'] }}"
-                                               class="w-24 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white
-                                                  focus:ring-primary-500 focus:border-primary-500 rounded-md shadow-sm text-right
-                                                  py-1.5 px-2 text-sm">
-                                    </div>
                                 </td>
 
                                 {{-- Narx --}}
