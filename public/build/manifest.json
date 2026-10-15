@@ -1,6 +1,6 @@
 {
-  "_usePaged-Dua-2uia.js": {
-    "file": "assets/usePaged-Dua-2uia.js",
+  "_usePaged-Cequ8t49.js": {
+    "file": "assets/usePaged-Cequ8t49.js",
     "name": "usePaged",
     "imports": [
       "resources/js/mobile/main.ts"
@@ -38,7 +38,7 @@
     "isEntry": true
   },
   "resources/js/mobile/main.ts": {
-    "file": "assets/main-Cqv24fBj.js",
+    "file": "assets/main-BHQzRjot.js",
     "name": "main",
     "src": "resources/js/mobile/main.ts",
     "isEntry": true,
@@ -53,11 +53,11 @@
       "resources/js/mobile/pages/DebtForm.vue"
     ],
     "css": [
-      "assets/main-CT_z6Xqj.css"
+      "assets/main-B-yEcp4v.css"
     ]
   },
   "resources/js/mobile/pages/DebtForm.vue": {
-    "file": "assets/DebtForm-BBdUvBre.js",
+    "file": "assets/DebtForm-18YFCcGC.js",
     "name": "DebtForm",
     "src": "resources/js/mobile/pages/DebtForm.vue",
     "isDynamicEntry": true,
@@ -66,7 +66,7 @@
     ]
   },
   "resources/js/mobile/pages/DebtorDetail.vue": {
-    "file": "assets/DebtorDetail-Dhfsnsc9.js",
+    "file": "assets/DebtorDetail-BuZXQme3.js",
     "name": "DebtorDetail",
     "src": "resources/js/mobile/pages/DebtorDetail.vue",
     "isDynamicEntry": true,
@@ -75,17 +75,17 @@
     ]
   },
   "resources/js/mobile/pages/Debtors.vue": {
-    "file": "assets/Debtors-LCQOa016.js",
+    "file": "assets/Debtors-DiDdiouO.js",
     "name": "Debtors",
     "src": "resources/js/mobile/pages/Debtors.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/mobile/main.ts",
-      "_usePaged-Dua-2uia.js"
+      "_usePaged-Cequ8t49.js"
     ]
   },
   "resources/js/mobile/pages/ProductDetail.vue": {
-    "file": "assets/ProductDetail-CMM0WZcD.js",
+    "file": "assets/ProductDetail-DO3x3bct.js",
     "name": "ProductDetail",
     "src": "resources/js/mobile/pages/ProductDetail.vue",
     "isDynamicEntry": true,
@@ -94,17 +94,17 @@
     ]
   },
   "resources/js/mobile/pages/Products.vue": {
-    "file": "assets/Products-Bk4Jlve4.js",
+    "file": "assets/Products-B5-1K1gc.js",
     "name": "Products",
     "src": "resources/js/mobile/pages/Products.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/mobile/main.ts",
-      "_usePaged-Dua-2uia.js"
+      "_usePaged-Cequ8t49.js"
     ]
   },
   "resources/js/mobile/pages/Scanner.vue": {
-    "file": "assets/Scanner-KMWxM-YG.js",
+    "file": "assets/Scanner-QPqUlHMj.js",
     "name": "Scanner",
     "src": "resources/js/mobile/pages/Scanner.vue",
     "isDynamicEntry": true,
