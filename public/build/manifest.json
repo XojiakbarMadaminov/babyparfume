@@ -1,15 +1,24 @@
 {
-  "_usePaged-C5dzkXzm.js": {
-    "file": "assets/usePaged-C5dzkXzm.js",
+  "_usePaged-Djg1vjav.js": {
+    "file": "assets/usePaged-Djg1vjav.js",
     "name": "usePaged",
     "imports": [
       "resources/js/mobile/main.ts"
     ]
   },
   "node_modules/@zxing/browser/esm/index.js": {
-    "file": "assets/index-CcxCSfiq.js",
+    "file": "assets/index-CzFnS5vd.js",
     "name": "index",
     "src": "node_modules/@zxing/browser/esm/index.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "node_modules/@zxing/library/esm/index.js"
+    ]
+  },
+  "node_modules/@zxing/library/esm/index.js": {
+    "file": "assets/index-84469jgD.js",
+    "name": "index",
+    "src": "node_modules/@zxing/library/esm/index.js",
     "isDynamicEntry": true
   },
   "resources/css/app.css": {
@@ -29,7 +38,7 @@
     "isEntry": true
   },
   "resources/js/mobile/main.ts": {
-    "file": "assets/main-rOMg44WQ.js",
+    "file": "assets/main-BXXtyfee.js",
     "name": "main",
     "src": "resources/js/mobile/main.ts",
     "isEntry": true,
@@ -48,7 +57,7 @@
     ]
   },
   "resources/js/mobile/pages/DebtForm.vue": {
-    "file": "assets/DebtForm-B3jTlbzR.js",
+    "file": "assets/DebtForm-DSGQAqxM.js",
     "name": "DebtForm",
     "src": "resources/js/mobile/pages/DebtForm.vue",
     "isDynamicEntry": true,
@@ -57,7 +66,7 @@
     ]
   },
   "resources/js/mobile/pages/DebtorDetail.vue": {
-    "file": "assets/DebtorDetail-XahdeROx.js",
+    "file": "assets/DebtorDetail-C3Drmivs.js",
     "name": "DebtorDetail",
     "src": "resources/js/mobile/pages/DebtorDetail.vue",
     "isDynamicEntry": true,
@@ -66,17 +75,17 @@
     ]
   },
   "resources/js/mobile/pages/Debtors.vue": {
-    "file": "assets/Debtors-BKVkOQda.js",
+    "file": "assets/Debtors-lawbP9Uw.js",
     "name": "Debtors",
     "src": "resources/js/mobile/pages/Debtors.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/mobile/main.ts",
-      "_usePaged-C5dzkXzm.js"
+      "_usePaged-Djg1vjav.js"
     ]
   },
   "resources/js/mobile/pages/ProductDetail.vue": {
-    "file": "assets/ProductDetail-CiqCKTsE.js",
+    "file": "assets/ProductDetail-hJn-HRM4.js",
     "name": "ProductDetail",
     "src": "resources/js/mobile/pages/ProductDetail.vue",
     "isDynamicEntry": true,
@@ -85,17 +94,17 @@
     ]
   },
   "resources/js/mobile/pages/Products.vue": {
-    "file": "assets/Products-Sd2SHxgX.js",
+    "file": "assets/Products-BGbK-Fdw.js",
     "name": "Products",
     "src": "resources/js/mobile/pages/Products.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/mobile/main.ts",
-      "_usePaged-C5dzkXzm.js"
+      "_usePaged-Djg1vjav.js"
     ]
   },
   "resources/js/mobile/pages/Scanner.vue": {
-    "file": "assets/Scanner-yP1s5P0R.js",
+    "file": "assets/Scanner-DY9cg3is.js",
     "name": "Scanner",
     "src": "resources/js/mobile/pages/Scanner.vue",
     "isDynamicEntry": true,
@@ -103,7 +112,8 @@
       "resources/js/mobile/main.ts"
     ],
     "dynamicImports": [
-      "node_modules/@zxing/browser/esm/index.js"
+      "node_modules/@zxing/browser/esm/index.js",
+      "node_modules/@zxing/library/esm/index.js"
     ]
   }
 }
