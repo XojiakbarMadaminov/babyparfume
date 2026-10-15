@@ -1,0 +1,271 @@
+<div id="baby-mobile-preview" class="viz-dotted-background">
+  <div class="bp-stage">
+    <article class="bp-phone" aria-label="Baby Parfume mobil dizayni">
+      <header class="bp-header">
+        <div class="bp-brand"><span class="bp-logo">b.</span><div><strong>BABY PARFUME</strong><span>Mobil yordamchi</span></div></div>
+        <span class="bp-avatar" aria-label="Foydalanuvchi">XA</span>
+      </header>
+      <div class="bp-store"><i data-lucide="store" aria-hidden="true"></i> Asosiy do‘kon <span class="bp-demo">DEMO</span></div>
+      <main class="bp-main"></main>
+      <nav class="bp-nav" aria-label="Asosiy navigatsiya">
+        <button type="button" data-page="scan"><i data-lucide="scan-line" aria-hidden="true"></i><span>Skaner</span></button>
+        <button type="button" data-page="products"><i data-lucide="package" aria-hidden="true"></i><span>Mahsulotlar</span></button>
+        <button type="button" data-page="debtors"><i data-lucide="users" aria-hidden="true"></i><span>Qarzdorlar</span></button>
+      </nav>
+      <div class="bp-homebar" aria-hidden="true"></div>
+    </article>
+  </div>
+  <style>
+    #baby-mobile-preview {color-scheme:light dark;padding:24px 12px;--bp-bg:light-dark(#f7f8fa,#15191f);--bp-surface:light-dark(#fff,#20262f);--bp-text:light-dark(#192332,#f1f4f8);--bp-sub:light-dark(#697586,#b0bac9);--bp-line:light-dark(#e8ecf1,#343e4b);--bp-soft:light-dark(#eef1f5,#2a3340);--bp-accent:#b96c14;--bp-tint:light-dark(#fff2df,#3a2b1b);--bp-alert:light-dark(#a14835,#ffb29d);--bp-alert-bg:light-dark(#fff0eb,#3d2926)}
+    #baby-mobile-preview *{box-sizing:border-box}
+    #baby-mobile-preview .bp-stage{display:flex;justify-content:center}
+    #baby-mobile-preview .bp-phone{font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--bp-text);background:var(--bp-bg);width:100%;max-width:390px;border:1px solid var(--bp-line);border-radius:30px;overflow:hidden;box-shadow:0 14px 45px light-dark(#1b273515,#00000030)}
+    #baby-mobile-preview button,#baby-mobile-preview input{font:inherit}
+    #baby-mobile-preview button{touch-action:manipulation}
+    #baby-mobile-preview button:focus-visible,#baby-mobile-preview input:focus-visible{outline:3px solid var(--bp-accent);outline-offset:3px}
+    #baby-mobile-preview .bp-header{padding:23px 20px 18px;display:flex;align-items:center;justify-content:space-between;background:var(--bp-surface)}
+    #baby-mobile-preview .bp-brand{display:flex;align-items:center;gap:11px}
+    #baby-mobile-preview .bp-brand strong{font-size:12px;letter-spacing:1.3px;display:block;font-weight:700}
+    #baby-mobile-preview .bp-brand div>span{display:block;color:var(--bp-sub);font-size:12px;margin-top:2px}
+    #baby-mobile-preview .bp-logo{display:grid;place-items:center;width:39px;height:39px;border-radius:13px;background:var(--bp-tint);color:var(--bp-accent);font:700 29px Georgia,serif}
+    #baby-mobile-preview .bp-avatar{display:grid;place-items:center;width:35px;height:35px;border-radius:50%;background:var(--bp-soft);font-size:11px;font-weight:600}
+    #baby-mobile-preview .bp-store{display:flex;align-items:center;gap:7px;padding:10px 20px;border-top:1px solid var(--bp-line);border-bottom:1px solid var(--bp-line);background:var(--bp-surface);font-size:12px;color:var(--bp-sub)}
+    #baby-mobile-preview svg{width:19px;height:19px;flex-shrink:0}
+    #baby-mobile-preview .bp-store svg{width:15px;height:15px}
+    #baby-mobile-preview .bp-demo{margin-left:auto;font-size:10px;letter-spacing:1px;background:var(--bp-soft);padding:2px 7px;border-radius:5px}
+    #baby-mobile-preview .bp-main{padding:23px 20px 22px;min-height:580px}
+    #baby-mobile-preview h1{font-size:25px;letter-spacing:-.8px;line-height:1.2;margin:0 0 8px;font-weight:700}
+    #baby-mobile-preview h2{font-size:16px;margin:0;font-weight:600}
+    #baby-mobile-preview p{margin:0;color:var(--bp-sub);font-size:13px}
+    #baby-mobile-preview .bp-heading{margin-bottom:22px}
+    #baby-mobile-preview .bp-camera{position:relative;height:248px;border-radius:22px;background:light-dark(#232c35,#10161e);display:flex;flex-direction:column;justify-content:center;align-items:center;gap:20px;color:#f7f8fa;overflow:hidden}
+    #baby-mobile-preview .bp-camera-label{position:absolute;top:15px;font-size:11px;letter-spacing:1px;color:#d3dbe4;display:flex;align-items:center;gap:6px}
+    #baby-mobile-preview .bp-camera-label::before{content:"";width:6px;height:6px;border-radius:50%;background:#e4ad68}
+    #baby-mobile-preview .bp-target{width:235px;height:114px;max-width:85%;position:relative;display:grid;place-items:center;border:2px solid #e4ad68;border-radius:12px}
+    #baby-mobile-preview .bp-barcode{width:175px;max-width:85%;height:57px;background:repeating-linear-gradient(90deg,#f5f0e7 0 2px,transparent 2px 4px,#f5f0e7 4px 5px,transparent 5px 8px,#f5f0e7 8px 12px,transparent 12px 15px);opacity:.75}
+    #baby-mobile-preview .bp-scanline{position:absolute;width:108%;height:2px;background:#e4ad68;box-shadow:0 0 16px #e4ad6880}
+    #baby-mobile-preview .bp-camera p{color:#d3dbe4;text-align:center;font-size:12px;padding:0 15px}
+    #baby-mobile-preview .bp-primary{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:49px;border:0;border-radius:14px;background:var(--bp-accent);color:#fff;font-weight:600;padding:12px 16px}
+    #baby-mobile-preview .bp-scan-action{margin-top:14px}
+    #baby-mobile-preview .bp-field{display:flex;align-items:center;gap:9px;border:1px solid var(--bp-line);background:var(--bp-surface);padding:0 13px;min-height:48px;border-radius:13px}
+    #baby-mobile-preview .bp-field svg{color:var(--bp-sub);width:18px}
+    #baby-mobile-preview input{min-width:0;width:100%;border:0;background:transparent;color:var(--bp-text);padding:12px 0;outline-offset:0;font-size:16px}
+    #baby-mobile-preview input::placeholder{color:var(--bp-sub);font-size:13px}
+    #baby-mobile-preview .bp-divider{display:flex;align-items:center;gap:12px;color:var(--bp-sub);font-size:11px;padding:17px 0}
+    #baby-mobile-preview .bp-divider:before,#baby-mobile-preview .bp-divider:after{content:"";height:1px;background:var(--bp-line);flex:1}
+    #baby-mobile-preview .bp-section-head{display:flex;justify-content:space-between;align-items:center;margin:23px 0 10px}
+    #baby-mobile-preview .bp-section-head>span{font-size:11px;color:var(--bp-sub)}
+    #baby-mobile-preview .bp-row{width:100%;border:1px solid var(--bp-line);border-radius:15px;background:var(--bp-surface);color:var(--bp-text);padding:13px;display:flex;align-items:center;gap:12px;text-align:left}
+    #baby-mobile-preview .bp-row+.bp-row{margin-top:9px}
+    #baby-mobile-preview .bp-row-info{flex:1;min-width:0}
+    #baby-mobile-preview .bp-row-info strong{display:block;font-weight:600;font-size:14px}
+    #baby-mobile-preview .bp-row-info small{display:block;color:var(--bp-sub);font-size:11px;margin-top:3px}
+    #baby-mobile-preview .bp-row>svg{width:16px;color:var(--bp-sub)}
+    #baby-mobile-preview .bp-mini-product{width:42px;height:47px;background:var(--bp-tint);border-radius:10px;display:grid;place-items:center;color:var(--bp-accent)}
+    #baby-mobile-preview .bp-nav{display:flex;padding:10px 10px 2px;gap:4px;border-top:1px solid var(--bp-line);background:var(--bp-surface)}
+    #baby-mobile-preview .bp-nav button{flex:1;display:flex;align-items:center;flex-direction:column;gap:5px;border:0;border-radius:12px;background:transparent;color:var(--bp-sub);padding:9px 2px;font-size:11px;min-height:56px}
+    #baby-mobile-preview .bp-nav button[aria-current="page"]{background:var(--bp-tint);color:var(--bp-accent);font-weight:600}
+    #baby-mobile-preview .bp-homebar{height:20px;background:var(--bp-surface);display:flex;align-items:center;justify-content:center}
+    #baby-mobile-preview .bp-homebar:after{content:"";width:95px;height:4px;border-radius:3px;background:var(--bp-line)}
+    #baby-mobile-preview .bp-summary{padding:18px;background:var(--bp-surface);border:1px solid var(--bp-line);border-radius:17px;margin-bottom:16px}
+    #baby-mobile-preview .bp-summary small{color:var(--bp-sub);font-size:12px}
+    #baby-mobile-preview .bp-amount{font-size:29px;letter-spacing:-1px;font-weight:650;font-variant-numeric:tabular-nums;margin-top:4px}
+    #baby-mobile-preview .bp-amount span{font-size:13px;color:var(--bp-sub);font-weight:400;letter-spacing:0}
+    #baby-mobile-preview .bp-chips{display:flex;gap:7px;margin:13px 0 17px;flex-wrap:wrap}
+    #baby-mobile-preview .bp-chip{border:1px solid var(--bp-line);background:var(--bp-surface);color:var(--bp-sub);border-radius:10px;padding:9px 11px;font-size:12px;min-height:40px}
+    #baby-mobile-preview .bp-chip[aria-pressed="true"]{background:var(--bp-tint);color:var(--bp-accent);border-color:var(--bp-accent)}
+    #baby-mobile-preview .bp-initials{width:41px;height:41px;flex-shrink:0;display:grid;place-items:center;background:var(--bp-soft);border-radius:50%;font-size:12px;font-weight:600;color:var(--bp-sub)}
+    #baby-mobile-preview .bp-debt-amount{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:11px;padding-top:10px;border-top:1px solid var(--bp-line)}
+    #baby-mobile-preview .bp-debt-amount strong{font-size:15px;font-weight:650;font-variant-numeric:tabular-nums}
+    #baby-mobile-preview .bp-status{font-size:10px;color:var(--bp-sub);background:var(--bp-soft);padding:3px 7px;border-radius:6px}
+    #baby-mobile-preview .bp-status.overdue{color:var(--bp-alert);background:var(--bp-alert-bg)}
+    #baby-mobile-preview .bp-person{width:100%;border:1px solid var(--bp-line);background:var(--bp-surface);color:var(--bp-text);border-radius:16px;padding:14px;margin-bottom:10px;text-align:left}
+    #baby-mobile-preview .bp-person-top{display:flex;align-items:center;gap:11px}
+    #baby-mobile-preview .bp-back{border:0;background:transparent;color:var(--bp-sub);display:flex;align-items:center;gap:6px;font-size:12px;padding:0;min-height:33px;margin-bottom:14px}
+    #baby-mobile-preview .bp-profile{display:flex;align-items:center;gap:13px;margin:8px 0 20px}
+    #baby-mobile-preview .bp-profile h1{font-size:21px;margin-bottom:4px}
+    #baby-mobile-preview .bp-profile .bp-initials{width:53px;height:53px;font-size:15px}
+    #baby-mobile-preview .bp-label{display:block;color:var(--bp-sub);font-size:12px;margin:16px 0 7px}
+    #baby-mobile-preview .bp-note{font-size:11px;color:var(--bp-sub);text-align:center;margin-top:12px}
+    #baby-mobile-preview .bp-history{display:flex;gap:11px;padding:15px 0;border-bottom:1px solid var(--bp-line)}
+    #baby-mobile-preview .bp-history .bp-row-info{display:flex;flex-direction:column}
+    #baby-mobile-preview .bp-history>strong{font-size:13px;font-weight:600;white-space:nowrap}
+    #baby-mobile-preview .bp-history svg{color:var(--bp-sub);margin-top:2px}
+    #baby-mobile-preview .bp-bottle-stage{height:166px;display:grid;place-items:center;background:var(--bp-tint);border-radius:19px;margin-bottom:18px}
+    #baby-mobile-preview .bp-bottle{width:71px;height:90px;border:2px solid var(--bp-accent);background:light-dark(#efd2a3,#62451e);border-radius:9px 9px 16px 16px;position:relative;display:flex;align-items:center;justify-content:center}
+    #baby-mobile-preview .bp-bottle:before{content:"";position:absolute;top:-25px;width:38px;height:24px;border-radius:5px 5px 0 0;background:light-dark(#39414a,#bac3ce)}
+    #baby-mobile-preview .bp-bottle span{background:var(--bp-surface);padding:9px 6px;font-size:9px;letter-spacing:1px;color:var(--bp-text);text-align:center}
+    #baby-mobile-preview .bp-facts{display:flex;gap:10px;margin:18px 0}
+    #baby-mobile-preview .bp-facts>div{flex:1;background:var(--bp-surface);border:1px solid var(--bp-line);border-radius:14px;padding:13px}
+    #baby-mobile-preview .bp-facts small{display:block;color:var(--bp-sub);font-size:11px;margin-bottom:5px}
+    #baby-mobile-preview .bp-facts strong{font-size:17px;font-weight:650}
+    #baby-mobile-preview .bp-success{background:var(--bp-tint);color:var(--bp-accent);padding:13px;border-radius:12px;font-size:12px;margin-top:15px;display:flex;gap:8px;align-items:center}
+    #baby-mobile-preview .bp-error{color:var(--bp-alert);font-size:12px;margin-top:9px}
+    #baby-mobile-preview .bp-secondary{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;border:1px solid var(--bp-accent);border-radius:14px;background:var(--bp-surface);color:var(--bp-accent);font-weight:600;padding:11px 12px}
+    #baby-mobile-preview .bp-actions{display:flex;flex-direction:column;gap:9px;margin-bottom:18px}
+    #baby-mobile-preview .bp-detail-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+    #baby-mobile-preview .bp-detail-actions button{font-size:12px;padding:12px 8px}
+    #baby-mobile-preview .bp-form-action{margin-top:22px}
+    #baby-mobile-preview .bp-projected{display:flex;justify-content:space-between;gap:10px;margin-top:18px;padding:13px 0;border-top:1px solid var(--bp-line);font-size:13px}
+    #baby-mobile-preview .bp-row-info strong{overflow-wrap:anywhere}
+    @media(max-width:420px){#baby-mobile-preview{padding:8px 0}#baby-mobile-preview .bp-phone{border-radius:20px}#baby-mobile-preview .bp-main{padding:20px 16px;min-height:580px}}
+  </style>
+  <script>
+    (() => {
+      const root = document.getElementById('baby-mobile-preview');
+      const main = root.querySelector('.bp-main');
+      const state = {page:'debtors',filter:'all',query:'',selected:0,method:'cash',payments:[0,0,0],get payment(){return this.payments[this.selected];},set payment(amount){this.payments[this.selected]=amount;}};
+      const people = [
+        {name:'Aziza Karimova',initials:'AK',phone:'+998 90 123 45 67',amount:1250000,overdue:true,date:'12 kun kechikkan'},
+        {name:'Dilnoza Rasulova',initials:'DR',phone:'+998 93 234 56 78',amount:780000,overdue:true,date:'3 kun kechikkan'},
+        {name:'Javohir Tursunov',initials:'JT',phone:'+998 99 345 67 89',amount:450000,overdue:false,date:'Muddat: 22 oktabr'}
+      ];
+      const money = amount => new Intl.NumberFormat('uz-UZ').format(amount);
+      const escapeHtml = value => String(value).replace(/[&<>"']/g,character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
+      people.forEach(person => {
+        person.history = [
+          {label:'Qarzga xarid',context:'1 oktabr · 14:32',amount:person.amount+250000},
+          {label:'To‘lov qabul qilindi',context:'5 oktabr · Naqd',amount:-250000}
+        ];
+      });
+      const renderHistory = person => person.history.slice().reverse().map(entry => `<div class="bp-history">${icon(entry.amount>0?'arrow-up-right':'arrow-down-left')}<span class="bp-row-info"><strong>${escapeHtml(entry.label)}</strong><small>${escapeHtml(entry.context)}</small></span><strong>${entry.amount>0?'+':'−'}${money(Math.abs(entry.amount))}</strong></div>`).join('');
+      function showSuccess(message) {
+        const success=document.createElement('div');
+        success.className='bp-success';
+        success.setAttribute('role','status');
+        success.textContent=message;
+        main.querySelector('.bp-summary').after(success);
+      }
+      const icon = name => `<i data-lucide="${name}" aria-hidden="true"></i>`;
+      const productRow = () => `<button class="bp-row" type="button" data-action="product"><span class="bp-mini-product">${icon('spray-can')}</span><span class="bp-row-info"><strong>Lattafa Yara</strong><small>100 ml · Eau de Parfum</small></span>${icon('chevron-right')}</button>`;
+      const back = page => `<button type="button" class="bp-back" data-page="${page}">${icon('arrow-left')} Orqaga</button>`;
+      function render() {
+        const person = people[state.selected];
+        const balance = person.amount - state.payment;
+        root.querySelectorAll('.bp-nav button').forEach(button => {
+          const active = button.dataset.page === (['detail','payment','new-debtor','select-debtor','add-debt'].includes(state.page) ? 'debtors' : state.page === 'product' ? 'products' : state.page);
+          if (active) {button.setAttribute('aria-current','page');} else {button.removeAttribute('aria-current');}
+        });
+        if (state.page === 'scan') {
+          main.innerHTML = `<div class="bp-heading"><h1>Mahsulotni skanerlang</h1><p>Shtrix-kod orqali bir zumda toping.</p></div><div class="bp-camera" aria-label="Kamera ko‘rinishining maketi"><span class="bp-camera-label">KAMERA KO‘RINISHI · DEMO</span><div class="bp-target"><div class="bp-barcode"></div><div class="bp-scanline"></div></div><p>Shtrix-kodni ramka ichiga joylashtiring</p></div><button class="bp-primary bp-scan-action" type="button" data-action="product">${icon('scan-line')} Demo skanerni sinash</button><div class="bp-divider">yoki qo‘lda qidiring</div><form data-form="barcode"><label class="bp-field">${icon('search')}<input name="barcode" aria-label="Shtrix-kod yoki mahsulot nomi" placeholder="Shtrix-kod yoki mahsulot nomi"><button type="submit" aria-label="Qidirish" class="bp-chip">${icon('arrow-right')}</button></label></form><div class="bp-section-head"><h2>Oxirgi ko‘rilgan</h2><span>Bugun</span></div>${productRow()}`;
+        } else if (state.page === 'products') {
+          main.innerHTML = `<div class="bp-heading"><h1>Mahsulotlar</h1><p>Narx va qoldiqni tez tekshiring.</p></div><label class="bp-field">${icon('search')}<input data-search="products" aria-label="Mahsulot qidirish" placeholder="Nomi yoki shtrix-kodi bo‘yicha"></label><div class="bp-section-head"><h2>Mahsulotlar</h2><span>1 ta · demo</span></div><div data-products>${productRow()}</div><div class="bp-note">Namuna katalog</div>`;
+        } else if (state.page === 'product') {
+          main.innerHTML = `${back('scan')}<div class="bp-bottle-stage" role="img" aria-label="Namuna atir flakoni"><div class="bp-bottle"><span>YARA<br>LATTAFA</span></div></div><div class="bp-heading"><h1>Lattafa Yara</h1><p>100 ml · Eau de Parfum</p></div><div class="bp-facts"><div><small>Sotuv narxi</small><strong>285 000 <small>so‘m</small></strong></div><div><small>Do‘kondagi qoldiq</small><strong>24 dona</strong></div></div><div class="bp-summary"><small>Shtrix-kod</small><div style="margin-top:5px;letter-spacing:2px">6291108730515</div></div><button class="bp-primary" type="button" data-page="scan">${icon('scan-line')} Yana skanerlash</button><div class="bp-note">Mahsulot va narxlar — namuna</div>`;
+        } else if (state.page === 'debtors') {
+          main.innerHTML = `<div class="bp-heading"><h1>Qarzdorlar</h1><p>Kimda qancha qarz — hammasi bir joyda.</p></div><div class="bp-actions"><button type="button" class="bp-primary" data-page="new-debtor">${icon('user-plus')} Yangi qarzdor qo‘shish</button><button type="button" class="bp-secondary" data-page="select-debtor">${icon('plus')} Mavjud mijozga qarz qo‘shish</button></div><div class="bp-summary"><small>Jami qarzdorlik · ${people.length} mijoz</small><div class="bp-amount">${money(people.reduce((total,person,index)=>total+person.amount-state.payments[index],0))} <span>so‘m</span></div></div><label class="bp-field">${icon('search')}<input data-search="debtors" aria-label="Qarzdor qidirish" placeholder="Ism yoki telefon raqami"></label><div class="bp-chips"><button type="button" class="bp-chip" data-filter="all" aria-pressed="${state.filter==='all'}">Barchasi · ${people.length}</button><button type="button" class="bp-chip" data-filter="overdue" aria-pressed="${state.filter==='overdue'}">Kechikkan · ${people.filter(person=>person.overdue).length}</button></div><div data-people></div>`;
+          renderPeople();
+        } else if (state.page === 'detail') {
+          main.innerHTML = `${back('debtors')}<div class="bp-profile"><span class="bp-initials">${escapeHtml(person.initials)}</span><div><h1>${escapeHtml(person.name)}</h1><p>${escapeHtml(person.phone)}</p></div></div><div class="bp-summary"><small>Qolgan qarz</small><div class="bp-amount">${money(balance)} <span>so‘m</span></div><span class="bp-status ${person.overdue?'overdue':''}">${escapeHtml(person.date)}</span></div><div class="bp-detail-actions"><button class="bp-primary" type="button" data-page="payment">${icon('arrow-down-left')} To‘lov olish</button><button class="bp-secondary" type="button" data-page="add-debt">${icon('plus')} Qarz qo‘shish</button></div><div class="bp-section-head"><h2>Operatsiyalar tarixi</h2><span>Demo</span></div>${renderHistory(person)}<div class="bp-note">Mijoz va operatsiyalar — namuna</div>`;
+        } else if (state.page === 'new-debtor') {
+          main.innerHTML = `${back('debtors')}
+            <div class="bp-heading"><h1>Yangi qarzdor</h1><p>Mijoz va uning boshlang‘ich qarzini kiriting.</p></div>
+            <form data-form="new-debtor">
+              <label class="bp-label" for="bp-new-name">Mijozning ismi</label>
+              <div class="bp-field"><input id="bp-new-name" name="name" required maxlength="80" autocomplete="off" placeholder="Ism va familiya"></div>
+              <label class="bp-label" for="bp-new-phone">Telefon raqami</label>
+              <div class="bp-field"><input id="bp-new-phone" name="phone" type="tel" required maxlength="24" placeholder="+998 90 123 45 67" inputmode="tel"></div>
+              <label class="bp-label" for="bp-new-amount">Boshlang‘ich qarz · so‘m</label>
+              <div class="bp-field"><input id="bp-new-amount" name="amount" type="number" required min="1" max="999999999" step="1" placeholder="Masalan, 500000" inputmode="numeric"></div>
+              <label class="bp-label" for="bp-new-due">Qaytarish muddati <span>(ixtiyoriy)</span></label>
+              <div class="bp-field"><input id="bp-new-due" name="due" type="date"></div>
+              <label class="bp-label" for="bp-new-note">Izoh <span>(ixtiyoriy)</span></label>
+              <div class="bp-field"><input id="bp-new-note" name="note" maxlength="160" placeholder="Qarz nima uchun berildi?"></div>
+              <button type="submit" class="bp-primary bp-form-action">${icon('user-plus')} Qarzdorni qo‘shish · demo</button>
+              <div data-error role="alert" class="bp-error"></div>
+            </form><div class="bp-note">Demo ma’lumotlar faqat shu maketda saqlanadi.</div>`;
+        } else if (state.page === 'select-debtor') {
+          main.innerHTML = `${back('debtors')}<div class="bp-heading"><h1>Kimga qarz qo‘shamiz?</h1><p>Mavjud mijozni tanlang. Yangi profil ochilmaydi.</p></div><label class="bp-field">${icon('search')}<input data-search="debtors" aria-label="Qarzdor qidirish" placeholder="Ism yoki telefon raqami"></label><div style="height:16px"></div><div data-people></div>`;
+          renderPeople();
+        } else if (state.page === 'add-debt') {
+          main.innerHTML = `${back('detail')}
+            <div class="bp-heading"><h1>Qarz qo‘shish</h1><p>${escapeHtml(person.name)}</p></div>
+            <div class="bp-summary"><small>Hozirgi qarz</small><div class="bp-amount">${money(balance)} <span>so‘m</span></div></div>
+            <form data-form="add-debt">
+              <label class="bp-label" for="bp-debt-amount">Qo‘shiladigan qarz · so‘m</label>
+              <div class="bp-field"><input id="bp-debt-amount" name="amount" data-debt-amount type="number" required min="1" max="999999999" step="1" placeholder="Masalan, 300000" inputmode="numeric"></div>
+              <label class="bp-label" for="bp-debt-due">Yangi qaytarish muddati <span>(ixtiyoriy)</span></label>
+              <div class="bp-field"><input id="bp-debt-due" name="due" type="date"></div>
+              <label class="bp-label" for="bp-debt-note">Izoh <span>(ixtiyoriy)</span></label>
+              <div class="bp-field"><input id="bp-debt-note" name="note" maxlength="160" placeholder="Masalan, yana mahsulot oldi"></div>
+              <div class="bp-projected"><span>Jami qarz bo‘ladi</span><strong data-projected aria-live="polite">${money(balance)} so‘m</strong></div>
+              <button type="submit" class="bp-primary bp-form-action">${icon('plus')} Qarzni qo‘shish · demo</button>
+              <div data-error role="alert" class="bp-error"></div>
+            </form><div class="bp-note">Bu to‘lov emas — mijozning qarzi oshadi.</div>`;
+        } else if (state.page === 'payment') {
+          main.innerHTML = `${back('detail')}<div class="bp-heading"><h1>To‘lov qabul qilish</h1><p>${escapeHtml(person.name)}</p></div><div class="bp-summary"><small>Qolgan qarz</small><div class="bp-amount">${money(balance)} <span>so‘m</span></div></div><form data-form="payment"><label class="bp-label" for="bp-payment">To‘lov summasi · so‘m</label><div class="bp-field"><input id="bp-payment" name="amount" type="number" min="1" max="${balance}" step="1" required placeholder="Masalan, 250000" inputmode="numeric"></div><span class="bp-label">To‘lov usuli</span><div class="bp-chips"><button type="button" class="bp-chip" data-method="cash" aria-pressed="${state.method==='cash'}">Naqd</button><button type="button" class="bp-chip" data-method="card" aria-pressed="${state.method==='card'}">Karta</button></div><label class="bp-label" for="bp-note">Izoh <span>(ixtiyoriy)</span></label><div class="bp-field"><input id="bp-note" name="note" placeholder="To‘lov haqida izoh"></div><div style="height:24px"></div><button type="submit" class="bp-primary">${icon('check')} Demo to‘lovni tasdiqlash</button><div data-error role="alert" class="bp-error"></div></form><div class="bp-note">Bu maket. Haqiqiy to‘lov saqlanmaydi.</div>`;
+        }
+        if (globalThis.lucide) {globalThis.lucide.createIcons();}
+      }
+      function renderPeople() {
+        const container = main.querySelector('[data-people]');
+        if (!container) {return;}
+        const matches = people.map((person,index) => ({...person,index})).filter(person => (state.filter !== 'overdue' || person.overdue) && `${escapeHtml(person.name)} ${escapeHtml(person.phone)}`.toLowerCase().includes(state.query.toLowerCase()));
+        container.innerHTML = matches.map(person => `<button class="bp-person" type="button" data-person="${person.index}"><span class="bp-person-top"><span class="bp-initials">${escapeHtml(person.initials)}</span><span class="bp-row-info"><strong>${escapeHtml(person.name)}</strong><small>${escapeHtml(person.phone)}</small></span>${icon('chevron-right')}</span><span class="bp-debt-amount"><strong>${money(person.amount-state.payments[person.index])} so‘m</strong><span class="bp-status ${person.overdue?'overdue':''}">${escapeHtml(person.date)}</span></span></button>`).join('') || '<p>Mijoz topilmadi.</p>';
+        if (globalThis.lucide) {globalThis.lucide.createIcons();}
+      }
+      root.addEventListener('click',event => {
+        const button = event.target.closest('button');
+        if (!button) {return;}
+        if (button.dataset.page) {state.page=button.dataset.page;state.query='';render();}
+        if (button.dataset.action==='product') {state.page='product';render();}
+        if (button.dataset.filter) {state.filter=button.dataset.filter;state.query='';render();}
+        if (button.dataset.person!==undefined) {state.selected=Number(button.dataset.person);state.page=state.page==='select-debtor'?'add-debt':'detail';render();}
+        if (button.dataset.method) {state.method=button.dataset.method;main.querySelectorAll('[data-method]').forEach(method => method.setAttribute('aria-pressed',String(method.dataset.method===state.method)));}
+      });
+      root.addEventListener('input',event => {
+        if(event.target.hasAttribute('data-debt-amount')){
+          const amount=Number(event.target.value);
+          const addition=Number.isSafeInteger(amount)&&amount>0?amount:0;
+          main.querySelector('[data-projected]').textContent=`${money(people[state.selected].amount-state.payment+addition)} so‘m`;
+        }
+        if(event.target.dataset.search==='debtors'){state.query=event.target.value;renderPeople();}
+        if(event.target.dataset.search==='products'){const match='lattafa yara 6291108730515'.includes(event.target.value.toLowerCase());main.querySelector('[data-products]').innerHTML=match?productRow():'<p>Mahsulot topilmadi.</p>';if(globalThis.lucide){globalThis.lucide.createIcons();}}
+      });
+      root.addEventListener('submit',event => {
+        event.preventDefault();
+        if(['new-debtor','add-debt'].includes(event.target.dataset.form)){
+          const data=new FormData(event.target);
+          const amount=Number(data.get('amount'));
+          const error=main.querySelector('[data-error]');
+          if(!Number.isSafeInteger(amount)||amount<=0||amount>999999999){error.textContent='Musbat, butun qarz summasini kiriting.';return;}
+          const due=String(data.get('due')||'');
+          const note=String(data.get('note')||'').trim();
+          const dateLabel=due?`Muddat: ${new Intl.DateTimeFormat('uz-UZ',{day:'numeric',month:'short',year:'numeric'}).format(new Date(due+'T12:00:00'))}`:'';
+          if(event.target.dataset.form==='new-debtor'){
+            const name=String(data.get('name')||'').trim();
+            const phone=String(data.get('phone')||'').trim();
+            const digits=phone.replace(/\D/g,'');
+            if(!name||name.length>80||!(digits.length===9||(digits.length===12&&digits.startsWith('998')))){error.textContent='Ism va to‘g‘ri telefon raqamini kiriting.';return;}
+            const normalizedPhone=digits.length===9?'998'+digits:digits;
+            if(people.some(person=>person.phone.replace(/\D/g,'')===normalizedPhone)){error.textContent='Bu telefonli mijoz mavjud. Unga “Qarz qo‘shish” orqali qarz kiriting.';return;}
+            people.push({name,phone:'+'+normalizedPhone,initials:name.split(/\s+/).slice(0,2).map(part=>part[0]).join('').toUpperCase(),amount,overdue:false,date:dateLabel||'Muddat belgilanmagan',history:[{label:'Boshlang‘ich qarz',context:note||'Hozirgina · demo',amount}]});
+            state.payments.push(0);
+            state.selected=people.length-1;
+          } else {
+            const person=people[state.selected];
+            person.amount+=amount;
+            person.history.push({label:'Qo‘shimcha qarz',context:note||'Hozirgina · demo',amount});
+            if(due){person.date=dateLabel;person.overdue=due<'2026-10-15';}
+          }
+          state.page='detail';render();showSuccess(`${money(amount)} so‘m qarz qo‘shildi · demo. Haqiqiy baza o‘zgarmadi.`);
+          return;
+        }
+        if(event.target.dataset.form==='barcode'){state.page='product';render();}
+        if(event.target.dataset.form==='payment'){
+          const amount=Number(new FormData(event.target).get('amount'));
+          if(!Number.isInteger(amount)||amount<=0||amount>people[state.selected].amount-state.payment){main.querySelector('[data-error]').textContent='Qarzdan oshmaydigan musbat summa kiriting.';return;}
+          people[state.selected].history.push({label:'To‘lov qabul qilindi',context:state.method==='cash'?'Hozirgina · Naqd · demo':'Hozirgina · Karta · demo',amount:-amount});
+          state.payment+=amount;state.page='detail';render();
+          const success=document.createElement('div');success.className='bp-success';success.setAttribute('role','status');success.textContent=`${money(amount)} so‘m demo to‘lov qabul qilindi. Haqiqiy ma’lumotlar o‘zgarmadi.`;main.querySelector('.bp-summary').after(success);
+        }
+      });
+      render();
+      if(globalThis.Tweak){
+        const design={accent:'#b96c14'};
+        const tweak=new Tweak({container:root.querySelector('.bp-phone'),onChange:()=>root.style.setProperty('--bp-accent',design.accent)});
+        tweak.addColorPicker(design,'accent',{label:'Asosiy rang',reference:'--bp-accent'});
+      }
+    })();
+  </script>
+</div>

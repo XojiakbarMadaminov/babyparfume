@@ -2,12 +2,14 @@
 
 use App\Models\Sale;
 use App\Models\Store;
+use App\Models\Client;
 use App\Models\Debtor;
 use App\Models\Product;
-use App\Models\Client;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Route;
+
+require __DIR__ . '/mobile.php';
 
 Route::get('/', function () {
     return redirect()->to('/admin/login');
@@ -27,7 +29,7 @@ Route::get('/client-debtor/{phone}', function ($phone) {
     if (!$client) {
         return response()->json([
             'success' => false,
-            'message' => 'Client topilmadi'
+            'message' => 'Client topilmadi',
         ], 404);
     }
 
@@ -37,8 +39,8 @@ Route::get('/client-debtor/{phone}', function ($phone) {
 
     return response()->json([
         'success' => true,
-        'client' => $client,
-        'debtors' => $debtors
+        'client'  => $client,
+        'debtors' => $debtors,
     ]);
 })->name('client.debtor.by.phone');
 
