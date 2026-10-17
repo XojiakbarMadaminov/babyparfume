@@ -295,3 +295,42 @@ it('opens the full product image in a modal from the admin product list', functi
     expect($page->instance()->getMountedAction()->getModalContent()->render())
         ->toContain($fullImage, $product->name);
 });
+
+it('uses the configured hosting photo directory for uploaded product images', function (): void {
+    $root     = Storage::fake('photos')->path('');
+    $previous = Illuminate\Support\Env::get('PHOTOS_PATH');
+    Illuminate\Support\Env::getRepository()->set('PHOTOS_PATH', $root);
+
+    try {
+        $filesystems = require config_path('filesystems.php');
+        config(['filesystems.disks.photos' => $filesystems['disks']['photos'], 'media-library.disk_name' => 'photos']);
+        Storage::forgetDisk('photos');
+        $response = $this->post('/mobile/api/v1/products', [
+            ...$this->payload, 'photo' => UploadedFile::fake()->image('hosting.jpg'),
+        ], ['Accept' => 'application/json'])->assertSuccessful();
+        $media = Product::query()->findOrFail($response->json('data.id'))->getFirstMedia(Product::IMAGE_COLLECTION);
+        expect($media->getPath(Product::THUMBNAIL_CONVERSION))->toStartWith($root)
+            ->and($media->getUrl(Product::THUMBNAIL_CONVERSION))->toStartWith('/photos/');
+        Storage::disk('photos')->assertExists($media->getPathRelativeToRoot(Product::THUMBNAIL_CONVERSION));
+    } finally {
+        if ($previous === null) {
+            Illuminate\Support\Env::getRepository()->clear('PHOTOS_PATH');
+        } else {
+            Illuminate\Support\Env::getRepository()->set('PHOTOS_PATH', $previous);
+        }
+    }
+});
+
+it('defaults the photo directory to the application public folder without a hosting override', function (): void {
+    $previous = Illuminate\Support\Env::get('PHOTOS_PATH');
+    Illuminate\Support\Env::getRepository()->clear('PHOTOS_PATH');
+
+    try {
+        $filesystems = require config_path('filesystems.php');
+        expect($filesystems['disks']['photos']['root'])->toBe(public_path('photos'));
+    } finally {
+        if ($previous !== null) {
+            Illuminate\Support\Env::getRepository()->set('PHOTOS_PATH', $previous);
+        }
+    }
+});

@@ -49,7 +49,7 @@ return [
 
         'photos' => [
             'driver'     => 'local',
-            'root'       => '/home/mirobuvu/public_html/photos',
+            'root'       => env('PHOTOS_PATH', public_path('photos')),
             'url'        => '/photos',
             'visibility' => 'public',
         ],
