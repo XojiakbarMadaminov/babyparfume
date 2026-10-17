@@ -19,6 +19,13 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
+it('searches products using captured barcodes without navigating away', function (): void {
+    $process = new Symfony\Component\Process\Process(['node', 'tests/Support/mobile-product-search.mjs'], base_path());
+    $process->setTimeout(30)->run();
+
+    expect($process->isSuccessful())->toBeTrue($process->getErrorOutput());
+});
+
 beforeEach(function (): void {
     Queue::fake();
     Http::preventStrayRequests();
