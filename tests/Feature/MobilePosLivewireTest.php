@@ -17,6 +17,60 @@ if ((getenv('DB_CONNECTION') ?: 'sqlite') === 'sqlite' && !in_array('sqlite', PD
 
 uses(RefreshDatabase::class);
 
+it('completes sales with zero stock and deducts only positive stock', function (string $component, string $type, ?int $available, int $remaining): void {
+    $this->withoutVite();
+    $this->mock(App\Services\TelegramSaleNotifier::class)->shouldReceive('notify')->andReturnNull();
+    $this->mock(App\Services\SmsService::class)->shouldReceive('sendSms')->andReturn(['success' => true]);
+    $this->mock(App\Services\TelegramNotifier::class)->shouldReceive('sendMessage')->andReturn(true);
+    $store = Store::query()->create(['name' => 'Qoldiq test', 'address' => 'Toshkent', 'phone' => '+998901234567']);
+    $user  = User::factory()->create(['current_store_id' => $store->id]);
+    $user->stores()->attach($store);
+    $user->givePermissionTo(Spatie\Permission\Models\Permission::findOrCreate('View:Pos', 'web'));
+    $this->actingAs($user);
+    Filament::setCurrentPanel('admin');
+    $stock = Stock::query()->create(['name' => 'Asosiy', 'is_main' => true, 'is_active' => true]);
+    $stock->stores()->attach($store);
+    $product   = Product::factory()->create(['store_id' => $store->id, 'type' => $type, 'initial_price' => 100000, 'price' => 150000]);
+    $size      = $type === 'size' ? $product->sizes()->create(['size' => '100 ml']) : null;
+    $inventory = $available === null ? null : App\Models\ProductStock::query()->create([
+        'product_id'      => $size ? null : $product->id,
+        'product_size_id' => $size?->id,
+        'stock_id'        => $stock->id,
+        'quantity'        => $available,
+        'updated_at'      => now()->subDay(),
+    ]);
+    $originalUpdatedAt = $inventory?->updated_at;
+    $page              = Livewire::test($component)->call('add', $product->id);
+    if ($size) {
+        $page->call('updateSizes', $product->id, [$size->id => 2]);
+    } else {
+        $page->call('updatePackageQty', $product->id, 2);
+    }
+    $page->call('selectPaymentType', 'cash')->call('checkout')->assertSet('showReceipt', true)->assertSet('cart', []);
+
+    $sale = App\Models\Sale::query()->sole();
+    expect($sale->total_amount)->toBe(300000.0)
+        ->and($sale->paid_amount)->toBe(300000.0)
+        ->and($sale->items()->sole()->quantity)->toEqual(2)
+        ->and($sale->items()->sole()->product_size_id)->toBe($size?->id);
+    if ($inventory) {
+        expect($inventory->fresh()->quantity)->toEqual($remaining);
+        if ($available === 0) {
+            expect($inventory->fresh()->updated_at->equalTo($originalUpdatedAt))->toBeTrue();
+        }
+    } else {
+        $this->assertDatabaseCount('product_stocks', 0);
+    }
+})->with([
+    'mobile'  => [Sales::class],
+    'desktop' => [App\Filament\Pages\Pos::class],
+])->with(['package', 'size'])->with([
+    'zero stock'           => [0, 0],
+    'positive stock'       => [5, 3],
+    'less stock than sold' => [1, 0],
+    'no stock record'      => [null, 0],
+]);
+
 it('preserves mobile checkout payment totals and starts a new sale', function (string $method, float $paid): void {
     $this->withoutVite();
     $this->mock(App\Services\TelegramSaleNotifier::class)->shouldReceive('notify')->andReturnNull();

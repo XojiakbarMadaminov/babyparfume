@@ -765,6 +765,7 @@ class Pos extends Page
                     if (!empty($prepared['product_size_id'])) {
                         ProductStock::where('product_size_id', $prepared['product_size_id'])
                             ->where('stock_id', $prepared['stock_id'])
+                            ->where('quantity', '>', 0)
                             ->update([
                                 'quantity' => \DB::raw('GREATEST(quantity - ' . (int) $prepared['quantity'] . ', 0)'),
                             ]);
@@ -772,6 +773,7 @@ class Pos extends Page
                         ProductStock::whereNull('product_size_id')
                             ->where('product_id', $prepared['product_id'])
                             ->where('stock_id', $prepared['stock_id'])
+                            ->where('quantity', '>', 0)
                             ->update([
                                 'quantity' => \DB::raw('GREATEST(quantity - ' . (int) $prepared['quantity'] . ', 0)'),
                             ]);
