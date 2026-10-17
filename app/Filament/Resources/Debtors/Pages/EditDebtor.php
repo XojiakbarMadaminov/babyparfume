@@ -32,6 +32,11 @@ class EditDebtor extends EditRecord
             $data['full_name'] = $client->full_name;
         }
 
+        $initialDebtDate = $this->record->getInitialDebtDate();
+        if ($initialDebtDate) {
+            $data['date'] = $initialDebtDate;
+        }
+
         return $data;
     }
 

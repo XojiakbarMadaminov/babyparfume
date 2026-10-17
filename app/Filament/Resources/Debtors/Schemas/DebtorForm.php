@@ -4,11 +4,11 @@ namespace App\Filament\Resources\Debtors\Schemas;
 
 use App\Models\Client;
 use Filament\Schemas\Schema;
-use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Grid;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\DatePicker;
+use App\Filament\Forms\Components\DebtorPhoto;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 
@@ -65,6 +65,9 @@ class DebtorForm
                     ->placeholder('Masalan: Do`kon tovarlari uchun...')
                     ->rows(3)
                     ->maxLength(500)
+                    ->columnSpanFull(),
+                DebtorPhoto::make('photo')
+                    ->label('Qarzdor rasmi (ixtiyoriy)')
                     ->columnSpanFull(),
                 TextInput::make('currency')
                     ->default('UZS')

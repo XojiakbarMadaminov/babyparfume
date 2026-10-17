@@ -13,6 +13,8 @@ class Debtor extends Model
     protected $table   = 'debtors';
     protected $guarded = [];
 
+    protected $hidden = ['photo_path'];
+
     public function transactions()
     {
         return $this->hasMany(DebtorTransaction::class)
@@ -23,6 +25,35 @@ class Debtor extends Model
     public function latestTransaction()
     {
         return $this->hasOne(DebtorTransaction::class)->latestOfMany('date');
+    }
+
+    public function getInitialDebtDate(): ?string
+    {
+        $dates = [];
+
+        if (!empty($this->date)) {
+            $dates[] = substr((string) $this->date, 0, 10);
+        }
+
+        $earliestDebtTx = $this->relationLoaded('transactions')
+            ? $this->transactions->where('type', 'debt')->min('date')
+            : $this->transactions()->where('type', 'debt')->min('date');
+
+        if (!empty($earliestDebtTx)) {
+            $dates[] = substr((string) $earliestDebtTx, 0, 10);
+        }
+
+        if (empty($dates) && $this->created_at) {
+            $dates[] = $this->created_at->toDateString();
+        }
+
+        if (empty($dates)) {
+            return null;
+        }
+
+        sort($dates);
+
+        return $dates[0];
     }
 
     public function scopeZeroDebt(Builder $query): Builder

@@ -2,22 +2,26 @@ export interface Session {
     user: { name: string };
     stores: { id: number; name: string }[];
     store_id: number | null;
-    permissions: { products: boolean; debtors: boolean; create_debtor: boolean };
+    permissions: { sales: boolean; sales_statistics?: boolean; products: boolean; create_product: boolean; debtors: boolean; create_debtor: boolean };
 }
 
 export interface Debtor {
+    photo_url?: string | null;
     id: number;
     full_name: string;
     phone: string | null;
     amount: number;
     currency: string;
     date: string | null;
+    initial_debt_date?: string | null;
     note: string | null;
     overdue: boolean;
     can_update: boolean;
 }
 
 export interface Product {
+    can_update?: boolean;
+    initial_price?: number;
     id: number;
     name: string;
     barcode: string | null;

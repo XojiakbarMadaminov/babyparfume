@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use App\Http\Requests\Mobile\SearchRequest;
 use App\Http\Resources\Mobile\DebtorResource;
 use App\Http\Requests\Mobile\CreateDebtorRequest;
+use App\Http\Requests\Mobile\UpdateDebtorRequest;
 use App\Http\Requests\Mobile\DebtorTransactionRequest;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -61,6 +62,13 @@ class DebtorController extends Controller
         Gate::authorize('create', Debtor::class);
 
         return new DebtorResource($service->create($request->user(), $request->validated())->load('client'));
+    }
+
+    public function update(UpdateDebtorRequest $request, Debtor $debtor, MobileDebtService $service): DebtorResource
+    {
+        Gate::authorize('update', $debtor);
+
+        return new DebtorResource($service->update($request->user(), $debtor, $request->validated())->load('client'));
     }
 
     public function transact(DebtorTransactionRequest $request, Debtor $debtor, MobileDebtService $service): DebtorResource

@@ -89,10 +89,56 @@ it('rejects reads from a stale store tab', function (): void {
 });
 
 it('uses existing policy permissions', function (): void {
+    $this->getJson('/mobile/api/v1/session')->assertOk()->assertJsonPath('permissions.debtors', true);
     $this->user->revokePermissionTo('ViewAny:Debtor');
+    $this->getJson('/mobile/api/v1/session')->assertOk()->assertJsonPath('permissions.debtors', false);
     $this->getJson('/mobile/api/v1/debtors')->assertForbidden();
     $this->user->revokePermissionTo('ViewAny:Product');
     $this->getJson('/mobile/api/v1/products')->assertForbidden();
+});
+
+it('allows Shield roles to grant and revoke the debtor menu permission', function (): void {
+    $this->user->syncPermissions([]);
+    $role = Spatie\Permission\Models\Role::findOrCreate('mobile_debt_viewer', 'web');
+    $role->givePermissionTo(Permission::findOrCreate('ViewAny:Debtor', 'web'));
+    $this->user->assignRole($role);
+
+    $this->getJson('/mobile/api/v1/session')->assertOk()->assertJsonPath('permissions.debtors', true);
+    $this->getJson('/mobile/api/v1/debtors')->assertOk();
+
+    $role->revokePermissionTo('ViewAny:Debtor');
+    $this->user->unsetRelation('roles')->unsetRelation('permissions');
+
+    $this->getJson('/mobile/api/v1/session')->assertOk()->assertJsonPath('permissions.debtors', false);
+    $this->getJson('/mobile/api/v1/debtors')->assertForbidden();
+});
+
+it('exposes the mobile sales cost permission in Shield role forms', function (): void {
+    expect(config('filament-shield.shield_resource.tabs.custom_permissions'))->toBeTrue()
+        ->and(app(BezhanSalleh\FilamentShield\FilamentShield::class)->getCustomPermissions())
+        ->toHaveKey('view_mobile_sales_cost_price', 'Mobil Sotuvda Kelgan Narxni Ko‘rish');
+});
+
+it('saves the mobile sales cost permission through the Shield role editor', function (): void {
+    $this->withoutVite();
+    Filament\Facades\Filament::setCurrentPanel('admin');
+    foreach (['ViewAny:Role', 'View:Role', 'Update:Role'] as $permission) {
+        $this->user->givePermissionTo(Permission::findOrCreate($permission, 'web'));
+    }
+    $role = Spatie\Permission\Models\Role::findOrCreate('mobile_cashier', 'web');
+
+    $cacheWasDisabled = Livewire\Features\SupportDisablingBackButtonCache\SupportDisablingBackButtonCache::$disableBackButtonCache;
+
+    try {
+        Livewire\Livewire::test(BezhanSalleh\FilamentShield\Resources\Roles\Pages\EditRole::class, ['record' => $role->id])
+            ->fillForm(['custom_permissions_tab' => ['view_mobile_sales_cost_price']])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        expect($role->refresh()->hasPermissionTo('view_mobile_sales_cost_price'))->toBeTrue();
+    } finally {
+        Livewire\Features\SupportDisablingBackButtonCache\SupportDisablingBackButtonCache::$disableBackButtonCache = $cacheWasDisabled;
+    }
 });
 
 it('isolates debtor lists details and transactions to the current store', function (): void {

@@ -25,9 +25,12 @@ class SessionController extends Controller
             'stores'      => $stores->map(fn ($store): array => ['id' => $store->id, 'name' => $store->name]),
             'store_id'    => $stores->contains('id', $user->current_store_id) ? $user->current_store_id : null,
             'permissions' => [
-                'products'      => Gate::allows('viewAny', Product::class),
-                'debtors'       => Gate::allows('viewAny', Debtor::class),
-                'create_debtor' => Gate::allows('create', Debtor::class),
+                'sales'            => \App\Filament\Pages\Pos::canAccess(),
+                'sales_statistics' => \App\Filament\Pages\Pos::canAccess() && $user->can('View:SalesStatsOverview'),
+                'products'         => Gate::allows('viewAny', Product::class),
+                'create_product'   => Gate::allows('create', Product::class),
+                'debtors'          => Gate::allows('viewAny', Debtor::class),
+                'create_debtor'    => Gate::allows('create', Debtor::class),
             ],
         ])->header('Cache-Control', 'no-store, private')->header('X-CSRF-TOKEN', $request->session()->token());
     }

@@ -14,14 +14,14 @@ return [
     */
 
     'shield_resource' => [
-        'slug' => 'shield/roles',
+        'slug'            => 'shield/roles',
         'show_model_path' => true,
-        'cluster' => null,
-        'tabs' => [
-            'pages' => true,
-            'widgets' => true,
-            'resources' => true,
-            'custom_permissions' => false,
+        'cluster'         => null,
+        'tabs'            => [
+            'pages'              => true,
+            'widgets'            => true,
+            'resources'          => true,
+            'custom_permissions' => true,
         ],
     ],
 
@@ -63,10 +63,10 @@ return [
     */
 
     'super_admin' => [
-        'enabled' => true,
-        'name' => 'super_admin',
+        'enabled'         => true,
+        'name'            => 'super_admin',
         'define_via_gate' => false,
-        'intercept_gate' => 'before',
+        'intercept_gate'  => 'before',
     ],
 
     /*
@@ -82,7 +82,7 @@ return [
 
     'panel_user' => [
         'enabled' => true,
-        'name' => 'panel_user',
+        'name'    => 'panel_user',
     ],
 
     /*
@@ -100,8 +100,8 @@ return [
 
     'permissions' => [
         'separator' => ':',
-        'case' => 'pascal',
-        'generate' => true,
+        'case'      => 'pascal',
+        'generate'  => true,
     ],
 
     /*
@@ -116,10 +116,10 @@ return [
     */
 
     'policies' => [
-        'path' => app_path('Policies'),
-        'merge' => true,
+        'path'     => app_path('Policies'),
+        'merge'    => true,
         'generate' => true,
-        'methods' => [
+        'methods'  => [
             'viewAny', 'view', 'create', 'update', 'delete', 'restore',
             'forceDelete', 'forceDeleteAny', 'restoreAny', 'replicate', 'reorder',
         ],
@@ -146,7 +146,7 @@ return [
 
     'localization' => [
         'enabled' => false,
-        'key' => 'filament-shield::filament-shield',
+        'key'     => 'filament-shield::filament-shield',
     ],
 
     /*
@@ -162,8 +162,8 @@ return [
 
     'resources' => [
         'subject' => 'model',
-        'manage' => [
-            \BezhanSalleh\FilamentShield\Resources\Roles\RoleResource::class => [
+        'manage'  => [
+            BezhanSalleh\FilamentShield\Resources\Roles\RoleResource::class => [
                 'viewAny',
                 'view',
                 'create',
@@ -189,9 +189,9 @@ return [
 
     'pages' => [
         'subject' => 'class',
-        'prefix' => 'view',
+        'prefix'  => 'view',
         'exclude' => [
-            \Filament\Pages\Dashboard::class,
+            Filament\Pages\Dashboard::class,
         ],
     ],
 
@@ -208,10 +208,10 @@ return [
 
     'widgets' => [
         'subject' => 'class',
-        'prefix' => 'view',
+        'prefix'  => 'view',
         'exclude' => [
-            \Filament\Widgets\AccountWidget::class,
-            \Filament\Widgets\FilamentInfoWidget::class,
+            Filament\Widgets\AccountWidget::class,
+            Filament\Widgets\FilamentInfoWidget::class,
         ],
     ],
 
@@ -226,7 +226,9 @@ return [
     |
     */
 
-    'custom_permissions' => [],
+    'custom_permissions' => [
+        'view_mobile_sales_cost_price' => 'Mobil sotuvda kelgan narxni ko‘rish',
+    ],
 
     /*
     |--------------------------------------------------------------------------
@@ -241,8 +243,8 @@ return [
 
     'discovery' => [
         'discover_all_resources' => false,
-        'discover_all_widgets' => false,
-        'discover_all_pages' => false,
+        'discover_all_widgets'   => false,
+        'discover_all_pages'     => false,
     ],
 
     /*

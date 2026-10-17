@@ -2,8 +2,10 @@
 
 namespace App\Filament\Resources\Debtors\Schemas;
 
+use App\Models\Debtor;
 use Filament\Schemas\Schema;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\ViewEntry;
 
 class DebtorInfolist
 {
@@ -11,6 +13,11 @@ class DebtorInfolist
     {
         return $schema
             ->components([
+                ViewEntry::make('photo_path')
+                    ->label('Qarzdor rasmi')
+                    ->view('filament.infolists.debtor-photo')
+                    ->visible(fn (Debtor $record): bool => filled($record->photo_path))
+                    ->columnSpanFull(),
                 TextEntry::make('client.full_name')
                     ->label('To`liq ism'),
                 TextEntry::make('client.phone')

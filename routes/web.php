@@ -11,6 +11,9 @@ use Illuminate\Support\Facades\Route;
 
 require __DIR__ . '/mobile.php';
 
+Route::get('/debtor-photos/{debtor}', App\Http\Controllers\DebtorPhotoController::class)
+    ->middleware('auth')->name('debtors.photo');
+
 Route::get('/', function () {
     return redirect()->to('/admin/login');
 });

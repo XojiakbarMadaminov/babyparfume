@@ -10,7 +10,7 @@ export class ApiError extends Error {
     }
 }
 
-export async function api<T>(path: string, options: { body?: unknown; signal?: AbortSignal } = {}): Promise<T> {
+export async function api<T>(path: string, options: { body?: unknown; signal?: AbortSignal; method?: 'PATCH' } = {}): Promise<T> {
     const timeout = new AbortController();
     const timer = window.setTimeout(() => timeout.abort(), 20000);
     const abort = () => timeout.abort();
@@ -18,16 +18,16 @@ export async function api<T>(path: string, options: { body?: unknown; signal?: A
     if (options.signal?.aborted) timeout.abort();
     try {
         const response = await fetch(`${endpoint}/${path}`, {
-            method: options.body === undefined ? 'GET' : 'POST',
+            method: options.method ?? (options.body === undefined ? 'GET' : 'POST'),
             credentials: 'same-origin',
             cache: 'no-store',
             headers: {
                 Accept: 'application/json',
-                'Content-Type': 'application/json',
+                ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
                 'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')!.content,
                 ...(session.data?.store_id ? { 'X-Mobile-Store': String(session.data.store_id) } : {}),
             },
-            body: options.body === undefined ? undefined : JSON.stringify(options.body),
+            body: options.body === undefined ? undefined : options.body instanceof FormData ? options.body : JSON.stringify(options.body),
             signal: timeout.signal,
         });
         const token = response.headers.get('X-CSRF-TOKEN');

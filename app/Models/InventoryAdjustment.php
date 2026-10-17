@@ -18,7 +18,17 @@ class InventoryAdjustment extends Model
     protected $casts = [
         'created_at' => 'datetime',
         'unit_price' => 'int',
+        'unit_cost'  => 'decimal:2',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (InventoryAdjustment $adjustment): void {
+            if (!array_key_exists('unit_cost', $adjustment->getAttributes())) {
+                $adjustment->unit_cost = Product::withoutGlobalScopes()->withTrashed()->whereKey($adjustment->product_id)->value('initial_price') ?? 0;
+            }
+        });
+    }
 
     public function product(): BelongsTo
     {

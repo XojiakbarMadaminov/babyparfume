@@ -51,8 +51,7 @@ class SalesStatsOverview extends BaseWidget
             ->sum('total_amount');
 
         $totalProfit = SaleItem::whereIn('sale_items.sale_id', $sales->pluck('id'))
-            ->join('products', 'products.id', '=', 'sale_items.product_id')
-            ->selectRaw('COALESCE(SUM( (sale_items.price - products.initial_price) * sale_items.quantity ), 0) AS profit')
+            ->selectRaw('COALESCE(SUM( (sale_items.price - sale_items.unit_cost) * sale_items.quantity ), 0) AS profit')
             ->value('profit');
 
         $purchases = Purchase::query()
@@ -67,8 +66,7 @@ class SalesStatsOverview extends BaseWidget
         $returnCost = InventoryAdjustment::query()
             ->where('adjustment_type', InventoryAdjustment::TYPE_RETURN)
             ->whereBetween('inventory_adjustments.created_at', [$start, $end])
-            ->join('products', 'products.id', '=', 'inventory_adjustments.product_id')
-            ->selectRaw('COALESCE(SUM(COALESCE(products.initial_price, 0) * inventory_adjustments.quantity), 0) as total')
+            ->selectRaw('COALESCE(SUM(COALESCE(inventory_adjustments.unit_cost, 0) * inventory_adjustments.quantity), 0) as total')
             ->value('total') ?? 0;
 
         $exchangeInRevenue = InventoryAdjustment::query()
@@ -80,8 +78,7 @@ class SalesStatsOverview extends BaseWidget
         $exchangeInCost = InventoryAdjustment::query()
             ->where('adjustment_type', InventoryAdjustment::TYPE_EXCHANGE_IN)
             ->whereBetween('inventory_adjustments.created_at', [$start, $end])
-            ->join('products', 'products.id', '=', 'inventory_adjustments.product_id')
-            ->selectRaw('COALESCE(SUM(COALESCE(products.initial_price, 0) * inventory_adjustments.quantity), 0) as total')
+            ->selectRaw('COALESCE(SUM(COALESCE(inventory_adjustments.unit_cost, 0) * inventory_adjustments.quantity), 0) as total')
             ->value('total') ?? 0;
 
         $exchangeOutRevenue = InventoryAdjustment::query()
@@ -93,8 +90,7 @@ class SalesStatsOverview extends BaseWidget
         $exchangeOutCost = InventoryAdjustment::query()
             ->where('adjustment_type', InventoryAdjustment::TYPE_EXCHANGE_OUT)
             ->whereBetween('inventory_adjustments.created_at', [$start, $end])
-            ->join('products', 'products.id', '=', 'inventory_adjustments.product_id')
-            ->selectRaw('COALESCE(SUM(COALESCE(products.initial_price, 0) * ABS(inventory_adjustments.quantity)), 0) as total')
+            ->selectRaw('COALESCE(SUM(COALESCE(inventory_adjustments.unit_cost, 0) * ABS(inventory_adjustments.quantity)), 0) as total')
             ->value('total') ?? 0;
 
         $returnProfitImpact     = $returnRevenue - $returnCost;
