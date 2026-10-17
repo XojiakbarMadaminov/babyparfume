@@ -228,6 +228,7 @@ return [
 
     'custom_permissions' => [
         'view_mobile_sales_cost_price' => 'Mobil sotuvda kelgan narxni ko‘rish',
+        'view_mobile_sales_statistics' => 'Mobil sotuv statistikasini ko‘rish',
     ],
 
     /*

@@ -22,8 +22,8 @@
     "file": "assets/preload-helper-BfFHrpNk.js",
     "name": "preload-helper"
   },
-  "_usePaged-C9w56vvf.js": {
-    "file": "assets/usePaged-C9w56vvf.js",
+  "_usePaged-vrcjGuHy.js": {
+    "file": "assets/usePaged-vrcjGuHy.js",
     "name": "usePaged",
     "imports": [
       "resources/js/mobile/main.ts"
@@ -45,7 +45,7 @@
     "isDynamicEntry": true
   },
   "resources/css/app.css": {
-    "file": "assets/app-TAkqcTqG.css",
+    "file": "assets/app-DgnFe5t1.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
@@ -64,7 +64,7 @@
     ]
   },
   "resources/js/mobile/main.ts": {
-    "file": "assets/main-BIOnNbza.js",
+    "file": "assets/main-BjmIN-NT.js",
     "name": "main",
     "src": "resources/js/mobile/main.ts",
     "isEntry": true,
@@ -91,7 +91,7 @@
     ]
   },
   "resources/js/mobile/pages/DebtForm.vue": {
-    "file": "assets/DebtForm-D3SC2_pn.js",
+    "file": "assets/DebtForm-EE7vdHMi.js",
     "name": "DebtForm",
     "src": "resources/js/mobile/pages/DebtForm.vue",
     "isDynamicEntry": true,
@@ -106,7 +106,7 @@
     ]
   },
   "resources/js/mobile/pages/DebtorDetail.vue": {
-    "file": "assets/DebtorDetail-BJwZ5RXb.js",
+    "file": "assets/DebtorDetail-BkEDrxSw.js",
     "name": "DebtorDetail",
     "src": "resources/js/mobile/pages/DebtorDetail.vue",
     "isDynamicEntry": true,
@@ -121,18 +121,18 @@
     ]
   },
   "resources/js/mobile/pages/Debtors.vue": {
-    "file": "assets/Debtors-Bf8tXoGt.js",
+    "file": "assets/Debtors-8Zaf43Wi.js",
     "name": "Debtors",
     "src": "resources/js/mobile/pages/Debtors.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/mobile/main.ts",
-      "_usePaged-C9w56vvf.js",
+      "_usePaged-vrcjGuHy.js",
       "_preload-helper-BfFHrpNk.js"
     ]
   },
   "resources/js/mobile/pages/ProductDetail.vue": {
-    "file": "assets/ProductDetail-DgP53-_B.js",
+    "file": "assets/ProductDetail-yR7TzoJY.js",
     "name": "ProductDetail",
     "src": "resources/js/mobile/pages/ProductDetail.vue",
     "isDynamicEntry": true,
@@ -142,11 +142,11 @@
       "_preload-helper-BfFHrpNk.js"
     ],
     "css": [
-      "assets/ProductDetail-BRw7uf0s.css"
+      "assets/ProductDetail-D63aGpe2.css"
     ]
   },
   "resources/js/mobile/pages/ProductForm.vue": {
-    "file": "assets/ProductForm-B5pBQZuH.js",
+    "file": "assets/ProductForm-TVfCgIoA.js",
     "name": "ProductForm",
     "src": "resources/js/mobile/pages/ProductForm.vue",
     "isDynamicEntry": true,
@@ -157,18 +157,18 @@
     ]
   },
   "resources/js/mobile/pages/Products.vue": {
-    "file": "assets/Products-DOtPnot3.js",
+    "file": "assets/Products-DbN8oCOl.js",
     "name": "Products",
     "src": "resources/js/mobile/pages/Products.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/mobile/main.ts",
-      "_usePaged-C9w56vvf.js",
+      "_usePaged-vrcjGuHy.js",
       "_preload-helper-BfFHrpNk.js"
     ]
   },
   "resources/js/mobile/pages/Sales.vue": {
-    "file": "assets/Sales-CeD0pfpb.js",
+    "file": "assets/Sales-A6e-uk5K.js",
     "name": "Sales",
     "src": "resources/js/mobile/pages/Sales.vue",
     "isDynamicEntry": true,
@@ -182,7 +182,7 @@
     ]
   },
   "resources/js/mobile/pages/SalesStatisticsPage.vue": {
-    "file": "assets/SalesStatisticsPage-D_A9deb4.js",
+    "file": "assets/SalesStatisticsPage-CmlSsBEn.js",
     "name": "SalesStatisticsPage",
     "src": "resources/js/mobile/pages/SalesStatisticsPage.vue",
     "isDynamicEntry": true,
@@ -196,7 +196,7 @@
     ]
   },
   "resources/js/mobile/pages/Scanner.vue": {
-    "file": "assets/Scanner-CqoBZdjg.js",
+    "file": "assets/Scanner-9RSMiQih.js",
     "name": "Scanner",
     "src": "resources/js/mobile/pages/Scanner.vue",
     "isDynamicEntry": true,

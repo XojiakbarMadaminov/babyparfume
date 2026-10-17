@@ -14,7 +14,7 @@ class SalesStatisticsController extends Controller
         return response()->json(['data' => $statistics->report(
             $request->user()->current_store_id,
             $request->validated(),
-            $request->user()->can('View:TopSellingProductsChart'),
+            true,
         )]);
     }
 }

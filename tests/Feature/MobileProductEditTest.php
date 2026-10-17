@@ -34,6 +34,21 @@ it('returns edit capability and existing values only to permitted users', functi
         ->assertJsonPath('data.can_update', false)->assertJsonMissingPath('data.initial_price')->assertJsonMissingPath('edit');
 });
 
+it('shows product cost to permitted viewers without granting edit access', function (int $cost): void {
+    $this->user->revokePermissionTo('Update:Product');
+    $this->user->givePermissionTo(Permission::findOrCreate('view_mobile_sales_cost_price', 'web'));
+    $this->product->update(['initial_price' => $cost]);
+
+    $this->getJson('/mobile/api/v1/products/' . $this->product->id)->assertOk()
+        ->assertJsonPath('data.initial_price', $cost)
+        ->assertJsonPath('data.can_update', false)
+        ->assertJsonMissingPath('edit');
+    $this->patchJson('/mobile/api/v1/products/' . $this->product->id, $this->payload)->assertForbidden();
+
+    $this->user->revokePermissionTo('view_mobile_sales_cost_price');
+    $this->getJson('/mobile/api/v1/products/' . $this->product->id)->assertOk()->assertJsonMissingPath('data.initial_price');
+})->with([0, 20000]);
+
 it('updates product details without changing inventory or product type', function (): void {
     $this->patchJson('/mobile/api/v1/products/' . $this->product->id, $this->payload)->assertOk()
         ->assertJsonPath('data.name', 'Yangilangan mahsulot')->assertJsonPath('data.price', 28000)

@@ -26,7 +26,7 @@ class SessionController extends Controller
             'store_id'    => $stores->contains('id', $user->current_store_id) ? $user->current_store_id : null,
             'permissions' => [
                 'sales'            => \App\Filament\Pages\Pos::canAccess(),
-                'sales_statistics' => \App\Filament\Pages\Pos::canAccess() && $user->can('View:SalesStatsOverview'),
+                'sales_statistics' => \App\Filament\Pages\Pos::canAccess() && $user->can('view_mobile_sales_statistics'),
                 'products'         => Gate::allows('viewAny', Product::class),
                 'create_product'   => Gate::allows('create', Product::class),
                 'debtors'          => Gate::allows('viewAny', Debtor::class),

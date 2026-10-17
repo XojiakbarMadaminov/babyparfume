@@ -9,12 +9,13 @@ class ProductResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        $canUpdate = $request->user()?->can('update', $this->resource) ?? false;
+        $canUpdate   = $request->user()?->can('update', $this->resource) ?? false;
+        $canViewCost = $canUpdate || ($request->user()?->can('view_mobile_sales_cost_price') ?? false);
 
         return [
             'id'            => $this->id,
             'can_update'    => $canUpdate,
-            'initial_price' => $this->when($canUpdate, (int) $this->initial_price),
+            'initial_price' => $this->when($canViewCost, (int) $this->initial_price),
             'name'          => $this->name,
             'barcode'       => $this->barcode,
             'price'         => (int) $this->price,

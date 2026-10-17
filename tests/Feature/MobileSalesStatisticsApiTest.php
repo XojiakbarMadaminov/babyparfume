@@ -19,7 +19,7 @@ beforeEach(function (): void {
     $this->store = Store::query()->create(['name' => 'Million', 'address' => 'Toshkent', 'phone' => '+998901234567']);
     $this->user  = User::factory()->create(['current_store_id' => $this->store->id]);
     $this->user->stores()->attach($this->store);
-    foreach (['View:Pos', 'View:SalesStatsOverview', 'View:TopSellingProductsChart'] as $permission) {
+    foreach (['View:Pos', 'view_mobile_sales_statistics'] as $permission) {
         $this->user->givePermissionTo(Permission::findOrCreate($permission, 'web'));
     }
     $this->actingAs($this->user);
@@ -102,10 +102,36 @@ it('isolates stores including adjustments and rejects stale store requests', fun
     $this->withHeader('X-Mobile-Store', (string) $otherStore->id)->getJson($this->url)->assertConflict();
 });
 
-it('requires the existing statistics permission even for cashiers', function (): void {
-    $this->user->revokePermissionTo('View:SalesStatsOverview');
+it('does not grant mobile statistics access through web widget permissions', function (): void {
+    foreach (['View:SalesStatsOverview', 'View:TopSellingProductsChart'] as $permission) {
+        $this->user->givePermissionTo(Permission::findOrCreate($permission, 'web'));
+    }
+    $this->user->revokePermissionTo('view_mobile_sales_statistics');
     $this->getJson($this->url)->assertForbidden();
     $this->getJson('/mobile/api/v1/session')->assertOk()->assertJsonPath('permissions.sales_statistics', false);
+});
+
+it('requires sales access in addition to the mobile statistics permission', function (): void {
+    $this->user->revokePermissionTo('View:Pos');
+    $this->getJson($this->url)->assertForbidden();
+    $this->getJson('/mobile/api/v1/session')->assertOk()->assertJsonPath('permissions.sales_statistics', false);
+});
+
+it('allows Shield roles to grant and revoke mobile statistics independently of web widgets', function (): void {
+    $this->user->revokePermissionTo('view_mobile_sales_statistics');
+    $role = Spatie\Permission\Models\Role::findOrCreate('mobile_statistics_viewer', 'web');
+    $role->givePermissionTo('view_mobile_sales_statistics');
+    $this->user->assignRole($role);
+
+    $this->getJson('/mobile/api/v1/session')->assertOk()->assertJsonPath('permissions.sales_statistics', true);
+    $this->getJson($this->url)->assertOk();
+    expect($this->user->can('View:SalesStatsOverview'))->toBeFalse()
+        ->and($this->user->can('View:TopSellingProductsChart'))->toBeFalse();
+
+    $role->revokePermissionTo('view_mobile_sales_statistics');
+    $this->user->unsetRelation('roles')->unsetRelation('permissions');
+    $this->getJson('/mobile/api/v1/session')->assertOk()->assertJsonPath('permissions.sales_statistics', false);
+    $this->getJson($this->url)->assertForbidden();
 });
 
 it('requires authentication and membership in the selected store', function (): void {
@@ -115,10 +141,11 @@ it('requires authentication and membership in the selected store', function (): 
     $this->getJson($this->url)->assertUnauthorized();
 });
 
-it('respects the existing top products widget permission', function (): void {
+it('includes top products with mobile permission without granting web widget access', function (): void {
     ($this->sale)();
-    $this->user->revokePermissionTo('View:TopSellingProductsChart');
-    $this->getJson($this->url)->assertOk()->assertJsonPath('data.topProducts', []);
+    $this->getJson($this->url)->assertOk()->assertJsonPath('data.topProducts.0.id', $this->product->id);
+    expect($this->user->can('View:SalesStatsOverview'))->toBeFalse()
+        ->and($this->user->can('View:TopSellingProductsChart'))->toBeFalse();
 });
 
 it('returns real empty data without fabricated growth or division errors', function (): void {

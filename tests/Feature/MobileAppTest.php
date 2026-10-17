@@ -113,13 +113,14 @@ it('allows Shield roles to grant and revoke the debtor menu permission', functio
     $this->getJson('/mobile/api/v1/debtors')->assertForbidden();
 });
 
-it('exposes the mobile sales cost permission in Shield role forms', function (): void {
+it('exposes mobile custom permissions in Shield role forms', function (): void {
     expect(config('filament-shield.shield_resource.tabs.custom_permissions'))->toBeTrue()
         ->and(app(BezhanSalleh\FilamentShield\FilamentShield::class)->getCustomPermissions())
-        ->toHaveKey('view_mobile_sales_cost_price', 'Mobil Sotuvda Kelgan Narxni Ko‘rish');
+        ->toHaveKey('view_mobile_sales_cost_price', 'Mobil Sotuvda Kelgan Narxni Ko‘rish')
+        ->toHaveKey('view_mobile_sales_statistics', 'Mobil Sotuv Statistikasini Ko‘rish');
 });
 
-it('saves the mobile sales cost permission through the Shield role editor', function (): void {
+it('saves mobile custom permissions through the Shield role editor', function (): void {
     $this->withoutVite();
     Filament\Facades\Filament::setCurrentPanel('admin');
     foreach (['ViewAny:Role', 'View:Role', 'Update:Role'] as $permission) {
@@ -131,11 +132,13 @@ it('saves the mobile sales cost permission through the Shield role editor', func
 
     try {
         Livewire\Livewire::test(BezhanSalleh\FilamentShield\Resources\Roles\Pages\EditRole::class, ['record' => $role->id])
-            ->fillForm(['custom_permissions_tab' => ['view_mobile_sales_cost_price']])
+            ->fillForm(['custom_permissions_tab' => ['view_mobile_sales_cost_price', 'view_mobile_sales_statistics']])
             ->call('save')
             ->assertHasNoFormErrors();
 
-        expect($role->refresh()->hasPermissionTo('view_mobile_sales_cost_price'))->toBeTrue();
+        expect($role->refresh()->hasPermissionTo('view_mobile_sales_cost_price'))->toBeTrue()
+            ->and($role->hasPermissionTo('view_mobile_sales_statistics'))->toBeTrue()
+            ->and($role->hasPermissionTo(Permission::findOrCreate('View:SalesStatsOverview', 'web')))->toBeFalse();
     } finally {
         Livewire\Features\SupportDisablingBackButtonCache\SupportDisablingBackButtonCache::$disableBackButtonCache = $cacheWasDisabled;
     }

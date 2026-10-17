@@ -12,7 +12,7 @@ class SalesStatisticsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Pos::canAccess() && $this->user()->can('View:SalesStatsOverview');
+        return Pos::canAccess() && $this->user()->can('view_mobile_sales_statistics');
     }
 
     public function rules(): array
