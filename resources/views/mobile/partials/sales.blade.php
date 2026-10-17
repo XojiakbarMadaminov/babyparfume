@@ -248,7 +248,11 @@
             @forelse($mobileProducts as $product)
                 <article class="mp-product" wire:key="mp-product-{{ $product->id }}">
                     @if($image = $product->getThumbnailUrl())
-                        <img src="{{ $image }}" alt="{{ $product->name }}" width="56" height="64" loading="lazy" decoding="async">
+                        <button type="button" class="mp-product-preview" aria-label="{{ $product->name }} — rasmni kattalashtirish" aria-haspopup="dialog"
+                            data-image-url="{{ $product->getPrimaryImageUrl() }}" data-image-name="{{ $product->name }}"
+                            @click.stop="$dispatch('open-product-image', { url: $el.dataset.imageUrl, name: $el.dataset.imageName })">
+                            <img src="{{ $image }}" alt="{{ $product->name }}" width="56" height="64" loading="lazy" decoding="async">
+                        </button>
                     @else
                         <div class="mp-product-image"><x-heroicon-o-cube /></div>
                     @endif
@@ -743,4 +747,5 @@
         <p role="alert" class="mp-sheet-error" x-show="cameraError" x-text="cameraError"></p>
         <button type="button" class="mp-secondary" @click="stopScanner(); $refs.search?.focus()">Kodni qo‘lda kiritish</button>
     </dialog>
+    @include('filament.products.partials.image-dialog')
 </section>

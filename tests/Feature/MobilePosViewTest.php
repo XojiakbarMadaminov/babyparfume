@@ -57,7 +57,7 @@ it('renders searchable product cards and category chips with existing add action
     $html    = mobilePosView(['mobileProducts' => collect([$product]), 'mobileCategories' => collect([$product->category])]);
 
     expect($html)->toContain('Dior Sauvage', '450 000', 'mp-category-3', 'addProduct(17)', 'Skanerlash')
-        ->not->toContain('<table');
+        ->not->toContain('<table', 'data-image-url=');
 });
 
 it('renders no-results guidance for an unsuccessful search', function (): void {

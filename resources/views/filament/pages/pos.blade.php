@@ -517,7 +517,11 @@
                              class="bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-200">
                             <td class="px-2 py-1">
                                 @if ($image = $p->getThumbnailUrl())
-                                    <img src="{{ $image }}" alt="{{ $p->name }}" width="40" height="40" loading="lazy" decoding="async" class="size-10 rounded-lg object-contain">
+                                    <button type="button" class="size-10 cursor-zoom-in overflow-hidden rounded-lg" aria-label="{{ $p->name }} — rasmni kattalashtirish" aria-haspopup="dialog"
+                                        data-image-url="{{ $p->getPrimaryImageUrl() }}" data-image-name="{{ $p->name }}"
+                                        @click.stop="$dispatch('open-product-image', { url: $el.dataset.imageUrl, name: $el.dataset.imageName })">
+                                        <img src="{{ $image }}" alt="{{ $p->name }}" width="40" height="40" loading="lazy" decoding="async" class="size-10 object-contain">
+                                    </button>
                                 @else
                                     <x-heroicon-o-cube class="size-10 text-gray-400" />
                                 @endif
@@ -1228,30 +1232,6 @@
         </div>
     @endif
 
-    {{-- Global image zoom overlay (must be inside root) --}}
-    <div x-data="{ open: false, i: 0, urls: [] }"
-     x-on:open-img-zoom.window="urls = $event.detail.urls || []; i = 0; open = true"
-     x-show="open"
-     x-transition
-     class="fixed inset-0 bg-black/70 flex items-center justify-center z-[100]"
-     style="display: none;"
->
-    <div class="relative max-w-5xl w-full mx-4" @click.outside="open = false">
-        <button class="absolute -top-10 right-0 text-white" @click="open = false">✕</button>
-        <template x-if="urls.length > 0">
-            <div class="relative">
-                <img :src="urls[i]" class="max-h-[80vh] w-auto mx-auto rounded" alt="zoom" />
-                <button type="button" @click="i = (i - 1 + urls.length) % urls.length"
-                        class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white rounded-full w-9 h-9 flex items-center justify-center hover:bg-black/70">‹</button>
-                <button type="button" @click="i = (i + 1) % urls.length"
-                        class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white rounded-full w-9 h-9 flex items-center justify-center hover:bg-black/70">›</button>
-                <div class="mt-2 text-center text-xs text-gray-200" x-text="(i+1) + ' / ' + urls.length"></div>
-            </div>
-        </template>
-        <template x-if="urls.length === 0">
-            <div class="text-center text-gray-300 py-8">Rasm mavjud emas</div>
-        </template>
-    </div>
-    </div>
+    @include('filament.products.partials.image-dialog')
 
 </x-filament::page>

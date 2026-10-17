@@ -334,3 +334,23 @@ it('defaults the photo directory to the application public folder without a host
         }
     }
 });
+
+it('uses thumbnails and provides the full image for sales photo previews', function (string $component): void {
+    $this->withoutVite();
+    $this->user->givePermissionTo(Permission::findOrCreate('View:Pos', 'web'));
+    $product = Product::factory()->create(['store_id' => $this->store->id, 'name' => 'Atir "Baby" <Parfum>']);
+    app(ProductPhotoService::class)->replace($product, UploadedFile::fake()->image('photo.jpg'));
+    $page     = Livewire::test($component)->set('search', $product->name)->assertSet('cart', []);
+    $document = new DOMDocument;
+    @$document->loadHTML('<?xml encoding="UTF-8">' . $page->html());
+    $xpath   = new DOMXPath($document);
+    $trigger = $xpath->query('//button[@data-image-url]')->item(0);
+
+    expect($trigger)->not->toBeNull()
+        ->and($trigger->getAttribute('data-image-url'))->toBe($product->getPrimaryImageUrl())
+        ->and($trigger->getAttribute('data-image-name'))->toBe($product->name)
+        ->and($trigger->getAttribute('type'))->toBe('button')
+        ->and($xpath->query('.//img', $trigger)->item(0)->getAttribute('src'))->toBe($product->getThumbnailUrl())
+        ->and($xpath->query('//dialog[@class="product-image-viewer"]')->length)->toBe(1)
+        ->and($xpath->query('//dialog[@class="product-image-viewer"]//img[@src]')->length)->toBe(0);
+})->with(['mobile' => [Sales::class], 'desktop' => [Pos::class]]);

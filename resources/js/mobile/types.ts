@@ -21,6 +21,7 @@ export interface Debtor {
 
 export interface Product {
     can_update?: boolean;
+    can_delete?: boolean;
     initial_price?: number;
     id: number;
     name: string;

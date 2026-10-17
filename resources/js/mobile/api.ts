@@ -10,7 +10,7 @@ export class ApiError extends Error {
     }
 }
 
-export async function api<T>(path: string, options: { body?: unknown; signal?: AbortSignal; method?: 'POST' | 'PATCH' } = {}): Promise<T> {
+export async function api<T>(path: string, options: { body?: unknown; signal?: AbortSignal; method?: 'POST' | 'PATCH' | 'DELETE' } = {}): Promise<T> {
     const timeout = new AbortController();
     const timer = window.setTimeout(() => timeout.abort(), options.body instanceof FormData ? 120000 : 20000);
     const abort = () => timeout.abort();

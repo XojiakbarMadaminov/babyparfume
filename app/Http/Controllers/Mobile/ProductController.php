@@ -130,6 +130,15 @@ class ProductController extends Controller
         return new ProductResource($this->products($request->user()->current_store_id)->findOrFail($product->id));
     }
 
+    public function destroy(Product $product): JsonResponse
+    {
+        Gate::authorize('delete', $product);
+
+        $product->delete();
+
+        return response()->json(['message' => 'Mahsulot o‘chirildi.']);
+    }
+
     private function products(int $storeId): Builder
     {
         $stockInStore = fn (Builder $query): Builder => $query->whereHas('stock.stores', fn (Builder $stores): Builder => $stores->whereKey($storeId));

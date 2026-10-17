@@ -1,5 +1,6 @@
 import { startBarcodeScanner, type CameraScanner } from './barcodeScanner';
 import '../../css/mobile-sales.css';
+import '../../css/product-image-preview.css';
 
 class PosMobileScanner extends HTMLElement {
     private scanner?: CameraScanner;

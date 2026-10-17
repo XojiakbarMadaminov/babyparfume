@@ -15,6 +15,7 @@ class ProductResource extends JsonResource
         return [
             'id'            => $this->id,
             'can_update'    => $canUpdate,
+            'can_delete'    => $request->user()?->can('delete', $this->resource) ?? false,
             'initial_price' => $this->when($canViewCost, (int) $this->initial_price),
             'name'          => $this->name,
             'barcode'       => $this->barcode,

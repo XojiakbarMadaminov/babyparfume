@@ -8,6 +8,7 @@ const paths: Record<string, string> = {
     percent: 'M6 18 18 6M8 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0m12 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0',
     wallet: 'M3 6h17v15H3V6Zm0 0V3h15v3m-3 6h6v5h-6v-5Z',
     edit: 'm16 3 5 5M4 16 16 4a3.5 3.5 0 0 1 5 5L9 21H3l1-5Z',
+    trash: 'M3 6h18M9 6V4h6v2M5 6l1 15h12l1-15M10 10v7m4-7v7',
     cart: 'M3 3h2l3 12h10l3-8H6M9 21h.01M18 21h.01',
     scan: 'M7 3H3v4m14-4h4v4M3 17v4h4m14-4v4h-4M7 8v8m3-8v8m4-8v8m3-8v8',
     users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m20 0v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0',

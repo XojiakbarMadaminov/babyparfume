@@ -22,6 +22,7 @@ Route::prefix('mobile')->name('mobile.')->group(function (): void {
                 Route::get('products/lookup', [ProductController::class, 'lookup'])->name('products.lookup');
                 Route::match(['post', 'patch'], 'products/{product}', [ProductController::class, 'update'])->middleware('throttle:30,1')->name('products.update');
                 Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
+                Route::delete('products/{product}', [ProductController::class, 'destroy'])->middleware('throttle:30,1')->name('products.destroy');
                 Route::get('debtors', [DebtorController::class, 'index'])->name('debtors');
                 Route::post('debtors', [DebtorController::class, 'store'])->middleware('throttle:30,1')->name('debtors.store');
                 Route::get('debtors/{debtor}', [DebtorController::class, 'show'])->name('debtors.show');
