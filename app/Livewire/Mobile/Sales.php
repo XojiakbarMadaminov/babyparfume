@@ -263,7 +263,7 @@ class Sales extends Pos
             ->when(trim($this->search), fn ($query, $search) => $query->where(fn ($query) => $query
                 ->whereLike('name', '%' . $search . '%')->orWhereLike('barcode', '%' . $search . '%')))
             ->when($this->mobileCategory, fn ($query, $category) => $query->where('category_id', $category))
-            ->orderBy('name')->paginate(20);
+            ->orderBy('name')->paginate(10);
 
         return view('livewire.mobile.sales', [
             'mobileProducts'       => $products,

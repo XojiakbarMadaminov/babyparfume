@@ -247,8 +247,8 @@
         <div class="mp-products" wire:loading.class="mp-updating" wire:target="search,mobileCategory,nextPage,previousPage" aria-label="Mahsulotlar">
             @forelse($mobileProducts as $product)
                 <article class="mp-product" wire:key="mp-product-{{ $product->id }}">
-                    @if($image = $product->getPrimaryImageUrl())
-                        <img src="{{ $image }}" alt="{{ $product->name }}" width="56" height="64" loading="lazy">
+                    @if($image = $product->getThumbnailUrl())
+                        <img src="{{ $image }}" alt="{{ $product->name }}" width="56" height="64" loading="lazy" decoding="async">
                     @else
                         <div class="mp-product-image"><x-heroicon-o-cube /></div>
                     @endif

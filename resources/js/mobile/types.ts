@@ -29,6 +29,7 @@ export interface Product {
     type: string;
     quantity: number;
     image: string | null;
+    thumbnail?: string | null;
 }
 
 export interface Transaction {

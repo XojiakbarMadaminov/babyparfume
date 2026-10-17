@@ -17,10 +17,10 @@ use Filament\Forms\Components\Select;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Actions\ForceDeleteBulkAction;
+use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
 
 class ProductsTable
 {
@@ -36,31 +36,32 @@ class ProductsTable
         );
 
         return $table
+            ->paginated([10])
+            ->defaultPaginationPageOption(10)
             ->defaultSort('created_at', 'desc')
             ->columns(array_merge(
                 [
                     TextColumn::make('id')->label('ID'),
-                    //                    ImageColumn::make('first_image')
-                    //                        ->label('Rasm')
-                    //                        ->getStateUsing(fn (Product $record) => $record->getPrimaryImageUrl())
-                    //                        ->square()
-                    //                        ->imageHeight(32)
-                    //                        ->width(32)
-                    //                        ->extraAttributes([
-                    //                            'class'    => 'cursor-zoom-in',
-                    //                            'loading'  => 'lazy',
-                    //                            'decoding' => 'async',
-                    //                        ])
-                    //                        ->action(
-                    //                            Action::make('zoom_image')
-                    //                                ->label("Ko'rish")
-                    //                                ->modalSubmitAction(false)
-                    //                                ->modalHeading(fn (Product $record) => $record->name)
-                    //                                ->modalWidth('5xl')
-                    //                                ->modalContent(fn (Product $record) => view('filament.products.partials.image-zoom', [
-                    //                                    'urls' => $record->getImageUrls(),
-                    //                                ]))
-                    //                        ),
+                    SpatieMediaLibraryImageColumn::make('images')
+                        ->label('Rasm')
+                        ->collection(Product::IMAGE_COLLECTION)
+                        ->conversion(fn (Product $record): string => $record->getFirstMedia(Product::IMAGE_COLLECTION)?->hasGeneratedConversion(Product::THUMBNAIL_CONVERSION) ? Product::THUMBNAIL_CONVERSION : Product::OPTIMIZED_CONVERSION)
+                        ->visibility('public')
+                        ->square()
+                        ->imageHeight(40)
+                        ->extraImgAttributes(['loading' => 'lazy', 'decoding' => 'async', 'class' => 'cursor-zoom-in'])
+                        ->action(
+                            Action::make('zoom_image')
+                                ->label('Rasmni ko‘rish')
+                                ->modalSubmitAction(false)
+                                ->modalWidth('5xl')
+                                ->modalCancelActionLabel('Yopish')
+                                ->modalHeading(fn (Product $record): string => $record->name)
+                                ->modalContent(fn (Product $record) => view('filament.products.partials.image-zoom', [
+                                    'urls' => $record->getImageUrls(),
+                                    'name' => $record->name,
+                                ]))
+                        ),
                     TextColumn::make('name')->label('Nomi')->searchable()->sortable(),
                     TextColumn::make('barcode')->label('Bar kod')->searchable(),
                     TextColumn::make('initial_price')->label('Kelgan narxi')->numeric(),

@@ -10,6 +10,7 @@ use App\Models\PurchaseItem;
 use Illuminate\Http\JsonResponse;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Gate;
+use App\Services\ProductPhotoService;
 use Illuminate\Database\Eloquent\Builder;
 use App\Http\Requests\Mobile\SearchRequest;
 use App\Http\Resources\Mobile\ProductResource;
@@ -53,6 +54,10 @@ class ProductController extends Controller
                     }
                 } else {
                     $product->productStocks()->createMany($data['stocks']);
+                }
+
+                if (!empty($data['photo'])) {
+                    app(ProductPhotoService::class)->replace($product, $data['photo']);
                 }
 
                 return $product;
@@ -112,6 +117,11 @@ class ProductController extends Controller
                 foreach ($data['stocks'] ?? [] as $stock) {
                     $product->productStocks()->updateOrCreate(['stock_id' => $stock['stock_id']], ['quantity' => $stock['quantity']]);
                 }
+                if (!empty($data['photo'])) {
+                    app(ProductPhotoService::class)->replace($product, $data['photo']);
+                } elseif ($data['remove_image'] ?? false) {
+                    $product->clearMediaCollection(Product::IMAGE_COLLECTION);
+                }
             });
         } catch (UniqueConstraintViolationException) {
             throw ValidationException::withMessages(['barcode' => 'Bu shtrix-kod ushbu do‘konda mavjud.']);
@@ -141,7 +151,7 @@ class ProductController extends Controller
             $query->where(fn (Builder $products): Builder => $products->where('name', 'like', '%' . $search . '%')->orWhere('barcode', 'like', '%' . $search . '%'));
         }
 
-        return ProductResource::collection($query->orderBy('name')->paginate(20));
+        return ProductResource::collection($query->orderBy('name')->paginate(10));
     }
 
     public function lookup(SearchRequest $request): ProductResource

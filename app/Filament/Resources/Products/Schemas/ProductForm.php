@@ -9,12 +9,13 @@ use Filament\Actions\Action;
 use Filament\Schemas\Schema;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Grid;
+use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
-use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
+use App\Filament\Forms\Components\ProductPhoto;
 
 class ProductForm
 {
@@ -146,29 +147,15 @@ class ProductForm
                                 }),
                         ];
                     }),
-                //                Section::make('Rasm')
-                //                    ->columnSpanFull()
-                //                    ->schema(function () {
-                //                        $upload = SpatieMediaLibraryFileUpload::make('images')
-                //                            ->disk(config('filesystems.default'))
-                //                            ->collection(Product::IMAGE_COLLECTION)
-                //                            ->label('Mahsulot rasmlari')
-                //                            ->imageEditor()
-                //                            ->maxSize(10240)
-                //                            ->multiple()
-                //                            ->reorderable()
-                //                            ->responsiveImages()
-                //                            ->extraAttributes(['class' => 'cursor-zoom-in', 'capture' => 'environment'])
-                //                            ->visibility('public');
-                //
-                //                        if (Product::canOptimizeImages()) {
-                //                            $upload->conversion(Product::OPTIMIZED_CONVERSION); // WebP konversiyani ishlatadi
-                //                        } else {
-                //                            $upload->helperText('Diqqat: GD yoki Imagick PHP kengaytmasi yoqilmagan. Rasm optimizatsiyasi vaqtincha o\'chirildi.');
-                //                        }
-                //
-                //                        return [$upload];
-                //                    }),
+                Section::make('Mahsulot rasmi')
+                    ->columnSpanFull()
+                    ->schema([
+                        ProductPhoto::make('photo')->label('Rasm (ixtiyoriy)'),
+                        Checkbox::make('remove_image')
+                            ->label('Mavjud rasmni o‘chirish')
+                            ->dehydrated(false)
+                            ->visible(fn (?Product $record): bool => $record?->hasMedia(Product::IMAGE_COLLECTION) ?? false),
+                    ]),
             ]);
     }
 

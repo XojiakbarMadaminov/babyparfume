@@ -21,6 +21,7 @@
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-5 xl:grid-cols-6">
             @forelse ($products as $product)
                 <a
+                    wire:key="product-{{ $product->id }}"
                     href="{{ route('filament.admin.resources.products.view', $product) }}"
                     class="group relative flex flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-sm transition hover:-translate-y-1 hover:border-primary-500 hover:shadow-lg dark:border-gray-700 dark:bg-gray-900 md:p-4"
                 >
@@ -49,7 +50,9 @@
                                         x-transition:enter="transition ease-out duration-300"
                                         x-transition:enter-start="opacity-0"
                                         x-transition:enter-end="opacity-100"
-                                        src="{{ $media->getUrl('optimized') }}"
+                                        src="{{ $media->hasGeneratedConversion('optimized') ? $media->getUrl('optimized') : $media->getUrl() }}"
+                                        loading="lazy"
+                                        decoding="async"
                                         alt="{{ $product->name }}"
                                         class="absolute inset-0 h-full w-full object-cover cursor-zoom-in"
                                     >
@@ -85,7 +88,9 @@
                             {{-- 1 TA RASM --}}
                             <div class="h-full w-full">
                                 <img
-                                    src="{{ $mediaItems[0]->getUrl('optimized') }}"
+                                    src="{{ $product->getPrimaryImageUrl() }}"
+                                    loading="lazy"
+                                    decoding="async"
                                     alt="{{ $product->name }}"
                                     class="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                                 >

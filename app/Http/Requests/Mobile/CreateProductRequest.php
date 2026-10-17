@@ -6,10 +6,20 @@ use App\Models\Stock;
 use App\Models\Product;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
+use App\Services\ProductPhotoService;
 use Illuminate\Foundation\Http\FormRequest;
 
 class CreateProductRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        foreach (['stocks', 'sizes'] as $field) {
+            if (is_string($this->input($field))) {
+                $this->merge([$field => json_decode($this->input($field), true)]);
+            }
+        }
+    }
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -29,6 +39,7 @@ class CreateProductRequest extends FormRequest
         $stockIds = Stock::query()->active()->pluck('id')->all();
 
         return [
+            'photo'                     => ProductPhotoService::rules(),
             'store_id'                  => ['required', 'integer', Rule::in([$storeId])],
             'name'                      => ['required', 'string', 'max:255'],
             'barcode'                   => ['required', 'string', 'regex:/^[0-9]+$/', 'max:100', Rule::unique('products', 'barcode')->where('store_id', $storeId)],
@@ -52,6 +63,7 @@ class CreateProductRequest extends FormRequest
     public function messages(): array
     {
         return [
+            ...ProductPhotoService::messages(),
             'store_id.in'                  => 'Do‘kon o‘zgargan. Sahifani yangilang.',
             'name.required'                => 'Mahsulot nomini kiriting.',
             'barcode.required'             => 'Shtrix-kodni kiriting, yarating yoki skanerlang.',

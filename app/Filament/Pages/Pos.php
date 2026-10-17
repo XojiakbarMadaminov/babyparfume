@@ -259,12 +259,13 @@ class Pos extends Page
         }
 
         $this->products = Product::query()
+            ->with('media')
             ->where(
-                fn ($q) => $q->where('barcode', 'ILIKE', "%{$this->search}%")
-                    ->orWhere('name', 'ILIKE', "%{$this->search}%")
+                fn ($q) => $q->whereLike('barcode', "%{$this->search}%")
+                    ->orWhereLike('name', "%{$this->search}%")
             )
             ->orderBy('name')
-            ->limit(5)
+            ->limit(10)
             ->get();
     }
 

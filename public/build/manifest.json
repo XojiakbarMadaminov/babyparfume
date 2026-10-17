@@ -1,6 +1,6 @@
 {
-  "_BarcodeCapture.vue_vue_type_script_setup_true_lang-CU-Jigf6.js": {
-    "file": "assets/BarcodeCapture.vue_vue_type_script_setup_true_lang-CU-Jigf6.js",
+  "_BarcodeCapture.vue_vue_type_script_setup_true_lang-5JTmIqdn.js": {
+    "file": "assets/BarcodeCapture.vue_vue_type_script_setup_true_lang-5JTmIqdn.js",
     "name": "BarcodeCapture.vue_vue_type_script_setup_true_lang",
     "imports": [
       "resources/js/mobile/main.ts",
@@ -22,16 +22,16 @@
       "node_modules/@zxing/library/esm/index.js"
     ]
   },
-  "_photo-picker-SDOFHCDG.js": {
-    "file": "assets/photo-picker-SDOFHCDG.js",
+  "_photo-picker-C3-Snpb9.js": {
+    "file": "assets/photo-picker-C3-Snpb9.js",
     "name": "photo-picker"
   },
   "_preload-helper-BfFHrpNk.js": {
     "file": "assets/preload-helper-BfFHrpNk.js",
     "name": "preload-helper"
   },
-  "_usePaged-CUCGKogp.js": {
-    "file": "assets/usePaged-CUCGKogp.js",
+  "_usePaged-DWpbmUnt.js": {
+    "file": "assets/usePaged-DWpbmUnt.js",
     "name": "usePaged",
     "imports": [
       "resources/js/mobile/main.ts"
@@ -53,26 +53,26 @@
     "isDynamicEntry": true
   },
   "resources/css/app.css": {
-    "file": "assets/app-DgnFe5t1.css",
+    "file": "assets/app-Cj677VB3.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/css/filament/admin/theme.css": {
-    "file": "assets/theme-DrquQol1.css",
+    "file": "assets/theme-DQtmc_Wt.css",
     "src": "resources/css/filament/admin/theme.css",
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-NfP-5auw.js",
+    "file": "assets/app-DHiB-2WL.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
     "imports": [
-      "_photo-picker-SDOFHCDG.js"
+      "_photo-picker-C3-Snpb9.js"
     ]
   },
   "resources/js/mobile/main.ts": {
-    "file": "assets/main-D7bwTm85.js",
+    "file": "assets/main-CWsoOnKZ.js",
     "name": "main",
     "src": "resources/js/mobile/main.ts",
     "isEntry": true,
@@ -95,17 +95,17 @@
       "resources/js/mobile/pages/DebtForm.vue"
     ],
     "css": [
-      "assets/main-DFmcQ60O.css"
+      "assets/main-BKZhtCFN.css"
     ]
   },
   "resources/js/mobile/pages/DebtForm.vue": {
-    "file": "assets/DebtForm-BydA5U5C.js",
+    "file": "assets/DebtForm-BXWeOh1b.js",
     "name": "DebtForm",
     "src": "resources/js/mobile/pages/DebtForm.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/mobile/main.ts",
-      "_photo-picker-SDOFHCDG.js",
+      "_photo-picker-C3-Snpb9.js",
       "__plugin-vue_export-helper-DlAUqK2U.js",
       "_preload-helper-BfFHrpNk.js"
     ],
@@ -114,13 +114,13 @@
     ]
   },
   "resources/js/mobile/pages/DebtorDetail.vue": {
-    "file": "assets/DebtorDetail-CWx3hDLq.js",
+    "file": "assets/DebtorDetail-DJdCImW-.js",
     "name": "DebtorDetail",
     "src": "resources/js/mobile/pages/DebtorDetail.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/mobile/main.ts",
-      "_photo-picker-SDOFHCDG.js",
+      "_photo-picker-C3-Snpb9.js",
       "__plugin-vue_export-helper-DlAUqK2U.js",
       "_preload-helper-BfFHrpNk.js"
     ],
@@ -129,18 +129,18 @@
     ]
   },
   "resources/js/mobile/pages/Debtors.vue": {
-    "file": "assets/Debtors-Di-gPX5F.js",
+    "file": "assets/Debtors-DpBR4H4v.js",
     "name": "Debtors",
     "src": "resources/js/mobile/pages/Debtors.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/mobile/main.ts",
-      "_usePaged-CUCGKogp.js",
+      "_usePaged-DWpbmUnt.js",
       "_preload-helper-BfFHrpNk.js"
     ]
   },
   "resources/js/mobile/pages/ProductDetail.vue": {
-    "file": "assets/ProductDetail-oDkuZgvT.js",
+    "file": "assets/ProductDetail-DlEi_dyw.js",
     "name": "ProductDetail",
     "src": "resources/js/mobile/pages/ProductDetail.vue",
     "isDynamicEntry": true,
@@ -154,36 +154,41 @@
     ]
   },
   "resources/js/mobile/pages/ProductForm.vue": {
-    "file": "assets/ProductForm-DHlogrLB.js",
+    "file": "assets/ProductForm-DX3zAk_H.js",
     "name": "ProductForm",
     "src": "resources/js/mobile/pages/ProductForm.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/mobile/main.ts",
-      "_BarcodeCapture.vue_vue_type_script_setup_true_lang-CU-Jigf6.js",
-      "_preload-helper-BfFHrpNk.js",
-      "_barcodeScanner-BJsxlZs4.js"
-    ]
-  },
-  "resources/js/mobile/pages/Products.vue": {
-    "file": "assets/Products-B2BkKrqN.js",
-    "name": "Products",
-    "src": "resources/js/mobile/pages/Products.vue",
-    "isDynamicEntry": true,
-    "imports": [
-      "resources/js/mobile/main.ts",
-      "_usePaged-CUCGKogp.js",
-      "_BarcodeCapture.vue_vue_type_script_setup_true_lang-CU-Jigf6.js",
+      "_BarcodeCapture.vue_vue_type_script_setup_true_lang-5JTmIqdn.js",
+      "_photo-picker-C3-Snpb9.js",
       "__plugin-vue_export-helper-DlAUqK2U.js",
       "_preload-helper-BfFHrpNk.js",
       "_barcodeScanner-BJsxlZs4.js"
     ],
     "css": [
-      "assets/Products-BmextMv-.css"
+      "assets/ProductForm-EIkAzYwa.css"
+    ]
+  },
+  "resources/js/mobile/pages/Products.vue": {
+    "file": "assets/Products-CQVqWd4S.js",
+    "name": "Products",
+    "src": "resources/js/mobile/pages/Products.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/mobile/main.ts",
+      "_usePaged-DWpbmUnt.js",
+      "_BarcodeCapture.vue_vue_type_script_setup_true_lang-5JTmIqdn.js",
+      "__plugin-vue_export-helper-DlAUqK2U.js",
+      "_preload-helper-BfFHrpNk.js",
+      "_barcodeScanner-BJsxlZs4.js"
+    ],
+    "css": [
+      "assets/Products-De9bPZF-.css"
     ]
   },
   "resources/js/mobile/pages/Sales.vue": {
-    "file": "assets/Sales-BNDp0IDp.js",
+    "file": "assets/Sales-3o2Ot4d3.js",
     "name": "Sales",
     "src": "resources/js/mobile/pages/Sales.vue",
     "isDynamicEntry": true,
@@ -197,7 +202,7 @@
     ]
   },
   "resources/js/mobile/pages/SalesStatisticsPage.vue": {
-    "file": "assets/SalesStatisticsPage-CuNwQBUL.js",
+    "file": "assets/SalesStatisticsPage-B-qHWlIB.js",
     "name": "SalesStatisticsPage",
     "src": "resources/js/mobile/pages/SalesStatisticsPage.vue",
     "isDynamicEntry": true,
@@ -211,7 +216,7 @@
     ]
   },
   "resources/js/mobile/pages/Scanner.vue": {
-    "file": "assets/Scanner-CIQ4r7ns.js",
+    "file": "assets/Scanner-nMWgovSQ.js",
     "name": "Scanner",
     "src": "resources/js/mobile/pages/Scanner.vue",
     "isDynamicEntry": true,

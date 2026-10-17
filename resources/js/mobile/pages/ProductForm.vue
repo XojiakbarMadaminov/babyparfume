@@ -6,6 +6,7 @@ import { session } from '../session';
 import type { Product } from '../types';
 import BarcodeCapture from '../BarcodeCapture.vue';
 import Icon from '../Icon.vue';
+import '../../photo-picker';
 
 interface StockOption { id: number; name: string; is_active?: boolean }
 interface StockQuantity { stock_id: number; quantity: number | string }
@@ -34,6 +35,17 @@ const scanned = ref(false);
 const barcodeInput = ref<HTMLInputElement>();
 const error = ref('');
 const errors = ref<Record<string, string[]>>({});
+const photo = ref<File | null>(null);
+const existingImage = ref<string | null>(null);
+const removeImage = ref(false);
+const processingPhoto = ref(false);
+function selectPhoto(event: Event): void {
+    photo.value = (event as CustomEvent<File | null>).detail;
+    if (photo.value) removeImage.value = false;
+}
+function processPhoto(event: Event): void {
+    processingPhoto.value = (event as CustomEvent<boolean>).detail;
+}
 const controller = new AbortController();
 const storeId = session.data!.store_id;
 let sizeKey = 0;
@@ -54,6 +66,7 @@ async function load() {
             name.value = data.name; barcode.value = data.barcode ?? ''; type.value = data.type;
             initialPrice.value = data.initial_price ?? ''; price.value = data.price;
             originalType.value = data.type;
+            existingImage.value = data.image;
             stocks.value = edit.stocks;
             quantities.value = stockRows().map(row => ({ ...row, quantity: edit.quantities.find(stock => stock.stock_id === row.stock_id)?.quantity ?? 0 }));
             sizes.value = edit.sizes.map(row => ({ ...row, key: ++sizeKey, size: String(row.size) }));
@@ -83,16 +96,25 @@ async function capture(code: string) {
 }
 function stockPayload(rows: StockQuantity[]) { return rows.map(row => ({ stock_id: row.stock_id, quantity: Number(row.quantity) })); }
 async function submit() {
-    if (busy.value || generating.value) return;
+    if (busy.value || generating.value || processingPhoto.value) return;
     if (editing && type.value !== originalType.value && !window.confirm('Mahsulot turi almashtiriladi. Eski turdagi razmer va qoldiqlar o‘rniga kiritilgan yangi qoldiqlar saqlanadi. Davom etasizmi?')) return;
     busy.value = true; error.value = ''; errors.value = {};
     try {
-        const result = await api<{ data: Product }>(editing ? `products/${route.params.id}` : 'products', { signal: controller.signal, ...(editing ? { method: 'PATCH' as const } : {}), body: {
+        const payload = {
             store_id: storeId, name: name.value, barcode: barcode.value,
             initial_price: Number(initialPrice.value), price: Number(price.value),
+            ...(editing ? { remove_image: removeImage.value } : {}),
             type: type.value, ...(type.value === 'package' ? { stocks: stockPayload(quantities.value) }
                 : { sizes: sizes.value.map(row => ({ ...(editing && row.id ? { id: row.id } : {}), size: row.size, stocks: stockPayload(row.stocks) })) }),
-        } });
+        };
+        let body: unknown = payload;
+        if (photo.value) {
+            const form = new FormData();
+            Object.entries(payload).forEach(([key, value]) => form.append(key, typeof value === 'object' ? JSON.stringify(value) : typeof value === 'boolean' ? (value ? '1' : '0') : String(value)));
+            form.append('photo', photo.value);
+            body = form;
+        }
+        const result = await api<{ data: Product }>(editing ? `products/${route.params.id}` : 'products', { signal: controller.signal, ...(editing && !photo.value ? { method: 'PATCH' as const } : {}), body });
         clearCache(); session.notice = editing ? 'Mahsulot yangilandi.' : 'Yangi mahsulot qo‘shildi.';
         await router.replace(`/products/${result.data.id}`);
     } catch (reason) {
@@ -128,6 +150,13 @@ async function submit() {
                 <p v-if="editing && type !== originalType" class="error-banner">Tur almashtirilganda eski qoldiqlar va razmerlar almashtiriladi. Yangi miqdorlarni tekshiring.</p>
                 <label>Kelgan narxi<span class="debt-amount-input"><input v-model="initialPrice" required type="number" min="0" max="999999999999" step="1" inputmode="numeric" placeholder="Masalan, 20000"><span>so‘m</span></span></label>
                 <label>Sotish narxi<span class="debt-amount-input"><input v-model="price" required type="number" min="0" max="999999999999" step="1" inputmode="numeric" placeholder="Masalan, 25000"><span>so‘m</span></span></label>
+                <section class="product-stock-fields">
+                    <h2>Mahsulot rasmi (ixtiyoriy)</h2>
+                    <img v-if="existingImage && !removeImage && !photo" :src="existingImage" alt="Mavjud mahsulot rasmi" class="product-image-preview" decoding="async">
+                    <label v-if="editing && existingImage && !photo"><input v-model="removeImage" type="checkbox">Mavjud rasmni o‘chirish</label>
+                    <div :inert="busy"><debtor-photo-picker optimized @photo-selected="selectPhoto" @photo-processing="processPhoto" /></div>
+                    <p v-if="processingPhoto" role="status">Rasm kichraytirilmoqda…</p>
+                </section>
                 <section v-if="type === 'package'" class="product-stock-fields">
                     <h2>Ombordagi miqdor</h2>
                     <p v-if="!stocks.length">Bu do‘konda ombor yo‘q. Mahsulot qoldiqsiz saqlanadi.</p>
@@ -143,9 +172,13 @@ async function submit() {
                     </div>
                     <button type="button" class="secondary" :disabled="sizes.length >= 50" @click="addSize"><Icon name="plus" />Razmer qo‘shish</button>
                 </section>
-                <button class="primary" :disabled="busy || generating"><Icon :name="editing ? 'check' : 'plus'" />{{ busy ? 'Saqlanmoqda…' : editing ? 'O‘zgarishlarni saqlash' : 'Mahsulotni saqlash' }}</button>
+                <button class="primary" :disabled="busy || generating || processingPhoto"><Icon :name="editing ? 'check' : 'plus'" />{{ busy ? 'Saqlanmoqda…' : editing ? 'O‘zgarishlarni saqlash' : 'Mahsulotni saqlash' }}</button>
             </fieldset>
         </form>
         <BarcodeCapture v-if="cameraOpen" @scanned="capture" @close="cameraOpen = false" />
     </main>
 </template>
+
+<style scoped>
+.product-image-preview { max-width: 100%; max-height: 220px; object-fit: contain; border-radius: 12px; }
+</style>

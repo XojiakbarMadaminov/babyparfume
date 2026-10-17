@@ -6,10 +6,20 @@ use App\Models\Stock;
 use App\Models\Product;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
+use App\Services\ProductPhotoService;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateProductRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        foreach (['stocks', 'sizes'] as $field) {
+            if (is_string($this->input($field))) {
+                $this->merge([$field => json_decode($this->input($field), true)]);
+            }
+        }
+    }
+
     public function authorize(): bool
     {
         $product = $this->route('product');
@@ -23,6 +33,8 @@ class UpdateProductRequest extends FormRequest
         $type     = $this->input('type', $this->route('product')->type);
 
         return [
+            'photo'                     => ProductPhotoService::rules(),
+            'remove_image'              => ['sometimes', 'boolean'],
             'store_id'                  => ['required', 'integer', Rule::in([$this->user()->current_store_id])],
             'name'                      => ['required', 'string', 'max:255'],
             'barcode'                   => ['required', 'string', 'regex:/^[0-9]+$/', 'max:100', Rule::unique('products', 'barcode')->where('store_id', $this->user()->current_store_id)->ignore($this->route('product'))],
@@ -47,6 +59,7 @@ class UpdateProductRequest extends FormRequest
     public function messages(): array
     {
         return [
+            ...ProductPhotoService::messages(),
             'store_id.in'                  => 'Do‘kon o‘zgargan. Sahifani yangilang.',
             'name.required'                => 'Mahsulot nomini kiriting.',
             'barcode.required'             => 'Shtrix-kodni kiriting yoki skanerlang.',

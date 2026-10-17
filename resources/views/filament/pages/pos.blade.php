@@ -505,6 +505,7 @@
                 <table class="w-full mt-4 text-sm">
                     <thead class="bg-gray-100 dark:bg-gray-800">
                     <tr>
+                        <th class="px-2 py-1 text-left">Rasm</th>
                         <th class="px-2 py-1 text-left">Nomi</th>
                         <th class="px-2 py-1 text-right">Narxi</th>
                         <th class="px-2 py-1"></th>
@@ -514,6 +515,13 @@
                     @foreach($products as $p)
                         <tr wire:key="item-{{ $p->id }}"
                              class="bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-200">
+                            <td class="px-2 py-1">
+                                @if ($image = $p->getThumbnailUrl())
+                                    <img src="{{ $image }}" alt="{{ $p->name }}" width="40" height="40" loading="lazy" decoding="async" class="size-10 rounded-lg object-contain">
+                                @else
+                                    <x-heroicon-o-cube class="size-10 text-gray-400" />
+                                @endif
+                            </td>
                             <td class="px-2 py-1">{{ $p->name }}</td>
                             <td class="px-2 py-1 text-right">{{ number_format($p->price, 2, '.', ' ') }}</td>
                             <td class="px-2 py-1">

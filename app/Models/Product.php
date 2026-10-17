@@ -25,6 +25,7 @@ class Product extends Model implements HasMedia
     public const TYPE_PACKAGE         = 'package';
     public const IMAGE_COLLECTION     = 'images';
     public const OPTIMIZED_CONVERSION = 'optimized';
+    public const THUMBNAIL_CONVERSION = 'thumbnail';
 
     protected static bool $missingImageDriverLogged = false;
 
@@ -110,6 +111,14 @@ class Product extends Model implements HasMedia
         return ($this->type ?? self::TYPE_SIZE) === self::TYPE_PACKAGE;
     }
 
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection(self::IMAGE_COLLECTION)
+            ->useDisk(config('media-library.disk_name', 'public'))
+            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/webp'])
+            ->singleFile();
+    }
+
     public function registerMediaConversions(?Media $media = null): void
     {
         if (!self::canOptimizeImages()) {
@@ -118,24 +127,22 @@ class Product extends Model implements HasMedia
             return;
         }
 
-        $this->addMediaConversion('optimized')
-            ->performOnCollections('images')
-            ->fit(Fit::Max, 1600, 1600) // faqat kattaroq bo'lsa kichraytiradi, upscaling yo'q
-            ->format('webp')            // hajmni ancha kamaytiradi
-            ->quality(85)               // vizual sifatni saqlagan holda
-            ->optimize()                // spatie/image-optimizer orqali siqish
-            ->nonQueued();              // darhol konvertatsiya
+        foreach ([self::OPTIMIZED_CONVERSION => 960, self::THUMBNAIL_CONVERSION => 160] as $name => $size) {
+            $this->addMediaConversion($name)
+                ->performOnCollections(self::IMAGE_COLLECTION)
+                ->fit(Fit::Max, $size, $size)
+                ->format(function_exists('imagewebp') ? 'webp' : 'jpg')
+                ->quality(78)
+                ->nonOptimized()
+                ->nonQueued();
+        }
     }
 
     public static function canOptimizeImages(): bool
     {
-        static $supportsOptimization = null;
+        $driver = config('media-library.image_driver', 'gd');
 
-        if ($supportsOptimization === null) {
-            $supportsOptimization = extension_loaded('gd') || extension_loaded('imagick');
-        }
-
-        return $supportsOptimization;
+        return in_array($driver, ['gd', 'imagick'], true) && extension_loaded($driver);
     }
 
     public function getPrimaryImageUrl(): ?string
@@ -151,6 +158,17 @@ class Product extends Model implements HasMedia
         }
 
         return $media->getUrl();
+    }
+
+    public function getThumbnailUrl(): ?string
+    {
+        $media = $this->getFirstMedia(self::IMAGE_COLLECTION);
+
+        if ($media?->hasGeneratedConversion(self::THUMBNAIL_CONVERSION)) {
+            return $media->getUrl(self::THUMBNAIL_CONVERSION);
+        }
+
+        return $this->getPrimaryImageUrl();
     }
 
     public function getImageUrls(): array
@@ -175,7 +193,7 @@ class Product extends Model implements HasMedia
         }
 
         Log::warning(
-            'Skipping optimized product image conversions because neither the GD nor Imagick PHP extensions are loaded.'
+            'Skipping product image conversions because the configured image driver is unavailable.'
         );
 
         self::$missingImageDriverLogged = true;

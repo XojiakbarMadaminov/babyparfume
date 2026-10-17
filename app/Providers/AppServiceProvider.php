@@ -2,12 +2,13 @@
 
 namespace App\Providers;
 
-use App\Models\Debtor;
 use App\Models\Sale;
+use App\Models\Debtor;
 use App\Models\Product;
-use App\Observers\DebtorObserver;
 use App\Observers\SaleObserver;
+use App\Observers\DebtorObserver;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ServiceProvider;
 use Spatie\MediaLibrary\Conversions\Events\ConversionHasBeenCompletedEvent;
 
@@ -29,15 +30,14 @@ class AppServiceProvider extends ServiceProvider
         Sale::observe(SaleObserver::class);
         Debtor::observe(DebtorObserver::class);
 
-        // Remove original product images after the optimized conversion is generated
-        Event::listen(ConversionHasBeenCompletedEvent::class, function (ConversionHasBeenCompletedEvent $event) {
+        Event::listen(ConversionHasBeenCompletedEvent::class, function (ConversionHasBeenCompletedEvent $event): void {
             $media = $event->media;
 
             if ($media->collection_name !== Product::IMAGE_COLLECTION) {
                 return;
             }
 
-            if ($event->conversion->getName() !== Product::OPTIMIZED_CONVERSION) {
+            if ($event->conversion->getName() !== Product::THUMBNAIL_CONVERSION || !$media->hasGeneratedConversion(Product::OPTIMIZED_CONVERSION)) {
                 return;
             }
 
@@ -45,9 +45,8 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            $path = $media->getPath();
-            if ($path && file_exists($path)) {
-                @unlink($path);
+            if (!Storage::disk($media->disk)->delete($media->getPathRelativeToRoot())) {
+                return;
             }
 
             $media->setCustomProperty('original_deleted', true);

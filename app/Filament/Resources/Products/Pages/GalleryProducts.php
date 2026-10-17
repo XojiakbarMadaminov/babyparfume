@@ -27,7 +27,7 @@ class GalleryProducts extends Page
     #[Url(as: 'category', except: null)]
     public int|string|null $categoryId = null;
 
-    protected int $perPage = 12;
+    protected int $perPage = 10;
 
     protected function getViewData(): array
     {
@@ -64,6 +64,7 @@ class GalleryProducts extends Page
     protected function getProductsQuery(): Builder
     {
         return Product::query()
+            ->with('media')
             ->when($this->search, function (Builder $query, string $search) {
                 $normalized = Str::lower($search);
 

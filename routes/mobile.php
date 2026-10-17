@@ -20,7 +20,7 @@ Route::prefix('mobile')->name('mobile.')->group(function (): void {
                 Route::get('products/create-options', [ProductController::class, 'createOptions'])->name('products.create-options');
                 Route::get('products/barcode', [ProductController::class, 'generateBarcode'])->middleware('throttle:60,1')->name('products.barcode');
                 Route::get('products/lookup', [ProductController::class, 'lookup'])->name('products.lookup');
-                Route::patch('products/{product}', [ProductController::class, 'update'])->middleware('throttle:30,1')->name('products.update');
+                Route::match(['post', 'patch'], 'products/{product}', [ProductController::class, 'update'])->middleware('throttle:30,1')->name('products.update');
                 Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
                 Route::get('debtors', [DebtorController::class, 'index'])->name('debtors');
                 Route::post('debtors', [DebtorController::class, 'store'])->middleware('throttle:30,1')->name('debtors.store');

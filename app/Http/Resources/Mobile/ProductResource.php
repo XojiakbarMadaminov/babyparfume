@@ -21,6 +21,7 @@ class ProductResource extends JsonResource
             'price'         => (int) $this->price,
             'type'          => $this->type,
             'image'         => $this->getPrimaryImageUrl(),
+            'thumbnail'     => $this->getThumbnailUrl(),
             'quantity'      => (int) $this->store_quantity + (int) $this->sizes->sum(fn ($size): int => (int) ($size->mobile_stock_count ? $size->mobile_quantity : $size->legacy_quantity)),
         ];
     }
