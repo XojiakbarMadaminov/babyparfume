@@ -65,5 +65,10 @@ class User extends Authenticatable implements FilamentUser
         return $this->belongsTo(Store::class, 'current_store_id');
     }
 
+    public function isSuperAdmin(): bool
+    {
+        return $this->hasRole('super_admin');
+    }
+
 
 }

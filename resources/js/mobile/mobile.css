@@ -292,5 +292,61 @@ body:has(.scanner-shell, .debtors-shell) { background: #12171e; }
 
 .sales-shell { display: flex; flex-direction: column; height: 100dvh; min-height: 0; overflow: hidden; }
 .sales-shell > .app-header { flex: none; }
+.sales-shell > .sub-marquee-bar { flex: none; }
 .sales-shell > .bottom-nav { position: static; transform: none; flex: none; }
 .sales-shell .network-warning, .sales-shell > .error-banner { flex: none; }
+
+.sub-marquee-bar {
+    width: 100%;
+    box-sizing: border-box;
+    position: relative;
+    overflow: hidden;
+    white-space: nowrap;
+    background: #b91c1c;
+    color: #ffffff;
+    height: 30px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+    user-select: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+    flex: none;
+}
+.sub-marquee-track {
+    display: flex;
+    width: max-content;
+    animation: sub-marquee-anim 22s linear infinite;
+    will-change: transform;
+}
+.sub-marquee-group {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding-right: 16px;
+    flex-shrink: 0;
+}
+.sub-marquee-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.sub-marquee-icon {
+    width: 15px;
+    height: 15px;
+    color: #fef08a;
+    flex-shrink: 0;
+}
+.sub-marquee-dot {
+    opacity: 0.6;
+    font-size: 11px;
+}
+@keyframes sub-marquee-anim {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .sub-marquee-track { animation-play-state: paused; }
+}

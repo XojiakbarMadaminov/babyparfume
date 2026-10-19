@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Mobile;
 
 use App\Models\Debtor;
 use App\Models\Product;
+use App\Models\GeneralSetting;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Http\Controllers\Controller;
@@ -31,6 +32,10 @@ class SessionController extends Controller
                 'create_product'   => Gate::allows('create', Product::class),
                 'debtors'          => Gate::allows('viewAny', Debtor::class),
                 'create_debtor'    => Gate::allows('create', Debtor::class),
+            ],
+            'subscription' => [
+                'warning_active' => GeneralSetting::isSubscriptionWarningActive(),
+                'warning_text'   => GeneralSetting::getSubscriptionWarningText(),
             ],
         ])->header('Cache-Control', 'no-store, private')->header('X-CSRF-TOKEN', $request->session()->token());
     }

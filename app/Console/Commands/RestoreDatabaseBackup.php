@@ -84,6 +84,13 @@ class RestoreDatabaseBackup extends Command
             $environment['PGSSLMODE'] = (string) $connection['sslmode'];
         }
 
+        try {
+            \Illuminate\Support\Facades\DB::connection($connectionName)->statement('DROP SCHEMA IF EXISTS public CASCADE');
+            \Illuminate\Support\Facades\DB::connection($connectionName)->statement('CREATE SCHEMA public');
+        } catch (Throwable $e) {
+            $this->warn('Schema reset warning: ' . $e->getMessage());
+        }
+
         $this->info("Restoring backup into [{$database}]...");
 
         try {
@@ -105,6 +112,9 @@ class RestoreDatabaseBackup extends Command
         }
 
         $this->info('Database restored successfully.');
+
+        $this->info('Applying pending migrations...');
+        $this->call('migrate', ['--force' => true]);
 
         return self::SUCCESS;
     }

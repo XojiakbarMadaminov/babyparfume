@@ -25,6 +25,23 @@ const online = ref(navigator.onLine);
 const updateNetwork = () => { online.value = navigator.onLine; };
 const expire = () => { session.data = null; session.notice = ''; clearCache(); };
 const reload = () => location.reload();
+const mountEl = typeof document !== 'undefined' ? document.getElementById('mobile-app') : null;
+const initialSubWarning = mountEl?.dataset?.subWarning === '1';
+const initialSubText = mountEl?.dataset?.subText || 'Oylik obuna to‘lovini to‘lashingiz talab qilinadi';
+
+const subscriptionActive = computed(() => {
+    if (session.data?.subscription) {
+        return session.data.subscription.warning_active;
+    }
+    return initialSubWarning;
+});
+
+const subscriptionText = computed(() => {
+    if (session.data?.subscription?.warning_text) {
+        return session.data.subscription.warning_text;
+    }
+    return initialSubText;
+});
 window.addEventListener('online', updateNetwork);
 window.addEventListener('offline', updateNetwork);
 window.addEventListener('mobile:unauthenticated', expire);
@@ -75,6 +92,26 @@ void bootstrap();
             <div class="header-identity"><div class="brand"><span class="brand-mark">b.</span><div><strong>BABY PARFUME</strong><small>Mobil yordamchi</small></div></div><button v-if="session.data" class="icon-button" aria-label="Hisobdan chiqish" :disabled="session.busy" @click="logout"><Icon name="logout" /></button></div>
             <div v-if="session.data" class="store-bar"><Icon name="store" /><label class="sr-only" for="mobile-store">Do‘konni tanlang</label><select id="mobile-store" :value="session.data.store_id ?? ''" :disabled="session.busy" @change="switchStore"><option value="" disabled>Do‘konni tanlang</option><option v-for="store in session.data.stores" :key="store.id" :value="store.id">{{ store.name }}</option></select></div>
         </header>
+        <div v-if="subscriptionActive" class="sub-marquee-bar" role="status" aria-live="polite">
+            <div class="sub-marquee-track">
+                <div class="sub-marquee-group">
+                    <span class="sub-marquee-item"><Icon name="warning" class="sub-marquee-icon" /><span>{{ subscriptionText }}</span></span>
+                    <span class="sub-marquee-dot">•</span>
+                    <span class="sub-marquee-item"><Icon name="warning" class="sub-marquee-icon" /><span>{{ subscriptionText }}</span></span>
+                    <span class="sub-marquee-dot">•</span>
+                    <span class="sub-marquee-item"><Icon name="warning" class="sub-marquee-icon" /><span>{{ subscriptionText }}</span></span>
+                    <span class="sub-marquee-dot">•</span>
+                </div>
+                <div class="sub-marquee-group" aria-hidden="true">
+                    <span class="sub-marquee-item"><Icon name="warning" class="sub-marquee-icon" /><span>{{ subscriptionText }}</span></span>
+                    <span class="sub-marquee-dot">•</span>
+                    <span class="sub-marquee-item"><Icon name="warning" class="sub-marquee-icon" /><span>{{ subscriptionText }}</span></span>
+                    <span class="sub-marquee-dot">•</span>
+                    <span class="sub-marquee-item"><Icon name="warning" class="sub-marquee-icon" /><span>{{ subscriptionText }}</span></span>
+                    <span class="sub-marquee-dot">•</span>
+                </div>
+            </div>
+        </div>
         <p v-if="!online" class="network-warning" role="status">Internet yo‘q. Qarz va to‘lovlar faqat aloqa tiklanganda saqlanadi.</p>
         <div v-if="error" class="error-banner" role="alert">{{ error }} <button class="text-button" @click="bootstrap">Qayta tekshirish</button><button class="text-button" @click="reload">Sahifani yangilash</button></div>
         <main v-if="!ready" class="page"><p role="status">Yuklanmoqda…</p></main>

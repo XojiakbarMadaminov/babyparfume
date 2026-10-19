@@ -1,8 +1,14 @@
+export interface SubscriptionStatus {
+    warning_active: boolean;
+    warning_text: string;
+}
+
 export interface Session {
     user: { name: string };
     stores: { id: number; name: string }[];
     store_id: number | null;
     permissions: { sales: boolean; sales_statistics?: boolean; products: boolean; create_product: boolean; debtors: boolean; create_debtor: boolean };
+    subscription?: SubscriptionStatus;
 }
 
 export interface Debtor {

@@ -27,6 +27,7 @@ const paths: Record<string, string> = {
     stop: 'M7 7h10v10H7z',
     chevron: 'm6 9 6 6 6-6',
     down: 'M7 7v10h10M7 17 18 6',
+    warning: 'M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z',
 };
 </script>
 <template><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path :d="paths[name] || paths.box" /></svg></template>
