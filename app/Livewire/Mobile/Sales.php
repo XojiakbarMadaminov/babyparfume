@@ -257,11 +257,58 @@ class Sales extends Pos
         return auth()->user()?->can('view_mobile_sales_cost_price') ?? false;
     }
 
+    public function addByBarcode(string $value): void
+    {
+        $value = trim($value);
+        if (!$value) {
+            return;
+        }
+
+        $words = preg_split('/\s+/', $value, -1, PREG_SPLIT_NO_EMPTY);
+        $product = Product::where('barcode', $value)
+            ->orWhere(function ($q) use ($value, $words): void {
+                $q->whereLike('barcode', '%' . $value . '%')
+                    ->orWhere(function ($nameQ) use ($words): void {
+                        foreach ($words as $word) {
+                            $nameQ->whereLike('name', '%' . $word . '%');
+                        }
+                    });
+            })
+            ->first();
+
+        if ($product) {
+            app(CartService::class)->add($product, 1, $this->activeCartId);
+            $this->reset('search');
+            $this->refreshCart();
+            $this->refreshActiveCarts();
+
+            Notification::make()
+                ->title("Savat #{$this->activeCartId} ga qo‘shildi")
+                ->success()
+                ->send();
+        } else {
+            Notification::make()
+                ->title('Mahsulot topilmadi')
+                ->danger()
+                ->send();
+        }
+    }
+
     public function render(): View
     {
+        $search = trim($this->search);
         $products = Product::query()->with(['category', 'media'])
-            ->when(trim($this->search), fn ($query, $search) => $query->where(fn ($query) => $query
-                ->whereLike('name', '%' . $search . '%')->orWhereLike('barcode', '%' . $search . '%')))
+            ->when($search, function ($query, $search): void {
+                $words = preg_split('/\s+/', $search, -1, PREG_SPLIT_NO_EMPTY);
+                $query->where(function ($q) use ($search, $words): void {
+                    $q->whereLike('barcode', '%' . $search . '%')
+                        ->orWhere(function ($nameQ) use ($words): void {
+                            foreach ($words as $word) {
+                                $nameQ->whereLike('name', '%' . $word . '%');
+                            }
+                        });
+                });
+            })
             ->when($this->mobileCategory, fn ($query, $category) => $query->where('category_id', $category))
             ->orderBy('name')->paginate(10);
 

@@ -157,7 +157,15 @@ class ProductController extends Controller
         Gate::authorize('viewAny', Product::class);
         $query = $this->products($request->user()->current_store_id);
         if ($search = trim((string) $request->input('q'))) {
-            $query->where(fn (Builder $products): Builder => $products->where('name', 'like', '%' . $search . '%')->orWhere('barcode', 'like', '%' . $search . '%'));
+            $words = preg_split('/\s+/', $search, -1, PREG_SPLIT_NO_EMPTY);
+            $query->where(function (Builder $products) use ($search, $words): void {
+                $products->whereLike('barcode', '%' . $search . '%')
+                    ->orWhere(function (Builder $nameQ) use ($words): void {
+                        foreach ($words as $word) {
+                            $nameQ->whereLike('name', '%' . $word . '%');
+                        }
+                    });
+            });
         }
 
         return ProductResource::collection($query->orderBy('name')->paginate(10));

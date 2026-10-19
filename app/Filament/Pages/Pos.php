@@ -252,18 +252,25 @@ class Pos extends Page
     /* ---------- Qidiruv ---------- */
     public function updatedSearch(): void
     {
-        if (empty(trim($this->search))) {
+        $search = trim($this->search);
+        if ($search === '') {
             $this->products = new EloquentCollection;
 
             return;
         }
 
+        $words = preg_split('/\s+/', $search, -1, PREG_SPLIT_NO_EMPTY);
+
         $this->products = Product::query()
             ->with('media')
-            ->where(
-                fn ($q) => $q->whereLike('barcode', "%{$this->search}%")
-                    ->orWhereLike('name', "%{$this->search}%")
-            )
+            ->where(function ($q) use ($search, $words): void {
+                $q->whereLike('barcode', "%{$search}%")
+                    ->orWhere(function ($nameQ) use ($words): void {
+                        foreach ($words as $word) {
+                            $nameQ->whereLike('name', "%{$word}%");
+                        }
+                    });
+            })
             ->orderBy('name')
             ->limit(10)
             ->get();
@@ -1036,7 +1043,18 @@ class Pos extends Page
             return;
         }
 
-        $product = Product::where('barcode', $code)->first();
+        $words   = preg_split('/\s+/', $code, -1, PREG_SPLIT_NO_EMPTY);
+        $product = Product::where('barcode', $code)
+            ->orWhere(function ($q) use ($code, $words): void {
+                $q->whereLike('barcode', "%{$code}%")
+                    ->orWhere(function ($nameQ) use ($words): void {
+                        foreach ($words as $word) {
+                            $nameQ->whereLike('name', "%{$word}%");
+                        }
+                    });
+            })
+            ->first();
+
         if ($product) {
             $this->add($product->id);
             $this->reset('search');
@@ -1055,10 +1073,15 @@ class Pos extends Page
             return;
         }
 
+        $words   = preg_split('/\s+/', $value, -1, PREG_SPLIT_NO_EMPTY);
         $product = Product::where('barcode', $value)
-            ->orWhere(function ($q) use ($value) {
-                $q->where('name', 'ILIKE', "{$value}%")
-                    ->orWhere('name', 'ILIKE', "%{$value}");
+            ->orWhere(function ($q) use ($value, $words): void {
+                $q->whereLike('barcode', "%{$value}%")
+                    ->orWhere(function ($nameQ) use ($words): void {
+                        foreach ($words as $word) {
+                            $nameQ->whereLike('name', "%{$word}%");
+                        }
+                    });
             })
             ->first();
 
