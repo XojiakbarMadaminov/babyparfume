@@ -29,7 +29,7 @@ class DebtorController extends Controller
             $query->zeroDebt();
         }
         if ($search = trim((string) $request->input('q'))) {
-            $query->whereHas('client', fn (Builder $clients): Builder => $clients->where('full_name', 'like', '%' . $search . '%')->orWhere('phone', 'like', '%' . $search . '%'));
+            $query->whereHas('client', fn (Builder $clients): Builder => $clients->whereLike('full_name', '%' . $search . '%')->orWhereLike('phone', '%' . $search . '%'));
         }
         $totals = Debtor::query()->stillInDebt()->selectRaw('currency, SUM(amount) as amount, COUNT(*) as count')->groupBy('currency')->get();
 
