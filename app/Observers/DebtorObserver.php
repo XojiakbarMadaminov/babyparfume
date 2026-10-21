@@ -6,7 +6,6 @@ use App\Models\Debtor;
 use App\Services\SmsService;
 use Illuminate\Support\Carbon;
 use App\Services\TelegramNotifier;
-use Illuminate\Support\Facades\Log;
 
 class DebtorObserver
 {
@@ -20,7 +19,17 @@ class DebtorObserver
      */
     public function created(Debtor $debtor): void
     {
-        Log::info('debtor', [$debtor->toArray()]);
+        if ($debtor->getConnection()->transactionLevel() > 0 && request()->is('api/flutter/*')) {
+            $snapshot = clone $debtor;
+            $debtor->getConnection()->afterCommit(fn () => $this->notifyCreated($snapshot));
+
+            return;
+        }
+        $this->notifyCreated($debtor);
+    }
+
+    protected function notifyCreated(Debtor $debtor): void
+    {
         $message = "Siz uchun {$debtor->store->address}da joylashgan {$debtor->store->name} do'konidan {$debtor->amount} UZS qarzdorlik qayd etildi. To'lov uchun +998913291187.";
         $this->sms->sendSms($debtor->client->phone, $message);
 
@@ -42,6 +51,17 @@ class DebtorObserver
      * Qarzdor yangilanganda (qarz miqdori o'zgarganda)
      */
     public function updated(Debtor $debtor): void
+    {
+        if ($debtor->getConnection()->transactionLevel() > 0 && request()->is('api/flutter/*')) {
+            $snapshot = clone $debtor;
+            $debtor->getConnection()->afterCommit(fn () => $this->notifyUpdated($snapshot));
+
+            return;
+        }
+        $this->notifyUpdated($debtor);
+    }
+
+    protected function notifyUpdated(Debtor $debtor): void
     {
         if ($debtor->isDirty('amount')) {
             $originalAmount = (int) $debtor->getOriginal('amount');

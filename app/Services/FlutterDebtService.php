@@ -14,7 +14,7 @@ use Illuminate\Validation\ValidationException;
 class FlutterDebtService
 {
     /**
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      */
     public function create(User $user, Store $store, array $data): Debtor
     {
@@ -91,7 +91,7 @@ class FlutterDebtService
     }
 
     /**
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      */
     public function update(User $user, Store $store, Debtor $debtor, array $data): Debtor
     {
@@ -110,11 +110,12 @@ class FlutterDebtService
                     $oldPhoto           = $locked->photo_path;
                     $locked->photo_path = $photoPath;
                     if ($oldPhoto) {
-                        Storage::disk('local')->delete($oldPhoto);
+                        $user->getConnection()->afterCommit(fn () => Storage::disk('local')->delete($oldPhoto));
                     }
                 } elseif (!empty($data['remove_photo'])) {
                     if ($locked->photo_path) {
-                        Storage::disk('local')->delete($locked->photo_path);
+                        $oldPhoto = $locked->photo_path;
+                        $user->getConnection()->afterCommit(fn () => Storage::disk('local')->delete($oldPhoto));
                         $locked->photo_path = null;
                     }
                 }
@@ -184,7 +185,7 @@ class FlutterDebtService
     }
 
     /**
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      */
     public function transact(User $user, Store $store, Debtor $debtor, array $data): Debtor
     {
@@ -243,7 +244,7 @@ class FlutterDebtService
     }
 
     /**
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      */
     private function requestHash(string $operation, array $data): string
     {

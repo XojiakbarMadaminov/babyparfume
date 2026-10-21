@@ -39,15 +39,15 @@ class UpdateProductRequest extends FormRequest
     {
         $store    = $this->attributes->get('flutter_store');
         $storeId  = (int) ($store?->id ?? $this->route('store'));
-        $stockIds = Stock::withoutGlobalScope('current_store')->pluck('id')->all();
+        $stockIds = Stock::withoutGlobalScope('current_store')->whereHas('stores', fn ($query) => $query->whereKey($storeId))->pluck('id')->all();
         $product  = $this->route('product');
         $type     = $this->input('type', $product instanceof Product ? $product->type : null);
 
         return [
-            'photo'                     => ProductPhotoService::rules(),
-            'remove_image'              => ['sometimes', 'boolean'],
-            'name'                      => ['required', 'string', 'max:255'],
-            'barcode'                   => [
+            'photo'        => ProductPhotoService::rules(),
+            'remove_image' => ['sometimes', 'boolean'],
+            'name'         => ['required', 'string', 'max:255'],
+            'barcode'      => [
                 'required',
                 'string',
                 'regex:/^[0-9]+$/',

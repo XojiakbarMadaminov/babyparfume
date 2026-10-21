@@ -1,9 +1,13 @@
 import 'dart:math';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:dio/dio.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:uuid/uuid.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/sync/outbox_manager.dart';
+import '../../../core/storage/secure_storage.dart';
+import '../../../core/database/local_cache.dart';
 
 class LocalProduct {
   final String id;
@@ -15,6 +19,13 @@ class LocalProduct {
   final double? initialPrice;
   final int stockQuantity;
   final String? updatedAt;
+  final String? stockId;
+  final String? sizeId;
+  final String? sizeName;
+  final bool canUpdate;
+  final bool canDelete;
+  final String? imageUrl;
+  final int revision;
 
   LocalProduct({
     required this.id,
@@ -26,9 +37,17 @@ class LocalProduct {
     this.initialPrice,
     required this.stockQuantity,
     this.updatedAt,
+    this.stockId,
+    this.sizeId,
+    this.sizeName,
+    this.canUpdate = false,
+    this.canDelete = false,
+    this.imageUrl,
+    this.revision = 0,
   });
 
-  factory LocalProduct.fromMap(Map<String, dynamic> map, {int stockQuantity = 0}) {
+  factory LocalProduct.fromMap(Map<String, dynamic> map,
+      {int stockQuantity = 0}) {
     return LocalProduct(
       id: map['id'] as String,
       storeId: map['store_id'] as String,
@@ -39,8 +58,30 @@ class LocalProduct {
       initialPrice: (map['initial_price'] as num?)?.toDouble(),
       stockQuantity: stockQuantity,
       updatedAt: map['updated_at'] as String?,
+      stockId: map['stock_id']?.toString(),
+      sizeId: map['size_id']?.toString(),
+      sizeName: map['size_name']?.toString(),
+      canUpdate: map['can_update'] == 1 || map['can_update'] == true,
+      canDelete: map['can_delete'] == 1 || map['can_delete'] == true,
+      imageUrl: map['image_url']?.toString() ?? map['image']?.toString(),
+      revision: int.tryParse(map['revision']?.toString() ?? '') ?? 0,
     );
   }
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'store_id': storeId,
+        'name': name,
+        'barcode': barcode,
+        'type': type,
+        'price': price,
+        'stock_id': stockId,
+        'size_id': sizeId,
+        'size_name': sizeName,
+        'updated_at': updatedAt,
+        'stock_quantity': stockQuantity,
+        'revision': revision
+      };
 }
 
 class ProductsRepository {
@@ -55,10 +96,11 @@ class ProductsRepository {
   }) : _getDb = getDb ?? AppDatabase.getInstance;
 
   /// Fast offline multiword and barcode search (PH07-01)
-  Future<List<LocalProduct>> searchProducts(String storeId, {String? query}) async {
+  Future<List<LocalProduct>> searchProducts(String storeId,
+      {String? query}) async {
     final db = await _getDb();
     String sql = '''
-      SELECT p.*, COALESCE(SUM(s.quantity), 0) as total_stock
+      SELECT p.*, MIN(s.stock_id) as stock_id, COALESCE(SUM(s.quantity), 0) as total_stock
       FROM products p
       LEFT JOIN product_stocks s ON p.id = s.product_id
       WHERE p.store_id = ?
@@ -68,7 +110,7 @@ class ProductsRepository {
     if (query != null && query.trim().isNotEmpty) {
       final words = query.trim().toLowerCase().split(RegExp(r'\s+'));
       for (final word in words) {
-        sql += ' AND (LOWER(p.name) LIKE ? OR p.barcode LIKE ?)';
+        sql += ' AND (p.search_name LIKE ? OR p.barcode LIKE ?)';
         final match = '%$word%';
         args.addAll([match, match]);
       }
@@ -86,7 +128,7 @@ class ProductsRepository {
   Future<LocalProduct?> findByBarcode(String storeId, String barcode) async {
     final db = await _getDb();
     final rows = await db.rawQuery('''
-      SELECT p.*, COALESCE(SUM(s.quantity), 0) as total_stock
+      SELECT p.*, MIN(s.stock_id) as stock_id, COALESCE(SUM(s.quantity), 0) as total_stock
       FROM products p
       LEFT JOIN product_stocks s ON p.id = s.product_id
       WHERE p.store_id = ? AND p.barcode = ?
@@ -117,76 +159,108 @@ class ProductsRepository {
     return '$raw$checkDigit';
   }
 
-  Future<LocalProduct> createProduct({
-    required String storeId,
-    required String name,
-    String? barcode,
-    required double price,
-    int initialStock = 0,
-  }) async {
-    final db = await _getDb();
-    final productId = const Uuid().v4();
-    final now = DateTime.now().toIso8601String();
-    final finalBarcode = barcode ?? generateBarcode();
+  ApiClient get _api => apiClient ?? ApiClient(storage: SecureStorageService());
 
-    await db.transaction((txn) async {
-      await txn.insert('products', {
-        'id': productId,
-        'store_id': storeId,
-        'name': name,
-        'barcode': finalBarcode,
-        'type': 'package',
-        'price': price,
-        'initial_price': price,
-        'updated_at': now,
-      });
+  Future<Map<String, dynamic>> formData(
+          String storeId, String? productId) async =>
+      Map<String, dynamic>.from((await _api.get(productId == null
+              ? '/stores/$storeId/products/create-options'
+              : '/stores/$storeId/products/$productId'))
+          .data as Map);
 
-      if (initialStock > 0) {
-        await txn.insert('product_stocks', {
-          'product_id': productId,
-          'stock_id': 'default',
-          'quantity': initialStock,
-        });
-      }
+  Future<LocalProduct> saveProduct(String storeId, Map<String, dynamic> payload,
+      {String? productId, Uint8List? photo}) async {
+    final data = FormData.fromMap({
+      ...payload,
+      if (payload.containsKey('stocks'))
+        'stocks': jsonEncode(payload['stocks']),
+      if (payload.containsKey('sizes')) 'sizes': jsonEncode(payload['sizes']),
+      if (photo != null)
+        'photo': MultipartFile.fromBytes(photo, filename: 'photo.jpg'),
     });
+    final response = await _api.post(
+        '/stores/$storeId/products${productId == null ? '' : '/$productId'}',
+        data: data);
+    final product = Map<String, dynamic>.from(response.data['data'] as Map);
+    final db = await _getDb();
+    await db.transaction((txn) => LocalCache.product(txn, storeId, product));
+    return LocalProduct.fromMap({
+      ...product,
+      'id': product['id'].toString(),
+      'store_id': storeId,
+      'price': LocalCache.number(product['price']),
+      'initial_price': product['initial_price'] == null
+          ? null
+          : LocalCache.number(product['initial_price'])
+    }, stockQuantity: (product['quantity'] as num?)?.toInt() ?? 0);
+  }
 
-    // Enqueue operation in outbox
-    await outboxManager.enqueueOperation(
-      entityType: 'product',
-      operationType: 'product.create',
-      payload: {
-        'local_id': productId,
-        'name': name,
-        'barcode': finalBarcode,
-        'price': price.toStringAsFixed(2),
-        'stock_quantity': initialStock,
-        'occurred_at': now,
-      },
-    );
+  Future<String> requestBarcode(String storeId) async =>
+      (await _api.get('/stores/$storeId/products/barcode'))
+          .data['barcode']
+          .toString();
 
-    return LocalProduct(
-      id: productId,
-      storeId: storeId,
-      name: name,
-      barcode: finalBarcode,
-      type: 'package',
-      price: price,
-      stockQuantity: initialStock,
-      updatedAt: now,
-    );
+  Future<List<LocalProduct>> variants(LocalProduct product) async {
+    final db = await _getDb();
+    final stocks = await db.query('product_stocks',
+        where: 'product_id = ?', whereArgs: [product.id]);
+    return stocks
+        .map((stock) => LocalProduct.fromMap(
+            {...product.toMap(), ...stock, 'id': product.id},
+            stockQuantity: (stock['quantity'] as num).toInt()))
+        .toList();
+  }
+
+  Future<LocalProduct> createProduct(
+      {required String storeId,
+      required String name,
+      String? barcode,
+      required double price,
+      required double initialPrice,
+      int initialStock = 0}) async {
+    final api = _api;
+    final finalBarcode = barcode ?? await requestBarcode(storeId);
+    final options = await api.get('/stores/$storeId/products/create-options');
+    final stocks = options.data['stocks'] as List;
+    if (initialStock > 0 && stocks.isEmpty) {
+      throw StateError('Do‘kon uchun ombor mavjud emas.');
+    }
+    final response = await api.post('/stores/$storeId/products', data: {
+      'name': name,
+      'barcode': finalBarcode,
+      'type': 'package',
+      'price': price.toInt(),
+      'initial_price': initialPrice.toInt(),
+      'stocks': stocks.isEmpty
+          ? []
+          : [
+              {'stock_id': stocks.first['id'], 'quantity': initialStock}
+            ],
+    });
+    final product = Map<String, dynamic>.from(response.data['data'] as Map);
+    final db = await _getDb();
+    await db.transaction((txn) => LocalCache.product(txn, storeId, product));
+    return LocalProduct.fromMap({
+      ...product,
+      'id': product['id'].toString(),
+      'store_id': storeId,
+      'price': LocalCache.number(product['price']),
+      'initial_price': product['initial_price'] == null
+          ? null
+          : LocalCache.number(product['initial_price'])
+    }, stockQuantity: (product['quantity'] as num?)?.toInt() ?? 0);
   }
 
   Future<void> deleteProduct(String productId) async {
     final db = await _getDb();
+    final rows =
+        await db.query('products', where: 'id = ?', whereArgs: [productId]);
+    if (rows.isEmpty) throw StateError('Mahsulot topilmadi.');
+    await _api.delete('/stores/${rows.first['store_id']}/products/$productId');
     await db.transaction((txn) async {
+      await txn.delete('product_stocks',
+          where: 'product_id = ?', whereArgs: [productId]);
       await txn.delete('products', where: 'id = ?', whereArgs: [productId]);
-      await txn.delete('product_stocks', where: 'product_id = ?', whereArgs: [productId]);
     });
-
-    await outboxManager.enqueueOperation(
-      entityType: 'product',
-      operationType: 'product.delete',
-      payload: {'id': productId},
-    );
   }
 }

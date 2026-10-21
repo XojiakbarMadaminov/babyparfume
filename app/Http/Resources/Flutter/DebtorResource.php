@@ -19,7 +19,16 @@ class DebtorResource extends JsonResource
         $canUpdate = $this->client !== null && $user && Gate::forUser($user)->allows('update', $this->resource);
 
         return [
-            'id'                => (string) $this->id,
+            'id'           => (string) $this->id,
+            'client_id'    => $this->client_id ? (string) $this->client_id : null,
+            'revision'     => (string) ($this->sync_revision ?? app(\App\Services\FlutterSyncService::class)->entityRevision((int) $this->store_id, 'debtor', $this->id)),
+            'updated_at'   => $this->updated_at?->toIso8601String(),
+            'transactions' => $this->whenLoaded('transactions', fn () => $this->transactions->map(fn ($transaction): array => [
+                'id'         => (string) $transaction->id, 'debtor_id' => (string) $this->id,
+                'type'       => (string) $transaction->type, 'amount' => (string) $transaction->amount,
+                'date'       => (string) $transaction->date, 'note' => $transaction->note,
+                'request_id' => $transaction->mobile_request_id,
+            ])->values()->all()),
             'full_name'         => (string) ($this->client?->full_name ?? 'Mijoz o‘chirilgan'),
             'phone'             => $this->client?->phone ? (string) $this->client->phone : null,
             'amount'            => (string) (int) $this->amount,

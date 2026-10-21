@@ -11,15 +11,15 @@ use Illuminate\Database\Eloquent\Builder;
 class MobileSalesStatisticsService
 {
     /** @param array{period: string, start: string, end: string} $filter */
-    public function report(int $storeId, array $filter, bool $canViewTopProducts): array
+    public function report(int $storeId, array $filter, bool $canViewTopProducts, bool $ignoreSessionStore = false): array
     {
         $start       = Carbon::parse($filter['start'])->startOfDay();
         $end         = Carbon::parse($filter['end'])->endOfDay();
-        $sales       = $this->sales($storeId, $start, $end);
+        $sales       = $this->sales($storeId, $start, $end, $ignoreSessionStore);
         $summary     = (clone $sales)->selectRaw('COUNT(*) as sales_count, COALESCE(SUM(total_amount), 0) as amount')->first();
         $grossAmount = (float) $summary->amount;
         $count       = (int) $summary->sales_count;
-        $profit      = (float) SaleItem::query()->whereIn('sale_id', (clone $sales)->select('id'))
+        $profit      = (float) SaleItem::query()->when($ignoreSessionStore, fn ($query) => $query->withoutGlobalScope('current_store'))->whereIn('sale_id', (clone $sales)->select('id'))
             ->selectRaw('COALESCE(SUM((sale_items.price - sale_items.unit_cost) * sale_items.quantity), 0) as profit')
             ->value('profit');
         $adjustments = $this->adjustments($storeId, $start, $end);
@@ -28,7 +28,7 @@ class MobileSalesStatisticsService
         $days           = (int) $start->diffInDays($end->copy()->startOfDay()) + 1;
         $previousEnd    = $start->copy()->subDay()->endOfDay();
         $previousStart  = $start->copy()->subDays($days);
-        $previousAmount = (float) $this->sales($storeId, $previousStart, $previousEnd)->sum('total_amount')
+        $previousAmount = (float) $this->sales($storeId, $previousStart, $previousEnd, $ignoreSessionStore)->sum('total_amount')
             + $this->adjustments($storeId, $previousStart, $previousEnd)['revenue'];
 
         return [
@@ -41,13 +41,13 @@ class MobileSalesStatisticsService
             'changePercent'  => $previousAmount > 0 ? ($netAmount - $previousAmount) / $previousAmount * 100 : null,
             'trend'          => $this->trend($sales, $start, $end, $filter['period'] === 'today'),
             'payments'       => $this->payments($sales, $grossAmount),
-            'topProducts'    => $canViewTopProducts ? $this->topProducts($sales) : [],
+            'topProducts'    => $canViewTopProducts ? $this->topProducts($sales, $ignoreSessionStore) : [],
         ];
     }
 
-    private function sales(int $storeId, Carbon $start, Carbon $end): Builder
+    private function sales(int $storeId, Carbon $start, Carbon $end, bool $ignoreSessionStore = false): Builder
     {
-        return Sale::query()->where('store_id', $storeId)->completed()->whereBetween('created_at', [$start, $end]);
+        return Sale::query()->when($ignoreSessionStore, fn ($query) => $query->withoutGlobalScope('current_store'))->where('store_id', $storeId)->completed()->whereBetween('created_at', [$start, $end]);
     }
 
     /** @return array{revenue: float, profit: float} */
@@ -121,10 +121,10 @@ class MobileSalesStatisticsService
         return $payments;
     }
 
-    private function topProducts(Builder $sales): array
+    private function topProducts(Builder $sales, bool $ignoreSessionStore = false): array
     {
-        return SaleItem::query()->whereIn('sale_id', (clone $sales)->select('id'))
-            ->with(['product' => fn ($query) => $query->withTrashed()])
+        return SaleItem::query()->when($ignoreSessionStore, fn ($query) => $query->withoutGlobalScope('current_store'))->whereIn('sale_id', (clone $sales)->select('id'))
+            ->with(['product' => fn ($query) => $query->when($ignoreSessionStore, fn ($products) => $products->withoutGlobalScope('current_store'))->withTrashed()])
             ->selectRaw('product_id, SUM(quantity) as quantity_sold, SUM(total) as amount')
             ->groupBy('product_id')->orderByDesc('quantity_sold')->orderBy('product_id')->limit(10)->get()
             ->map(fn (SaleItem $item): array => [

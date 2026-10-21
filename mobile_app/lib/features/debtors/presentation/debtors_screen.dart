@@ -10,11 +10,13 @@ import 'debtor_form_dialog.dart';
 class DebtorsScreen extends StatefulWidget {
   final String storeId;
   final DebtorsRepository? repository;
+  final bool canCreate;
 
   const DebtorsScreen({
     super.key,
     required this.storeId,
     this.repository,
+    this.canCreate = false,
   });
 
   @override
@@ -25,25 +27,32 @@ class _DebtorsScreenState extends State<DebtorsScreen> {
   final TextEditingController _searchController = TextEditingController();
   late final DebtorsRepository _repository;
   List<LocalDebtor> _debtors = [];
-  double _totalDebt = 0.0;
+  Map<String, double> _totals = {};
+  Map<String, int> _counts = {};
+  int _loadVersion = 0;
   bool _isLoading = true;
   String _searchQuery = '';
+  String _filter = 'active';
 
   @override
   void initState() {
     super.initState();
-    _repository = widget.repository ?? DebtorsRepository(outboxManager: OutboxManager());
+    _repository =
+        widget.repository ?? DebtorsRepository(outboxManager: OutboxManager());
     _loadDebtors();
   }
 
   Future<void> _loadDebtors() async {
+    final version = ++_loadVersion;
     setState(() => _isLoading = true);
-    final list = await _repository.getDebtors(widget.storeId, query: _searchQuery);
-    final total = await _repository.getTotalDebt(widget.storeId);
-    if (mounted) {
+    final list = await _repository.getDebtors(widget.storeId,
+        query: _searchQuery, filter: _filter);
+    final summary = await _repository.summary(widget.storeId);
+    if (mounted && version == _loadVersion) {
       setState(() {
         _debtors = list;
-        _totalDebt = total;
+        _totals = summary.totals;
+        _counts = summary.counts;
         _isLoading = false;
       });
     }
@@ -94,6 +103,26 @@ class _DebtorsScreenState extends State<DebtorsScreen> {
       ),
       body: Column(
         children: [
+          SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                  children: const {
+                'active': 'Faol',
+                'closed': 'Yopilgan',
+                'overdue': 'Muddati o‘tgan'
+              }
+                      .entries
+                      .map((entry) => Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: ChoiceChip(
+                              label: Text(
+                                  '${entry.value} (${_counts[entry.key] ?? 0})'),
+                              selected: _filter == entry.key,
+                              onSelected: (_) {
+                                setState(() => _filter = entry.key);
+                                _loadDebtors();
+                              })))
+                      .toList())),
           // Total debt summary card
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -111,23 +140,29 @@ class _DebtorsScreenState extends State<DebtorsScreen> {
                   children: [
                     const Text(
                       "Jami qarz miqdori",
-                      style: TextStyle(color: AppColors.lightMuted, fontSize: 13),
+                      style:
+                          TextStyle(color: AppColors.lightMuted, fontSize: 13),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       "${_debtors.length} ta qarzdor",
-                      style: const TextStyle(color: AppColors.lightMuted, fontSize: 11),
+                      style: const TextStyle(
+                          color: AppColors.lightMuted, fontSize: 11),
                     ),
                   ],
                 ),
-                Text(
-                  CurrencyFormat.format(_totalDebt),
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.lightAccent,
-                  ),
-                ),
+                Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: _totals.entries
+                        .map((entry) => Text(
+                            CurrencyFormat.format(entry.value,
+                                suffix:
+                                    entry.key == 'UZS' ? "so'm" : entry.key),
+                            style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.lightAccent)))
+                        .toList()),
               ],
             ),
           ),
@@ -143,8 +178,10 @@ class _DebtorsScreenState extends State<DebtorsScreen> {
               },
               decoration: InputDecoration(
                 hintText: "Ism yoki telefon raqami bo'yicha qidirish...",
-                prefixIcon: const Icon(Icons.search, color: AppColors.lightMuted),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                prefixIcon:
+                    const Icon(Icons.search, color: AppColors.lightMuted),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 fillColor: AppColors.lightSoft,
                 filled: true,
                 border: OutlineInputBorder(
@@ -163,7 +200,8 @@ class _DebtorsScreenState extends State<DebtorsScreen> {
                     ? const Center(
                         child: Text(
                           "Qarzdor topilmadi",
-                          style: TextStyle(color: AppColors.lightMuted, fontSize: 14),
+                          style: TextStyle(
+                              color: AppColors.lightMuted, fontSize: 14),
                         ),
                       )
                     : ListView.separated(
@@ -191,31 +229,42 @@ class _DebtorsScreenState extends State<DebtorsScreen> {
                                       color: AppColors.lightSoft,
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(Icons.person_outline, color: AppColors.lightMuted),
+                                    child: const Icon(Icons.person_outline,
+                                        color: AppColors.lightMuted),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           debtor.fullName,
-                                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 14),
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
                                           PhoneFormat.format(debtor.phone),
-                                          style: const TextStyle(color: AppColors.lightMuted, fontSize: 12),
+                                          style: const TextStyle(
+                                              color: AppColors.lightMuted,
+                                              fontSize: 12),
                                         ),
                                       ],
                                     ),
                                   ),
                                   Text(
-                                    CurrencyFormat.format(debtor.amount),
+                                    CurrencyFormat.format(debtor.amount,
+                                        suffix: debtor.currency == 'UZS'
+                                            ? "so'm"
+                                            : debtor.currency),
                                     style: TextStyle(
                                       fontWeight: FontWeight.w700,
                                       fontSize: 14,
-                                      color: debtor.amount > 0 ? AppColors.lightDanger : AppColors.success,
+                                      color: debtor.amount > 0
+                                          ? AppColors.lightDanger
+                                          : AppColors.success,
                                     ),
                                   ),
                                 ],
@@ -227,13 +276,15 @@ class _DebtorsScreenState extends State<DebtorsScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.primaryButton,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.person_add_alt_1),
-        label: const Text("Qarz qo'shish"),
-        onPressed: _openAddDebtorDialog,
-      ),
+      floatingActionButton: !widget.canCreate
+          ? null
+          : FloatingActionButton.extended(
+              backgroundColor: AppColors.primaryButton,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.person_add_alt_1),
+              label: const Text("Qarz qo'shish"),
+              onPressed: _openAddDebtorDialog,
+            ),
     );
   }
 }

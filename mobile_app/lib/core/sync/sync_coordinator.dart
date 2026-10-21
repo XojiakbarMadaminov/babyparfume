@@ -1,7 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:dio/dio.dart';
 import 'package:sqflite/sqflite.dart';
 import '../api/api_client.dart';
 import '../database/app_database.dart';
+import '../database/local_cache.dart';
 import '../lease/lease_manager.dart';
 import 'outbox_manager.dart';
 import 'sync_models.dart';
@@ -11,345 +15,370 @@ class SyncCoordinator {
   final OutboxManager outboxManager;
   final LeaseManager leaseManager;
   final Future<Database> Function() _getDb;
-
-  final StreamController<SyncProgress> _progressController =
-      StreamController<SyncProgress>.broadcast();
-
+  final _progressController = StreamController<SyncProgress>.broadcast();
   SyncProgress _currentProgress = const SyncProgress();
+  Future<bool>? _running;
+  String? _activeStore;
   SyncProgress get currentProgress => _currentProgress;
   Stream<SyncProgress> get progressStream => _progressController.stream;
+  SyncCoordinator(
+      {required this.apiClient,
+      required this.outboxManager,
+      required this.leaseManager,
+      Future<Database> Function()? getDb})
+      : _getDb = getDb ?? AppDatabase.getInstance;
 
-  SyncCoordinator({
-    required this.apiClient,
-    required this.outboxManager,
-    required this.leaseManager,
-    Future<Database> Function()? getDb,
-  }) : _getDb = getDb ?? AppDatabase.getInstance;
-
-  void _updateProgress(SyncProgress progress) {
+  void _update(SyncProgress progress) {
     _currentProgress = progress;
-    _progressController.add(progress);
+    if (!_progressController.isClosed) _progressController.add(progress);
   }
 
-  Future<int?> getSavedWatermark() async {
-    final db = await _getDb();
-    final rows = await db.query(
-      'sync_state',
-      where: 'key = ?',
-      whereArgs: ['watermark'],
-      limit: 1,
-    );
-    if (rows.isEmpty) return null;
-    return int.tryParse(rows.first['value'] as String);
+  Future<String?> _state(String key) async {
+    final rows = await (await _getDb())
+        .query('sync_state', where: 'key = ?', whereArgs: [key]);
+    return rows.isEmpty ? null : rows.first['value'] as String;
   }
 
-  Future<void> saveWatermark(int watermark) async {
-    final db = await _getDb();
-    await db.insert(
-      'sync_state',
-      {'key': 'watermark', 'value': watermark.toString()},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-  }
+  Future<void> _save(String key, String value,
+          [DatabaseExecutor? executor]) async =>
+      (executor ?? await _getDb()).insert(
+          'sync_state', {'key': key, 'value': value},
+          conflictAlgorithm: ConflictAlgorithm.replace);
+  Future<int?> getSavedWatermark() async =>
+      int.tryParse(await _state('watermark') ?? '');
+  Future<void> saveWatermark(int value) => _save('watermark', value.toString());
 
-  /// 1. Bootstrap: full data download for initial setup or cache reset
   Future<bool> runBootstrap(String storeId) async {
-    _updateProgress(_currentProgress.copyWith(
-      status: SyncStatus.syncing,
-      message: "Serverdan dastlabki ma'lumotlar yuklanmoqda...",
-    ));
-
+    final db = await _getDb();
+    Map<String, dynamic> snapshot;
+    final saved = await _state('bootstrap');
+    if (saved != null) {
+      snapshot = jsonDecode(saved) as Map<String, dynamic>;
+    } else {
+      snapshot = Map<String, dynamic>.from(
+          (await apiClient.post('/stores/$storeId/bootstrap')).data['data']
+              as Map);
+      snapshot['completed'] = <String>[];
+      snapshot['cursors'] = <String, dynamic>{};
+      await db.transaction((txn) async {
+        await txn.delete('server_cache', where: "entity LIKE 'stage_%'");
+        await _save('bootstrap', jsonEncode(snapshot), txn);
+        await _save('store_stocks', jsonEncode(snapshot['stocks'] ?? []), txn);
+      });
+    }
     try {
-      final response = await apiClient.post('/stores/$storeId/bootstrap');
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception("Bootstrap init xatosi: ${response.statusCode}");
+      for (final entity in ['products', 'debtors', 'clients']) {
+        final completed = List<String>.from(snapshot['completed'] as List);
+        if (completed.contains(entity)) continue;
+        if ((snapshot['manifest'] as Map)[entity] == 0 ||
+            (snapshot['manifest'] as Map)[entity] == null) {
+          (snapshot['completed'] as List).add(entity);
+          continue;
+        }
+        var cursor = (snapshot['cursors'] as Map)[entity]?.toString() ?? '0';
+        while (true) {
+          final response = await apiClient.get(
+              '/stores/$storeId/bootstrap/${snapshot['snapshot_id']}',
+              queryParameters: {
+                'entity': entity,
+                'cursor': cursor,
+                'limit': 500
+              });
+          final page = Map<String, dynamic>.from(response.data['data'] as Map);
+          final items = List<Map<String, dynamic>>.from((page['items'] as List)
+              .map((v) => Map<String, dynamic>.from(v as Map)));
+          final next = page['next_cursor']?.toString() ?? cursor;
+          if (page['has_more'] == true && (next == cursor || items.isEmpty)) {
+            throw StateError('Yuklash kursori siljimadi.');
+          }
+          await db.transaction((txn) async {
+            for (final item in items) {
+              await txn.insert(
+                  'server_cache',
+                  {
+                    'entity': 'stage_$entity',
+                    'id': item['id'].toString(),
+                    'payload_json': jsonEncode(item)
+                  },
+                  conflictAlgorithm: ConflictAlgorithm.replace);
+            }
+            (snapshot['cursors'] as Map)[entity] = next;
+            if (page['has_more'] != true) {
+              (snapshot['completed'] as List).add(entity);
+            }
+            await _save('bootstrap', jsonEncode(snapshot), txn);
+          });
+          cursor = next;
+          if (page['has_more'] != true) break;
+        }
       }
-
-      final data = response.data['data'] as Map<String, dynamic>;
-      final snapshotId = data['snapshot_id'].toString();
-      final watermark = int.tryParse(data['watermark']?.toString() ?? '0') ?? 0;
-
-      // Download paginated products
-      await _downloadEntityPages(storeId, snapshotId, 'products');
-
-      // Download paginated debtors
-      await _downloadEntityPages(storeId, snapshotId, 'debtors');
-
-      // Save watermark
-      await saveWatermark(watermark);
-
-      _updateProgress(_currentProgress.copyWith(
-        status: SyncStatus.offlineReady,
-        message: "Oflayn ma'lumotlar muvaffaqiyatli saqlandi",
-        currentWatermark: watermark,
-        lastSyncTime: DateTime.now(),
-      ));
-
+      await db.transaction((txn) async {
+        for (final entity in ['products', 'debtors', 'clients']) {
+          final rows = await txn.query('server_cache',
+              where: 'entity = ?', whereArgs: ['stage_$entity']);
+          final expected = (snapshot['manifest'] as Map)[entity];
+          if (expected is! num || rows.length != expected.toInt()) {
+            throw StateError('To‘liq ma’lumot yuklanmagan.');
+          }
+          await txn
+              .delete('server_cache', where: 'entity = ?', whereArgs: [entity]);
+          for (final row in rows) {
+            final item = jsonDecode(row['payload_json'] as String)
+                as Map<String, dynamic>;
+            await txn.insert('server_cache', {...row, 'entity': entity},
+                conflictAlgorithm: ConflictAlgorithm.replace);
+            if (entity == 'products') {
+              await LocalCache.product(txn, storeId, item);
+            } else if (entity == 'clients') {
+              await LocalCache.client(txn, storeId, item);
+            } else {
+              await LocalCache.debtor(txn, storeId, item);
+            }
+          }
+        }
+        final staleProducts = await txn.rawQuery(
+            "SELECT id FROM products WHERE id NOT IN (SELECT id FROM server_cache WHERE entity = 'products')");
+        for (final product in staleProducts) {
+          await txn.delete('product_stocks',
+              where: 'product_id = ?', whereArgs: [product['id']]);
+          await txn
+              .delete('products', where: 'id = ?', whereArgs: [product['id']]);
+        }
+        for (final entity in ['debtors', 'clients']) {
+          final stale = await txn.rawQuery(
+              'SELECT server_id FROM $entity WHERE server_id IS NOT NULL AND server_id NOT IN (SELECT id FROM server_cache WHERE entity = ?)',
+              [entity]);
+          for (final row in stale) {
+            await LocalCache.removeCanonical(
+                txn, entity, row['server_id'] as String);
+          }
+        }
+        await _save('watermark', snapshot['watermark'].toString(), txn);
+        await _save('offline_ready', '1', txn);
+        await txn
+            .delete('sync_state', where: 'key = ?', whereArgs: ['bootstrap']);
+        await txn.delete('server_cache', where: "entity LIKE 'stage_%'");
+      });
       return true;
-    } catch (e) {
-      _updateProgress(_currentProgress.copyWith(
-        status: SyncStatus.error,
-        message: "Bootstrap xatosi yuz berdi",
-        lastError: e.toString(),
-      ));
+    } on DioException catch (error) {
+      if ([404, 409, 410].contains(error.response?.statusCode)) {
+        await db
+            .delete('sync_state', where: 'key = ?', whereArgs: ['bootstrap']);
+      }
+      rethrow;
+    }
+  }
+
+  Future<int> pushOutbox(String storeId) async {
+    var applied = 0;
+    final all = await outboxManager.getPendingOperations(
+        storeId: storeId, includeAll: true);
+    for (final item in all.where(
+        (item) => item.status == 'conflict' || item.status == 'rejected')) {
+      try {
+        final response = await apiClient
+            .get('/stores/$storeId/operations/${item.operationId}');
+        await outboxManager.acknowledge(
+            item, Map<String, dynamic>.from(response.data['data'] as Map));
+      } on DioException catch (error) {
+        if (error.response?.statusCode != 404) rethrow;
+      }
+    }
+    for (final item
+        in await outboxManager.getPendingOperations(storeId: storeId)) {
+      if (item.envelope == null) {
+        throw StateError('Eski amalni avtomatik yuborish xavfsiz emas.');
+      }
+      try {
+        final response =
+            await apiClient.post('/stores/$storeId/operations', data: {
+          'schema_version': 1,
+          'operations': [item.envelope]
+        });
+        final result = Map<String, dynamic>.from(
+            (response.data['data']['results'] as List).single as Map);
+        if (result['operation_id'] != item.operationId) {
+          throw StateError('Server boshqa amalni tasdiqladi.');
+        }
+        await outboxManager.acknowledge(item, result);
+        if (result['status'] == 'applied') applied++;
+      } catch (_) {
+        await outboxManager.markOperationFailed(item.operationId,
+            'Server javobi olinmadi. Xuddi shu amal qayta tekshiriladi.');
+        rethrow;
+      }
+    }
+    return applied;
+  }
+
+  Future<int> pullDelta(String storeId) async {
+    final db = await _getDb();
+    var cursor = await getSavedWatermark() ?? 0;
+    var count = 0;
+    while (true) {
+      final response = await apiClient.get('/stores/$storeId/delta',
+          queryParameters: {'cursor': cursor, 'limit': 500});
+      final data = Map<String, dynamic>.from(response.data['data'] as Map);
+      final changes = List<Map<String, dynamic>>.from((data['changes'] as List)
+          .map((v) => Map<String, dynamic>.from(v as Map)));
+      final next = int.parse(data['next_cursor'].toString());
+      if (next < cursor || (data['has_more'] == true && next == cursor)) {
+        throw StateError('Server kursori yaroqsiz.');
+      }
+      await db.transaction((txn) async {
+        for (final change in changes) {
+          final entity = change['entity'];
+          if (!['product', 'debtor', 'client'].contains(entity)) continue;
+          final table = entity == 'product'
+              ? 'products'
+              : entity == 'client'
+                  ? 'clients'
+                  : 'debtors';
+          final id = change['id'].toString();
+          if (change['action'] == 'delete') {
+            await txn.delete('server_cache',
+                where: 'entity = ? AND id = ?', whereArgs: [table, id]);
+            if (entity == 'product') {
+              await txn.delete('products', where: 'id = ?', whereArgs: [id]);
+              await txn.delete('product_stocks',
+                  where: 'product_id = ?', whereArgs: [id]);
+            } else if (entity == 'client') {
+              await LocalCache.removeCanonical(txn, table, id);
+            } else {
+              await LocalCache.removeCanonical(txn, table, id);
+            }
+          } else {
+            final value = Map<String, dynamic>.from(change['value'] as Map);
+            await txn.insert('server_cache',
+                {'entity': table, 'id': id, 'payload_json': jsonEncode(value)},
+                conflictAlgorithm: ConflictAlgorithm.replace);
+            if (entity == 'product') {
+              await LocalCache.product(txn, storeId, value);
+            } else if (entity == 'client') {
+              await LocalCache.client(txn, storeId, value);
+            } else {
+              await LocalCache.debtor(txn, storeId, value);
+            }
+          }
+        }
+        await _save('watermark', next.toString(), txn);
+      });
+      count += changes.length;
+      cursor = next;
+      if (data['has_more'] != true) break;
+    }
+    return count;
+  }
+
+  Future<bool> syncAll(String storeId) {
+    if (_running != null && _activeStore != storeId) {
+      throw StateError('Avval joriy sinxronlash yakunlansin.');
+    }
+    _activeStore = storeId;
+    return _running ??= _sync(storeId).whenComplete(() {
+      _running = null;
+      _activeStore = null;
+    });
+  }
+
+  Future<bool> _sync(String storeId) async {
+    _update(_currentProgress.copyWith(
+        status: SyncStatus.syncing, message: 'Ma’lumotlar sinxronlanmoqda...'));
+    try {
+      final session = Map<String, dynamic>.from(
+          (await apiClient.get('/stores/$storeId/session')).data['data']
+              as Map);
+      if (session['user']['id'].toString() !=
+          await apiClient.storage.getUserId()) {
+        throw StateError('Akkaunt mos emas.');
+      }
+      await apiClient.storage.setSession(session);
+      final oldPermissions = await _state('permission_hash');
+      final newPermissions = session['permission_hash']?.toString();
+      if (oldPermissions != null &&
+          newPermissions != null &&
+          oldPermissions != newPermissions) {
+        final db = await _getDb();
+        await db.transaction((txn) async {
+          await txn.update('products', {'initial_price': null});
+          await txn.update('debtors', {'can_update': 0});
+          await txn.delete('server_cache');
+          await txn.delete('sync_state',
+              where:
+                  "key IN ('watermark', 'bootstrap', 'offline_ready') OR key LIKE 'statistics_%'");
+        });
+      }
+      if (await getSavedWatermark() == null) await runBootstrap(storeId);
+      if (newPermissions != null) {
+        await _save('permission_hash', newPermissions);
+      }
+      await pushOutbox(storeId);
+      await pullDelta(storeId);
+      await _downloadMedia();
+      final requestClock = await leaseManager.readClock();
+      final lease = Map<String, dynamic>.from(
+          (await apiClient.post('/stores/$storeId/lease')).data['data'] as Map);
+      await leaseManager.updateLease(lease, requestClock: requestClock);
+      final pending = await outboxManager.getPendingCount();
+      _update(_currentProgress.copyWith(
+          status: pending == 0
+              ? SyncStatus.offlineReady
+              : SyncStatus.hasPendingOperations,
+          pendingOperationsCount: pending,
+          message: pending == 0
+              ? 'Ma’lumotlar yangilandi.'
+              : 'Tasdiqlanmagan amallar mavjud.',
+          currentWatermark: await getSavedWatermark(),
+          lastSyncTime: DateTime.now()));
+      return true;
+    } catch (error) {
+      if (error is DioException &&
+          [401, 403].contains(error.response?.statusCode)) {
+        await leaseManager.storage.clearLease();
+        await leaseManager.checkLease();
+      }
+      _update(_currentProgress.copyWith(
+          status: SyncStatus.error,
+          message: 'Sinxronlash yakunlanmadi. Navbat saqlangan.',
+          lastError: 'Internet va akkaunt ruxsatlarini tekshiring.'));
       return false;
     }
   }
 
-  Future<void> _downloadEntityPages(String storeId, String snapshotId, String entity) async {
-    int cursor = 0;
-    bool hasMore = true;
+  Future<void> _downloadMedia() async {
     final db = await _getDb();
-
-    while (hasMore) {
-      final res = await apiClient.get(
-        '/stores/$storeId/bootstrap/$snapshotId',
-        queryParameters: {'entity': entity, 'cursor': cursor, 'limit': 100},
-      );
-
-      if (res.statusCode != 200) break;
-      final payload = res.data['data'] is Map<String, dynamic>
-          ? res.data['data'] as Map<String, dynamic>
-          : <String, dynamic>{};
-
-      final items = (payload['items'] as List? ?? res.data['data'] as List? ?? []);
-      if (items.isEmpty) break;
-
-      final batch = db.batch();
-      for (final raw in items) {
-        final item = raw as Map<String, dynamic>;
-        if (entity == 'products') {
-          final prodId = item['id'].toString();
-          final stockQty = (item['quantity'] as num?)?.toInt() ?? 0;
-          batch.insert(
-            'products',
-            {
-              'id': prodId,
-              'store_id': storeId,
-              'name': item['name'] ?? '',
-              'barcode': item['barcode']?.toString(),
-              'type': item['type'] ?? 'package',
-              'price': double.tryParse(item['price']?.toString() ?? '0') ?? 0.0,
-              'initial_price': double.tryParse(item['initial_price']?.toString() ?? '0'),
-              'updated_at': DateTime.now().toIso8601String(),
-            },
-            conflictAlgorithm: ConflictAlgorithm.replace,
-          );
-          batch.insert(
-            'product_stocks',
-            {
-              'product_id': prodId,
-              'stock_id': 'default',
-              'quantity': stockQty,
-            },
-            conflictAlgorithm: ConflictAlgorithm.replace,
-          );
-        } else if (entity == 'debtors') {
-          batch.insert(
-            'debtors',
-            {
-              'id': item['id'].toString(),
-              'store_id': storeId,
-              'client_id': item['client_id']?.toString(),
-              'full_name': item['full_name'] ?? item['name'] ?? '',
-              'phone': item['phone']?.toString(),
-              'amount': double.tryParse(item['amount']?.toString() ?? '0') ?? 0.0,
-              'currency': item['currency'] ?? 'UZS',
-              'date': item['date']?.toString(),
-              'note': item['note']?.toString(),
-              'photo_path': (item['photo_url'] ?? item['photo_path'])?.toString(),
-              'updated_at': DateTime.now().toIso8601String(),
-            },
-            conflictAlgorithm: ConflictAlgorithm.replace,
-          );
-        }
-      }
-      await batch.commit(noResult: true);
-
-      final nextCursorStr = payload['next_cursor']?.toString();
-      hasMore = payload['has_more'] == true && nextCursorStr != null;
-      if (nextCursorStr != null) {
-        cursor = int.tryParse(nextCursorStr) ?? cursor;
-      }
-    }
-  }
-
-  /// 2. Push Outbox: send pending operations to server
-  Future<int> pushOutbox(String storeId) async {
-    final pending = await outboxManager.getPendingOperations();
-    if (pending.isEmpty) return 0;
-
-    int appliedCount = 0;
-    for (final op in pending) {
-      try {
-        final response = await apiClient.post(
-          '/stores/$storeId/operations',
-          data: {
-            'operations': [
-              {
-                'operation_id': op.operationId,
-                'entity_type': op.entityType,
-                'operation_type': op.operationType,
-                'payload': op.payload,
-              }
-            ],
-          },
-        );
-
-        if (response.statusCode == 200 || response.statusCode == 201) {
-          final results = response.data['data']?['results'] as List? ?? [];
-          final first = results.isNotEmpty ? results.first as Map<String, dynamic> : null;
-          final status = first?['status'] as String?;
-          if (status == 'applied' || status == 'conflict') {
-            await outboxManager.markOperationApplied(op.operationId);
-            appliedCount++;
-          } else {
-            await outboxManager.markOperationFailed(
-              op.operationId,
-              first?['error']?.toString() ?? "Status: $status",
-            );
-          }
-        } else {
-          await outboxManager.markOperationFailed(
-            op.operationId,
-            "Server kodi: ${response.statusCode}",
-          );
-        }
-      } catch (e) {
-        await outboxManager.markOperationFailed(op.operationId, e.toString());
-        break; // Stop remaining batch on network disconnection
-      }
-    }
-
-    final remaining = await outboxManager.getPendingCount();
-    _updateProgress(_currentProgress.copyWith(
-      pendingOperationsCount: remaining,
-    ));
-
-    return appliedCount;
-  }
-
-  /// 3. Delta pull: get changes since last watermark
-  Future<int> pullDelta(String storeId) async {
-    final watermark = await getSavedWatermark() ?? 0;
-    try {
-      final response = await apiClient.get(
-        '/stores/$storeId/delta',
-        queryParameters: {'cursor': watermark},
-      );
-
-      if (response.statusCode != 200) return 0;
-      final revisions = response.data['data']?['changes'] as List?
-          ?? response.data['data'] as List?
-          ?? [];
-      final newWatermarkRaw = response.data['data']?['next_cursor'] ?? response.data['watermark'];
-      final newWatermark = int.tryParse(newWatermarkRaw?.toString() ?? '') ?? watermark;
-
-      if (revisions.isNotEmpty) {
-        final db = await _getDb();
-        final batch = db.batch();
-
-        for (final raw in revisions) {
-          final rev = raw as Map<String, dynamic>;
-          final entityType = rev['entity_type'] as String?;
-          final action = rev['action'] as String?;
-          final payload = rev['payload'] as Map<String, dynamic>? ?? {};
-          final entityId = rev['entity_id']?.toString() ?? payload['id']?.toString();
-
-          if (entityId == null) continue;
-
-          if (action == 'delete') {
-            if (entityType == 'product') {
-              batch.delete('products', where: 'id = ?', whereArgs: [entityId]);
-            } else if (entityType == 'debtor') {
-              batch.delete('debtors', where: 'id = ?', whereArgs: [entityId]);
-            }
-          } else {
-            // upsert
-            if (entityType == 'product') {
-              batch.insert(
-                'products',
+    for (final debtor in await db.query('debtors')) {
+      final media = await db.query('debtor_media',
+          where: 'debtor_id = ?', whereArgs: [debtor['id']]);
+      if (media.isNotEmpty && media.first['pending'] == 1) continue;
+      final path = debtor['photo_path'] as String?;
+      if (path == null) {
+        await db.delete('debtor_media',
+            where: 'debtor_id = ?', whereArgs: [debtor['id']]);
+      } else if (path.startsWith('/api/flutter/v1/stores/')) {
+        try {
+          final response = await apiClient.get(
+              path.substring('/api/flutter/v1'.length),
+              options: Options(responseType: ResponseType.bytes));
+          final bytes = response.data as List<int>;
+          if (bytes.length <= 10 * 1024 * 1024) {
+            await db.insert(
+                'debtor_media',
                 {
-                  'id': entityId,
-                  'store_id': storeId,
-                  'name': payload['name'] ?? '',
-                  'barcode': payload['barcode']?.toString(),
-                  'type': payload['type'] ?? 'package',
-                  'price': double.tryParse(payload['price']?.toString() ?? '0') ?? 0.0,
-                  'initial_price': double.tryParse(payload['initial_price']?.toString() ?? '0'),
-                  'updated_at': payload['updated_at']?.toString(),
+                  'debtor_id': debtor['id'],
+                  'bytes': Uint8List.fromList(bytes),
+                  'pending': 0
                 },
-                conflictAlgorithm: ConflictAlgorithm.replace,
-              );
-            } else if (entityType == 'debtor') {
-              batch.insert(
-                'debtors',
-                {
-                  'id': entityId,
-                  'store_id': storeId,
-                  'client_id': payload['client_id']?.toString(),
-                  'full_name': payload['full_name'] ?? payload['name'] ?? '',
-                  'phone': payload['phone']?.toString(),
-                  'amount': double.tryParse(payload['amount']?.toString() ?? '0') ?? 0.0,
-                  'currency': payload['currency'] ?? 'UZS',
-                  'date': payload['date']?.toString(),
-                  'note': payload['note']?.toString(),
-                  'photo_path': payload['photo_path']?.toString(),
-                  'updated_at': payload['updated_at']?.toString(),
-                },
-                conflictAlgorithm: ConflictAlgorithm.replace,
-              );
-            }
+                conflictAlgorithm: ConflictAlgorithm.replace);
           }
+        } on DioException catch (error) {
+          if ([401, 403].contains(error.response?.statusCode)) rethrow;
         }
-        await batch.commit(noResult: true);
       }
-
-      await saveWatermark(newWatermark);
-      _updateProgress(_currentProgress.copyWith(
-        currentWatermark: newWatermark,
-        lastSyncTime: DateTime.now(),
-      ));
-
-      return revisions.length;
-    } catch (_) {
-      return 0;
     }
   }
 
-  /// 4. Full sync workflow: push outbox -> pull delta (or bootstrap) -> refresh lease
-  Future<void> syncAll(String storeId) async {
-    _updateProgress(_currentProgress.copyWith(
-      status: SyncStatus.syncing,
-      message: "Sinxronizatsiya boshlanmoqda...",
-    ));
-
-    // 1. Push local operations
-    await pushOutbox(storeId);
-
-    // 2. Pull remote delta changes
-    final watermark = await getSavedWatermark();
-    if (watermark == null) {
-      await runBootstrap(storeId);
-    } else {
-      await pullDelta(storeId);
-    }
-
-    // 3. Renew offline lease from server
-    try {
-      final leaseRes = await apiClient.post('/stores/$storeId/lease');
-      if (leaseRes.statusCode == 200 || leaseRes.statusCode == 201) {
-        final expiresAt = leaseRes.data['data']?['expires_at'] as String?;
-        if (expiresAt != null) {
-          await leaseManager.updateLease(expiresAt);
-        }
-      }
-    } catch (_) {}
-
-    _updateProgress(_currentProgress.copyWith(
-      status: SyncStatus.offlineReady,
-      message: "Sinxronizatsiya muvaffaqiyatli yakunlandi",
-      lastSyncTime: DateTime.now(),
-    ));
+  void dispose() {
+    _progressController.close();
   }
 }

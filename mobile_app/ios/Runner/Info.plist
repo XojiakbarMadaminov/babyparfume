@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>NSCameraUsageDescription</key>
+    <string>Mahsulot shtrix-kodini skanerlash uchun kamera kerak.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Mahsulot yoki qarzdor rasmini tanlash uchun foto kutubxonasi kerak.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

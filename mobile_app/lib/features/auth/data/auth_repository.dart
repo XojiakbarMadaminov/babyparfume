@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:babyparfume_mobile/core/api/api_client.dart';
 import 'package:babyparfume_mobile/core/storage/secure_storage.dart';
 
@@ -60,6 +61,14 @@ class AuthRepository {
     if (response.statusCode == 200 || response.statusCode == 201) {
       final token = response.data['data']['token'] as String;
       await storage.setToken(token);
+      try {
+        final session = await apiClient.get('/session');
+        await storage
+            .setSession(Map<String, dynamic>.from(session.data['data'] as Map));
+      } catch (_) {
+        await storage.clearToken();
+        rethrow;
+      }
       return true;
     }
     return false;
@@ -67,22 +76,25 @@ class AuthRepository {
 
   Future<List<StoreItem>> getStores() async {
     try {
-      final response = await apiClient.get('/stores');
-      if (response.statusCode == 200 && response.data['data'] is List) {
-        final list = response.data['data'] as List;
-        return list.map((item) => StoreItem.fromJson(item as Map<String, dynamic>)).toList();
-      }
-    } catch (_) {}
-
-    try {
       final sessionRes = await apiClient.get('/session');
-      if (sessionRes.statusCode == 200 && sessionRes.data['data']?['stores'] is List) {
-        final list = sessionRes.data['data']['stores'] as List;
-        return list.map((item) => StoreItem.fromJson(item as Map<String, dynamic>)).toList();
+      if (sessionRes.statusCode == 200 &&
+          sessionRes.data['data']?['stores'] is List) {
+        final session =
+            Map<String, dynamic>.from(sessionRes.data['data'] as Map);
+        await storage.setSession(session);
+        final list = session['stores'] as List;
+        return list
+            .map((item) => StoreItem.fromJson(item as Map<String, dynamic>))
+            .toList();
       }
-    } catch (_) {}
-
-    return [];
+    } on DioException catch (error) {
+      if (error.response != null) rethrow;
+    }
+    final cached = await storage.getSession();
+    return (cached?['stores'] as List? ?? [])
+        .map((item) =>
+            StoreItem.fromJson(Map<String, dynamic>.from(item as Map)))
+        .toList();
   }
 
   Future<void> logout() async {

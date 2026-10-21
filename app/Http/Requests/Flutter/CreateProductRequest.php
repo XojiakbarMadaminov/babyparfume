@@ -29,12 +29,12 @@ class CreateProductRequest extends FormRequest
     {
         $store    = $this->attributes->get('flutter_store');
         $storeId  = (int) ($store?->id ?? $this->route('store'));
-        $stockIds = Stock::withoutGlobalScope('current_store')->active()->pluck('id')->all();
+        $stockIds = Stock::withoutGlobalScope('current_store')->active()->whereHas('stores', fn ($query) => $query->whereKey($storeId))->pluck('id')->all();
 
         return [
-            'photo'                     => ProductPhotoService::rules(),
-            'name'                      => ['required', 'string', 'max:255'],
-            'barcode'                   => [
+            'photo'   => ProductPhotoService::rules(),
+            'name'    => ['required', 'string', 'max:255'],
+            'barcode' => [
                 'required',
                 'string',
                 'regex:/^[0-9]+$/',

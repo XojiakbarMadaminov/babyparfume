@@ -37,8 +37,10 @@ class ApiClient {
           options.headers['X-Device-UUID'] = deviceUuid;
           return handler.next(options);
         },
-        onError: (DioException error, handler) {
+        onError: (DioException error, handler) async {
           if (error.response?.statusCode == 401) {
+            await storage.clearToken();
+            await storage.clearLease();
             onUnauthenticated?.call();
           }
           return handler.next(error);
@@ -61,7 +63,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
-    return dio.post(path, data: data, queryParameters: queryParameters, options: options);
+    return dio.post(path,
+        data: data, queryParameters: queryParameters, options: options);
   }
 
   Future<Response> put(
@@ -70,7 +73,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
-    return dio.put(path, data: data, queryParameters: queryParameters, options: options);
+    return dio.put(path,
+        data: data, queryParameters: queryParameters, options: options);
   }
 
   Future<Response> delete(
@@ -79,6 +83,7 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
-    return dio.delete(path, data: data, queryParameters: queryParameters, options: options);
+    return dio.delete(path,
+        data: data, queryParameters: queryParameters, options: options);
   }
 }

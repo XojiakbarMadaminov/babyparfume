@@ -5,15 +5,18 @@ import '../../../core/utils/currency_format.dart';
 import '../data/products_repository.dart';
 import 'barcode_scanner_sheet.dart';
 import 'product_form_dialog.dart';
+import 'product_detail_screen.dart';
 
 class ProductsScreen extends StatefulWidget {
   final String storeId;
   final ProductsRepository? repository;
+  final bool canCreate;
 
   const ProductsScreen({
     super.key,
     required this.storeId,
     this.repository,
+    this.canCreate = false,
   });
 
   @override
@@ -30,13 +33,15 @@ class _ProductsScreenState extends State<ProductsScreen> {
   @override
   void initState() {
     super.initState();
-    _repository = widget.repository ?? ProductsRepository(outboxManager: OutboxManager());
+    _repository =
+        widget.repository ?? ProductsRepository(outboxManager: OutboxManager());
     _loadProducts();
   }
 
   Future<void> _loadProducts() async {
     setState(() => _isLoading = true);
-    final list = await _repository.searchProducts(widget.storeId, query: _searchQuery);
+    final list =
+        await _repository.searchProducts(widget.storeId, query: _searchQuery);
     if (mounted) {
       setState(() {
         _products = list;
@@ -91,7 +96,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.qr_code_scanner, color: AppColors.lightAccent),
+            icon:
+                const Icon(Icons.qr_code_scanner, color: AppColors.lightAccent),
             tooltip: "Shtrix-kod skaneri",
             onPressed: _openScanner,
           ),
@@ -112,8 +118,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     },
                     decoration: InputDecoration(
                       hintText: "Nomi yoki shtrix-kodi bo'yicha qidirish...",
-                      prefixIcon: const Icon(Icons.search, color: AppColors.lightMuted),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      prefixIcon:
+                          const Icon(Icons.search, color: AppColors.lightMuted),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
                       fillColor: AppColors.lightSoft,
                       filled: true,
                       border: OutlineInputBorder(
@@ -128,7 +136,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   style: IconButton.styleFrom(
                     backgroundColor: AppColors.lightTint,
                     foregroundColor: AppColors.lightAccent,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   icon: const Icon(Icons.qr_code_scanner),
                   onPressed: _openScanner,
@@ -143,7 +152,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     ? const Center(
                         child: Text(
                           "Mahsulot topilmadi",
-                          style: TextStyle(color: AppColors.lightMuted, fontSize: 14),
+                          style: TextStyle(
+                              color: AppColors.lightMuted, fontSize: 14),
                         ),
                       )
                     : ListView.separated(
@@ -154,82 +164,110 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           final item = _products[index];
                           final isOutOfStock = item.stockQuantity <= 0;
 
-                          return Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: AppColors.lightCard,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.lightLine),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.lightSoft,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(Icons.inventory_2_outlined, color: AppColors.lightMuted),
+                          return GestureDetector(
+                              onTap: () async {
+                                await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => ProductDetailScreen(
+                                            product: item,
+                                            repository: _repository)));
+                                if (mounted) _loadProducts();
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: AppColors.lightCard,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border:
+                                      Border.all(color: AppColors.lightLine),
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        item.name,
-                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      width: 44,
+                                      height: 44,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.lightSoft,
+                                        borderRadius: BorderRadius.circular(10),
                                       ),
-                                      const SizedBox(height: 4),
-                                      if (item.barcode != null && item.barcode!.isNotEmpty)
-                                        Text(
-                                          "Barkod: ${item.barcode}",
-                                          style: const TextStyle(color: AppColors.lightMuted, fontSize: 12),
-                                        ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        CurrencyFormat.format(item.price),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 14,
-                                          color: AppColors.lightAccent,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: isOutOfStock ? AppColors.lightDangerBg : AppColors.successBg,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    isOutOfStock ? "Tugagan" : "${item.stockQuantity} dona",
-                                    style: TextStyle(
-                                      color: isOutOfStock ? AppColors.lightDanger : AppColors.success,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 12,
+                                      child: const Icon(
+                                          Icons.inventory_2_outlined,
+                                          color: AppColors.lightMuted),
                                     ),
-                                  ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item.name,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 14),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          if (item.barcode != null &&
+                                              item.barcode!.isNotEmpty)
+                                            Text(
+                                              "Barkod: ${item.barcode}",
+                                              style: const TextStyle(
+                                                  color: AppColors.lightMuted,
+                                                  fontSize: 12),
+                                            ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            CurrencyFormat.format(item.price),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 14,
+                                              color: AppColors.lightAccent,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: isOutOfStock
+                                            ? AppColors.lightDangerBg
+                                            : AppColors.successBg,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        isOutOfStock
+                                            ? "Tugagan"
+                                            : "${item.stockQuantity} dona",
+                                        style: TextStyle(
+                                          color: isOutOfStock
+                                              ? AppColors.lightDanger
+                                              : AppColors.success,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          );
+                              ));
                         },
                       ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.primaryButton,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text("Mahsulot qo'shish"),
-        onPressed: _openAddProductDialog,
-      ),
+      floatingActionButton: !widget.canCreate
+          ? null
+          : FloatingActionButton.extended(
+              backgroundColor: AppColors.primaryButton,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add),
+              label: const Text("Mahsulot qo'shish"),
+              onPressed: _openAddProductDialog,
+            ),
     );
   }
 }

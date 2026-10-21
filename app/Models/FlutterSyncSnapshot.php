@@ -21,6 +21,7 @@ class FlutterSyncSnapshot extends Model
     {
         return [
             'expires_at' => 'datetime',
+            'data'       => 'array',
         ];
     }
 

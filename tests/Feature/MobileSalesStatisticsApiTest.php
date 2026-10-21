@@ -58,7 +58,8 @@ it('returns completed sales and saved mixed and partial payment amounts without 
     ($this->sale)(['total_amount' => 10000, 'created_at' => now()->subDay()]);
     $before   = Sale::query()->get()->toArray();
     $response = $this->getJson($this->url)->assertOk()
-        ->assertHeader('Cache-Control', 'no-store, private')
+        ->assertHeader('Cache-Control')
+        ->tap(fn ($response) => expect($response->headers->hasCacheControlDirective('no-store') && $response->headers->hasCacheControlDirective('private'))->toBeTrue())
         ->assertJsonPath('data.filter.storeId', $this->store->id)
         ->assertJsonPath('data.salesAmount', 21000)
         ->assertJsonPath('data.salesCount', 6)

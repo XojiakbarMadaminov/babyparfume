@@ -35,7 +35,8 @@ class SyncProgress {
     return SyncProgress(
       status: status ?? this.status,
       message: message ?? this.message,
-      pendingOperationsCount: pendingOperationsCount ?? this.pendingOperationsCount,
+      pendingOperationsCount:
+          pendingOperationsCount ?? this.pendingOperationsCount,
       currentWatermark: currentWatermark ?? this.currentWatermark,
       lastSyncTime: lastSyncTime ?? this.lastSyncTime,
       lastError: lastError ?? this.lastError,
@@ -51,6 +52,7 @@ class OutboxItem {
   final String status;
   final DateTime createdAt;
   final String? lastError;
+  final Map<String, dynamic>? envelope;
 
   OutboxItem({
     required this.operationId,
@@ -60,5 +62,6 @@ class OutboxItem {
     this.status = 'pending',
     required this.createdAt,
     this.lastError,
+    this.envelope,
   });
 }

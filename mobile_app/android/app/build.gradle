@@ -5,6 +5,12 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+def releaseKeyProperties = new Properties()
+def releaseKeyFile = rootProject.file('key.properties')
+if (releaseKeyFile.exists()) {
+    releaseKeyFile.withInputStream { releaseKeyProperties.load(it) }
+}
+
 android {
     namespace = "com.babyparfume.babyparfume_mobile"
     compileSdk = 35
@@ -27,10 +33,30 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        release {
+            if (releaseKeyFile.exists()) {
+                keyAlias = releaseKeyProperties['keyAlias']
+                keyPassword = releaseKeyProperties['keyPassword']
+                storeFile = file(releaseKeyProperties['storeFile'])
+                storePassword = releaseKeyProperties['storePassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.debug
+            signingConfig = signingConfigs.release
+        }
+    }
+}
+
+tasks.configureEach {
+    if (name == 'preReleaseBuild') {
+        doFirst {
+            if (!releaseKeyFile.exists()) {
+                throw new GradleException('Release uchun android/key.properties va egasiga tegishli signing kaliti kerak.')
+            }
         }
     }
 }

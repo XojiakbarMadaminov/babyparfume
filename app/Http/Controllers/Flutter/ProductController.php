@@ -14,11 +14,10 @@ use Illuminate\Support\Facades\Gate;
 use App\Services\ProductPhotoService;
 use Illuminate\Database\Eloquent\Builder;
 use App\Http\Requests\Flutter\SearchRequest;
-use App\Http\Resources\Flutter\ProductResource;
 use Illuminate\Validation\ValidationException;
+use App\Http\Resources\Flutter\ProductResource;
 use App\Http\Requests\Flutter\CreateProductRequest;
 use App\Http\Requests\Flutter\UpdateProductRequest;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -53,7 +52,7 @@ class ProductController extends Controller
         Gate::forUser($request->user())->authorize('create', Product::class);
 
         $store  = $request->attributes->get('flutter_store');
-        $stocks = Stock::withoutGlobalScope('current_store')->active()->orderBy('name')->get(['id', 'name'])
+        $stocks = Stock::withoutGlobalScope('current_store')->active()->whereHas('stores', fn ($query) => $query->whereKey($store->id))->orderBy('name')->get(['id', 'name'])
             ->map(fn ($stock): array => [
                 'id'   => (string) $stock->id,
                 'name' => (string) $stock->name,
@@ -104,7 +103,7 @@ class ProductController extends Controller
         $resource = new ProductResource($product);
 
         if (Gate::forUser($request->user())->allows('update', $product)) {
-            $stocks = Stock::withoutGlobalScope('current_store')->orderBy('name')->get(['id', 'name', 'is_active']);
+            $stocks = Stock::withoutGlobalScope('current_store')->whereHas('stores', fn ($query) => $query->whereKey($store->id))->orderBy('name')->get(['id', 'name', 'is_active']);
             $product->load(['productStocks', 'sizes.productStocks', 'sizes.stocks']);
 
             $resource->additional(['edit' => [
@@ -137,8 +136,8 @@ class ProductController extends Controller
 
     public function store(CreateProductRequest $request): JsonResponse
     {
-        $store = $request->attributes->get('flutter_store');
-        $data  = $request->validated();
+        $store            = $request->attributes->get('flutter_store');
+        $data             = $request->validated();
         $data['store_id'] = $store->id;
 
         try {
@@ -183,16 +182,17 @@ class ProductController extends Controller
         Gate::forUser($request->user())->authorize('update', $product);
 
         try {
-            $product->getConnection()->transaction(function () use ($data, $product): void {
+            $product->getConnection()->transaction(function () use ($data, $product, $store): void {
                 $product  = $product->newQuery()->withoutGlobalScope('current_store')->lockForUpdate()->findOrFail($product->id);
-                $stockIds = Stock::withoutGlobalScope('current_store')->pluck('id')->all();
+                $stockIds = Stock::withoutGlobalScope('current_store')->whereHas('stores', fn ($query) => $query->whereKey($store->id))->pluck('id')->all();
                 $type     = $data['type'] ?? $product->type;
 
                 if ($type !== $product->type) {
                     $hasOtherStocks = $product->productStocks()->whereNotIn('stock_id', $stockIds)->exists()
-                        || $product->sizes()->where(fn (Builder $sizes): Builder => $sizes
-                            ->whereHas('productStocks', fn (Builder $stocks): Builder => $stocks->whereNotIn('stock_id', $stockIds))
-                            ->orWhereHas('stocks', fn (Builder $stocks): Builder => $stocks->whereNotIn('stock_id', $stockIds))
+                        || $product->sizes()->where(
+                            fn (Builder $sizes): Builder => $sizes
+                                ->whereHas('productStocks', fn (Builder $stocks): Builder => $stocks->whereNotIn('stock_id', $stockIds))
+                                ->orWhereHas('stocks', fn (Builder $stocks): Builder => $stocks->whereNotIn('stock_id', $stockIds))
                         )->exists();
 
                     if ($hasOtherStocks) {
@@ -270,24 +270,6 @@ class ProductController extends Controller
 
     private function productsQuery(int $storeId): Builder
     {
-        $stockInStore = fn (Builder $query): Builder => $query->whereHas(
-            'stock.stores',
-            fn (Builder $stores): Builder => $stores->whereKey($storeId)
-        );
-
-        return Product::withoutGlobalScope('current_store')
-            ->where(function (Builder $query) use ($storeId): void {
-                $query->where('products.store_id', $storeId)
-                    ->orWhereHas('sizes.productStocks.stock.stores', fn (Builder $stores): Builder => $stores->whereKey($storeId))
-                    ->orWhereHas('productStocks.stock.stores', fn (Builder $stores): Builder => $stores->whereKey($storeId));
-            })
-            ->with([
-                'media',
-                'sizes' => fn (HasMany $sizes): HasMany => $sizes
-                    ->withCount(['productStocks as mobile_stock_count' => $stockInStore])
-                    ->withSum(['productStocks as mobile_quantity' => $stockInStore], 'quantity')
-                    ->withSum(['stocks as legacy_quantity' => $stockInStore], 'quantity'),
-            ])
-            ->withSum(['productStocks as store_quantity' => $stockInStore], 'quantity');
+        return app(\App\Services\FlutterSyncService::class)->productsQuery($storeId);
     }
 }

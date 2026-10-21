@@ -17,6 +17,7 @@ class SalesStatisticsController extends Controller
             (int) $store->id,
             $request->validated(),
             true,
+            true,
         );
 
         return response()->json([
@@ -35,10 +36,10 @@ class SalesStatisticsController extends Controller
                 'trend'           => $report['trend'] ?? [],
                 'payments'        => collect($report['payments'] ?? [])->map(fn ($p): array => [
                     'key'    => (string) ($p['key'] ?? ''),
-                    'name'   => (string) ($p['name'] ?? ''),
+                    'name'   => (string) ($p['label'] ?? ''),
                     'amount' => (string) (int) ($p['amount'] ?? 0),
                 ])->all(),
-                'top_products'    => collect($report['topProducts'] ?? [])->map(fn ($tp): array => [
+                'top_products' => collect($report['topProducts'] ?? [])->map(fn ($tp): array => [
                     'name'     => (string) ($tp['name'] ?? ''),
                     'quantity' => (int) ($tp['quantity'] ?? 0),
                     'amount'   => (string) (int) ($tp['amount'] ?? 0),

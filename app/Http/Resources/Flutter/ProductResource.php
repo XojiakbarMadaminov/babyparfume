@@ -26,6 +26,7 @@ class ProductResource extends JsonResource
 
         return [
             'id'            => (string) $this->id,
+            'revision'      => (string) ($this->sync_revision ?? 0),
             'name'          => (string) $this->name,
             'barcode'       => (string) $this->barcode,
             'type'          => (string) $this->type,
@@ -38,6 +39,15 @@ class ProductResource extends JsonResource
             'thumbnail'     => $this->getThumbnailUrl(),
             'can_update'    => $canUpdate,
             'can_delete'    => $canDelete,
+            'updated_at'    => $this->updated_at?->toIso8601String(),
+            'stocks'        => $this->whenLoaded('productStocks', fn () => $this->productStocks->whereNull('product_size_id')->map(fn ($stock): array => [
+                'stock_id' => (string) $stock->stock_id, 'quantity' => (int) $stock->quantity,
+            ])->values()->all()),
+            'sizes' => $this->sizes->map(fn ($size): array => [
+                'id'     => (string) $size->id, 'size' => (string) $size->size,
+                'stocks' => ($size->relationLoaded('productStocks') && $size->productStocks->isNotEmpty() ? $size->productStocks : ($size->relationLoaded('stocks') ? $size->stocks : collect()))
+                    ->map(fn ($stock): array => ['stock_id' => (string) $stock->stock_id, 'quantity' => (int) $stock->quantity])->values()->all(),
+            ])->all(),
         ];
     }
 }

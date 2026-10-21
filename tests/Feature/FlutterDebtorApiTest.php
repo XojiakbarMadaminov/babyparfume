@@ -14,6 +14,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
+    $this->mock(App\Services\SmsService::class)->shouldReceive('sendSms')->andReturn(['success' => true]);
+    $this->mock(App\Services\TelegramNotifier::class)->shouldReceive('sendMessage')->andReturn(true);
+    Illuminate\Support\Facades\Http::preventStrayRequests();
     config()->set('flutter.enabled', true);
     Storage::fake('local');
 
@@ -26,7 +29,7 @@ beforeEach(function (): void {
     ]);
     $this->user->stores()->attach([$this->storeA->id, $this->storeB->id]);
 
-    $role = Role::findOrCreate('admin', 'web');
+    $role        = Role::findOrCreate('admin', 'web');
     $permissions = [
         'ViewAny:Debtor',
         'View:Debtor',
@@ -41,11 +44,11 @@ beforeEach(function (): void {
     }
 
     $loginResponse = $this->postJson('/api/flutter/v1/login', [
-        'email'         => 'debtor_mgr@example.com',
-        'password'      => 'password',
-        'device_uuid'   => (string) Str::uuid(),
-        'device_name'   => 'iPhone 15',
-        'platform'      => 'ios',
+        'email'       => 'debtor_mgr@example.com',
+        'password'    => 'password',
+        'device_uuid' => (string) Str::uuid(),
+        'device_name' => 'iPhone 15',
+        'platform'    => 'ios',
     ])->assertCreated();
 
     $this->token = $loginResponse->json('data.token');
@@ -95,7 +98,7 @@ it('lists debtors scoped to the requested store with summary and status counts',
 
 it('creates a debtor with photo and returns canonical string numbers and UUID idempotent replay', function (): void {
     $requestId = (string) Str::uuid();
-    $photo = UploadedFile::fake()->image('passport.jpg', 600, 600);
+    $photo     = UploadedFile::fake()->image('passport.jpg', 600, 600);
 
     $payload = [
         'request_id' => $requestId,
@@ -126,7 +129,7 @@ it('creates a debtor with photo and returns canonical string numbers and UUID id
         ->assertJsonPath('data.id', $debtorId);
 
     // Replay with different payload must fail with 409
-    $conflictPayload = $payload;
+    $conflictPayload           = $payload;
     $conflictPayload['amount'] = 999999;
     $this->withToken($this->token)
         ->postJson("/api/flutter/v1/stores/{$this->storeA->id}/debtors", $conflictPayload)
@@ -150,7 +153,8 @@ it('streams debtor photo securely with private no-store headers and forbids othe
     $this->withToken($this->token)
         ->get("/api/flutter/v1/stores/{$this->storeA->id}/debtors/{$debtor->id}/photo")
         ->assertOk()
-        ->assertHeader('Cache-Control', 'no-store, private')
+        ->assertHeader('Cache-Control')
+        ->tap(fn ($response) => expect($response->headers->hasCacheControlDirective('no-store') && $response->headers->hasCacheControlDirective('private'))->toBeTrue())
         ->assertHeader('X-Content-Type-Options', 'nosniff');
 
     // Access via Store B (wrong store) must return 404 (not in store B)

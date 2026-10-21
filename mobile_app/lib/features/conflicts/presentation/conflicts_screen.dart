@@ -32,7 +32,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
   }
 
   Future<void> _loadOutbox() async {
-    final items = await widget.outboxManager.getPendingOperations();
+    final items = await widget.outboxManager
+        .getPendingOperations(storeId: widget.storeId, includeAll: true);
     if (mounted) {
       setState(() => _pendingItems = items);
     }
@@ -40,14 +41,16 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
 
   Future<void> _triggerManualSync() async {
     setState(() => _isSyncing = true);
-    await widget.syncCoordinator.syncAll(widget.storeId);
+    final success = await widget.syncCoordinator.syncAll(widget.storeId);
     await _loadOutbox();
     if (mounted) {
       setState(() => _isSyncing = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Sinxronizatsiya yakunlandi!"),
-          backgroundColor: AppColors.success,
+        SnackBar(
+          content: Text(success
+              ? widget.syncCoordinator.currentProgress.message ?? 'Yangilandi.'
+              : 'Sinxronlash yakunlanmadi. Navbat saqlangan.'),
+          backgroundColor: success ? AppColors.success : AppColors.lightDanger,
         ),
       );
     }
@@ -84,14 +87,20 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
             margin: const EdgeInsets.all(16),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _pendingItems.isEmpty ? AppColors.successBg : AppColors.warningBg,
+              color: _pendingItems.isEmpty
+                  ? AppColors.successBg
+                  : AppColors.warningBg,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
               children: [
                 Icon(
-                  _pendingItems.isEmpty ? Icons.cloud_done : Icons.cloud_upload_outlined,
-                  color: _pendingItems.isEmpty ? AppColors.success : AppColors.warning,
+                  _pendingItems.isEmpty
+                      ? Icons.cloud_done
+                      : Icons.cloud_upload_outlined,
+                  color: _pendingItems.isEmpty
+                      ? AppColors.success
+                      : AppColors.warning,
                   size: 28,
                 ),
                 const SizedBox(width: 12),
@@ -106,13 +115,16 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 14,
-                          color: _pendingItems.isEmpty ? AppColors.success : AppColors.warning,
+                          color: _pendingItems.isEmpty
+                              ? AppColors.success
+                              : AppColors.warning,
                         ),
                       ),
                       const SizedBox(height: 2),
                       const Text(
                         "Internet mavjud bo'lganda avtomatik serverga jo'natiladi.",
-                        style: TextStyle(fontSize: 12, color: AppColors.lightMuted),
+                        style: TextStyle(
+                            fontSize: 12, color: AppColors.lightMuted),
                       ),
                     ],
                   ),
@@ -138,7 +150,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                 ? const Center(
                     child: Text(
                       "Navbatda operatsiyalar mavjud emas",
-                      style: TextStyle(color: AppColors.lightMuted, fontSize: 14),
+                      style:
+                          TextStyle(color: AppColors.lightMuted, fontSize: 14),
                     ),
                   )
                 : ListView.separated(
@@ -163,7 +176,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                 color: AppColors.lightSoft,
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Icon(Icons.outbox, color: AppColors.lightMuted, size: 18),
+                              child: const Icon(Icons.outbox,
+                                  color: AppColors.lightMuted, size: 18),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -171,33 +185,53 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    "${item.entityType.toUpperCase()} • ${item.operationType}",
-                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                    item.operationType == 'sale.create'
+                                        ? 'Savdo'
+                                        : item.operationType == 'debtor.create'
+                                            ? 'Yangi qarzdor'
+                                            : item.operationType ==
+                                                    'debtor.photo'
+                                                ? 'Qarzdor fotosi'
+                                                : 'Qarz / to‘lov amali',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
                                     AppDateFormat.formatDate(item.createdAt),
-                                    style: const TextStyle(color: AppColors.lightMuted, fontSize: 11),
+                                    style: const TextStyle(
+                                        color: AppColors.lightMuted,
+                                        fontSize: 11),
                                   ),
                                   if (item.lastError != null) ...[
                                     const SizedBox(height: 4),
                                     Text(
                                       "Xatolik: ${item.lastError}",
-                                      style: const TextStyle(color: AppColors.lightDanger, fontSize: 11),
+                                      style: const TextStyle(
+                                          color: AppColors.lightDanger,
+                                          fontSize: 11),
                                     ),
                                   ],
                                 ],
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: AppColors.warningBg,
                                 borderRadius: BorderRadius.circular(6),
                               ),
-                              child: const Text(
-                                "Kutilmoqda",
-                                style: TextStyle(
+                              child: Text(
+                                const {
+                                      'conflict': 'Admin qarori',
+                                      'rejected': 'Rad etilgan',
+                                      'blocked': 'Oldingi amal kutilmoqda',
+                                      'failed': 'Qayta tekshiriladi'
+                                    }[item.status] ??
+                                    'Kutilmoqda',
+                                style: const TextStyle(
                                   color: AppColors.warning,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../data/barcode_guard.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../core/theme/app_colors.dart';
 
@@ -22,7 +24,9 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
   );
 
   String? _lastScannedCode;
+  final _guard = BarcodeGuard();
   DateTime? _lastScannedAt;
+  bool _manualOpen = false;
 
   @override
   void dispose() {
@@ -31,6 +35,7 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
   }
 
   void _onDetect(BarcodeCapture capture) {
+    if (_manualOpen || !mounted) return;
     final barcodes = capture.barcodes;
     if (barcodes.isEmpty) return;
 
@@ -48,13 +53,25 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
     _lastScannedCode = code;
     _lastScannedAt = now;
 
-    widget.onBarcodeScanned(code);
+    final format = barcodes.first.format;
+    if (!_guard.accept(code,
+        verifyChecksum: [
+          BarcodeFormat.ean13,
+          BarcodeFormat.ean8,
+          BarcodeFormat.upcA
+        ].contains(format))) return;
+    _controller.stop();
+    HapticFeedback.lightImpact();
     Navigator.pop(context);
+    widget.onBarcodeScanned(code);
   }
 
-  void _showManualInputDialog() {
+  Future<void> _showManualInputDialog() async {
+    _manualOpen = true;
+    await _controller.stop();
+    if (!mounted) return;
     final textController = TextEditingController();
-    showDialog(
+    final text = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Barkodni qo'lda kiritish"),
@@ -73,11 +90,8 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
           ),
           ElevatedButton(
             onPressed: () {
-              final text = textController.text.trim();
-              if (text.isNotEmpty) {
-                Navigator.pop(ctx); // close dialog
-                widget.onBarcodeScanned(text);
-                Navigator.pop(context); // close scanner sheet
+              if (textController.text.trim().isNotEmpty) {
+                Navigator.pop(ctx, textController.text.trim());
               }
             },
             child: const Text("Qidirish"),
@@ -85,6 +99,14 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
         ],
       ),
     );
+    _manualOpen = false;
+    if (!mounted) return;
+    if (text != null && _guard.accept(text)) {
+      Navigator.pop(context);
+      widget.onBarcodeScanned(text);
+    } else {
+      await _controller.start();
+    }
   }
 
   @override
@@ -113,7 +135,8 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                    icon:
+                        const Icon(Icons.close, color: Colors.white, size: 28),
                     onPressed: () => Navigator.pop(context),
                   ),
                   Row(
@@ -123,7 +146,8 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
                         onPressed: () => _controller.toggleTorch(),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.flip_camera_ios, color: Colors.white),
+                        icon: const Icon(Icons.flip_camera_ios,
+                            color: Colors.white),
                         onPressed: () => _controller.switchCamera(),
                       ),
                     ],

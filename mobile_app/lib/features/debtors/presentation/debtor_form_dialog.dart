@@ -7,12 +7,14 @@ class DebtorFormDialog extends StatefulWidget {
   final String storeId;
   final DebtorsRepository repository;
   final void Function(LocalDebtor newDebtor) onCreated;
+  final LocalDebtor? existing;
 
   const DebtorFormDialog({
     super.key,
     required this.storeId,
     required this.repository,
     required this.onCreated,
+    this.existing,
   });
 
   @override
@@ -24,8 +26,21 @@ class _DebtorFormDialogState extends State<DebtorFormDialog> {
   final _phoneController = TextEditingController();
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
+  final _dateController = TextEditingController();
   bool _isSaving = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.existing;
+    _nameController.text = existing?.fullName ?? '';
+    _phoneController.text = existing?.phone ?? '';
+    _amountController.text = existing?.amount.toStringAsFixed(0) ?? '';
+    _noteController.text = existing?.note ?? '';
+    _dateController.text = existing?.date?.substring(0, 10) ??
+        DateTime.now().toIso8601String().substring(0, 10);
+  }
 
   @override
   void dispose() {
@@ -33,10 +48,12 @@ class _DebtorFormDialogState extends State<DebtorFormDialog> {
     _phoneController.dispose();
     _amountController.dispose();
     _noteController.dispose();
+    _dateController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
+    if (_isSaving) return;
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       setState(() => _error = "Iltimos, qarzdor ismini kiriting.");
@@ -44,9 +61,12 @@ class _DebtorFormDialogState extends State<DebtorFormDialog> {
     }
 
     final rawPhone = _phoneController.text.trim();
-    final normalizedPhone = rawPhone.isEmpty ? null : PhoneFormat.normalize(rawPhone);
+    final normalizedPhone =
+        rawPhone.isEmpty ? null : PhoneFormat.normalize(rawPhone);
     final initialAmount = double.tryParse(_amountController.text.trim()) ?? 0.0;
-    final note = _noteController.text.trim().isEmpty ? null : _noteController.text.trim();
+    final note = _noteController.text.trim().isEmpty
+        ? null
+        : _noteController.text.trim();
 
     setState(() {
       _isSaving = true;
@@ -54,13 +74,25 @@ class _DebtorFormDialogState extends State<DebtorFormDialog> {
     });
 
     try {
-      final debtor = await widget.repository.createDebtor(
-        storeId: widget.storeId,
-        fullName: name,
-        phone: normalizedPhone,
-        initialAmount: initialAmount,
-        note: note,
-      );
+      LocalDebtor debtor;
+      if (widget.existing != null) {
+        await widget.repository.updateDebtor(widget.existing!,
+            fullName: name,
+            phone: normalizedPhone ?? '',
+            amount: initialAmount,
+            date: _dateController.text.trim(),
+            note: note);
+        debtor = (await widget.repository.getDebtor(widget.existing!.id))!;
+      } else {
+        debtor = await widget.repository.createDebtor(
+          storeId: widget.storeId,
+          fullName: name,
+          phone: normalizedPhone,
+          initialAmount: initialAmount,
+          date: _dateController.text.trim(),
+          note: note,
+        );
+      }
 
       if (mounted) {
         Navigator.pop(context);
@@ -89,7 +121,6 @@ class _DebtorFormDialogState extends State<DebtorFormDialog> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 16),
-
               if (_error != null) ...[
                 Container(
                   padding: const EdgeInsets.all(10),
@@ -99,12 +130,12 @@ class _DebtorFormDialogState extends State<DebtorFormDialog> {
                   ),
                   child: Text(
                     _error!,
-                    style: const TextStyle(color: AppColors.lightDanger, fontSize: 12),
+                    style: const TextStyle(
+                        color: AppColors.lightDanger, fontSize: 12),
                   ),
                 ),
                 const SizedBox(height: 12),
               ],
-
               TextField(
                 controller: _nameController,
                 textCapitalization: TextCapitalization.words,
@@ -114,7 +145,6 @@ class _DebtorFormDialogState extends State<DebtorFormDialog> {
                 ),
               ),
               const SizedBox(height: 12),
-
               TextField(
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
@@ -124,17 +154,17 @@ class _DebtorFormDialogState extends State<DebtorFormDialog> {
                 ),
               ),
               const SizedBox(height: 12),
-
               TextField(
                 controller: _amountController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: "Boshlang'ich qarz summasi (so'm)",
+                decoration: InputDecoration(
+                  labelText: widget.existing == null
+                      ? "Boshlang‘ich qarz summasi (so‘m)"
+                      : 'Qarz summasi (${widget.existing!.currency})',
                   hintText: "0",
                 ),
               ),
               const SizedBox(height: 12),
-
               TextField(
                 controller: _noteController,
                 decoration: const InputDecoration(
@@ -143,7 +173,11 @@ class _DebtorFormDialogState extends State<DebtorFormDialog> {
                 ),
               ),
               const SizedBox(height: 24),
-
+              TextField(
+                  controller: _dateController,
+                  decoration: const InputDecoration(
+                      labelText: 'Qarz sanasi (YYYY-MM-DD)')),
+              const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -161,7 +195,8 @@ class _DebtorFormDialogState extends State<DebtorFormDialog> {
                         ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
                           )
                         : const Text("Saqlash"),
                   ),

@@ -2,352 +2,116 @@
 
 namespace App\Http\Controllers\Flutter;
 
-use App\Models\Stock;
 use App\Models\Debtor;
 use App\Models\Product;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
-use App\Models\FlutterSyncSnapshot;
+use Illuminate\Http\JsonResponse;
 use App\Models\FlutterSyncConflict;
 use App\Models\FlutterSyncRevision;
-use App\Models\FlutterSyncOperation;
-use App\Services\FlutterSaleService;
-use App\Services\FlutterSyncService;
+use App\Models\FlutterSyncSnapshot;
 use App\Http\Controllers\Controller;
+use App\Models\FlutterSyncOperation;
+use App\Services\FlutterSyncService;
 use Illuminate\Support\Facades\Gate;
-use App\Services\FlutterDebtService;
+use App\Services\FlutterOperationService;
 use App\Http\Resources\Flutter\DebtorResource;
 use App\Http\Resources\Flutter\ProductResource;
-use Illuminate\Validation\ValidationException;
-use Symfony\Component\HttpFoundation\JsonResponse;
+use App\Http\Requests\Flutter\SyncOperationsRequest;
 
 class SyncController extends Controller
 {
-    public function __construct(
-        protected FlutterSyncService $syncService,
-        protected FlutterDebtService $debtService,
-        protected FlutterSaleService $saleService
-    ) {}
+    public function __construct(private FlutterSyncService $sync, private FlutterOperationService $operations) {}
 
     public function bootstrap(Request $request): JsonResponse
     {
-        $store  = $request->attributes->get('flutter_store');
-        $device = $request->attributes->get('flutter_device');
-        $user   = $request->user();
+        $snapshot = $this->sync->createSnapshot($request->user(), $request->attributes->get('flutter_store'), $request->attributes->get('flutter_device'));
 
-        $snapshot = $this->syncService->createSnapshot($user, $store, $device);
-        $manifest = $this->syncService->getManifestCounts($store);
-
-        return response()->json([
-            'data' => [
-                'snapshot_id'    => (string) $snapshot->id,
-                'watermark'      => (int) $snapshot->watermark,
-                'manifest'       => $manifest,
-                'server_time'    => now()->toIso8601String(),
-                'expires_at'     => $snapshot->expires_at->toIso8601String(),
-                'schema_version' => 1,
-            ],
-        ]);
+        return response()->json(['data' => [
+            'snapshot_id' => (string) $snapshot->id, 'watermark' => (int) $snapshot->watermark,
+            'manifest'    => array_map('count', $snapshot->data),
+            'stocks'      => \App\Models\Stock::withoutGlobalScope('current_store')->active()
+                ->whereHas('stores', fn ($query) => $query->whereKey($request->attributes->get('flutter_store')->id))
+                ->orderBy('id')->get(['id', 'name'])->map(fn ($stock): array => ['id' => (string) $stock->id, 'name' => $stock->name]),
+            'server_time' => now()->toIso8601String(), 'expires_at' => $snapshot->expires_at->toIso8601String(), 'schema_version' => 1,
+        ]]);
     }
 
     public function bootstrapData(Request $request, string $storeId, string $snapshotId): JsonResponse
     {
         $store    = $request->attributes->get('flutter_store');
-        $snapshot = FlutterSyncSnapshot::query()
-            ->where('id', $snapshotId)
-            ->where('store_id', $store->id)
-            ->where('status', 'ready')
-            ->where('expires_at', '>', now())
-            ->firstOrFail();
-
+        $snapshot = FlutterSyncSnapshot::query()->whereKey($snapshotId)->where('store_id', $store->id)
+            ->where('user_id', $request->user()->id)->where('device_id', $request->attributes->get('flutter_device')->id)
+            ->where('status', 'ready')->where('expires_at', '>', now())->firstOrFail();
+        abort_unless($snapshot->permission_hash === $this->sync->permissionFingerprint($request->user()), 409, 'Ruxsatlar o‘zgargan. Qayta yuklang.');
         $entity = (string) $request->input('entity', 'products');
-        $limit  = min(500, max(1, (int) $request->input('limit', 100)));
-        $cursor = (int) $request->input('cursor', 0);
-
-        if ($entity === 'debtors') {
+        abort_unless(in_array($entity, ['products', 'debtors', 'clients'], true), 422);
+        if ($entity === 'products') {
+            abort_unless(Gate::forUser($request->user())->allows('viewAny', Product::class) || $request->user()->can('View:Pos'), 403);
+        } elseif ($entity === 'clients') {
+            Gate::forUser($request->user())->authorize('View:Pos');
+        } else {
             Gate::forUser($request->user())->authorize('viewAny', Debtor::class);
-
-            $items = Debtor::withoutGlobalScope('current_store')
-                ->where('store_id', $store->id)
-                ->where('id', '>', $cursor)
-                ->with('client')
-                ->orderBy('id')
-                ->limit($limit + 1)
-                ->get();
-
-            $hasMore = $items->count() > $limit;
-            $slice   = $hasMore ? $items->slice(0, $limit) : $items;
-            $nextCursor = $slice->isNotEmpty() ? (string) $slice->last()->id : null;
-
-            return response()->json([
-                'data' => [
-                    'entity'      => 'debtors',
-                    'items'       => DebtorResource::collection($slice),
-                    'next_cursor' => $nextCursor,
-                    'has_more'    => $hasMore,
-                ],
-            ]);
         }
+        $limit  = min(500, max(1, (int) $request->input('limit', 100)));
+        $cursor = max(0, (int) $request->input('cursor', 0));
+        $items  = collect($snapshot->data[$entity] ?? [])->filter(fn (array $item): bool => (int) $item['id'] > $cursor)->values();
+        $slice  = $items->take($limit);
 
-        // Default products
-        Gate::forUser($request->user())->authorize('viewAny', Product::class);
-
-        $stockInStore = fn ($query) => $query->whereHas('stock.stores', fn ($stores) => $stores->whereKey($store->id));
-
-        $items = Product::withoutGlobalScope('current_store')
-            ->where('store_id', $store->id)
-            ->where('id', '>', $cursor)
-            ->with([
-                'media',
-                'sizes' => fn ($sizes) => $sizes
-                    ->withCount(['productStocks as mobile_stock_count' => $stockInStore])
-                    ->withSum(['productStocks as mobile_quantity' => $stockInStore], 'quantity')
-                    ->withSum(['stocks as legacy_quantity' => $stockInStore], 'quantity'),
-            ])
-            ->withSum(['productStocks as store_quantity' => $stockInStore], 'quantity')
-            ->orderBy('id')
-            ->limit($limit + 1)
-            ->get();
-
-        $hasMore = $items->count() > $limit;
-        $slice   = $hasMore ? $items->slice(0, $limit) : $items;
-        $nextCursor = $slice->isNotEmpty() ? (string) $slice->last()->id : null;
-
-        return response()->json([
-            'data' => [
-                'entity'      => 'products',
-                'items'       => ProductResource::collection($slice),
-                'next_cursor' => $nextCursor,
-                'has_more'    => $hasMore,
-            ],
-        ]);
+        return response()->json(['data' => ['entity' => $entity, 'items' => $slice->all(),
+            'next_cursor'                            => $slice->isNotEmpty() ? (string) $slice->last()['id'] : (string) $cursor,
+            'has_more'                               => $items->count() > $limit]]);
     }
 
     public function delta(Request $request): JsonResponse
     {
-        $store  = $request->attributes->get('flutter_store');
-        $limit  = min(500, max(1, (int) $request->input('limit', 100)));
-        $cursor = (int) $request->input('cursor', 0);
+        $store    = $request->attributes->get('flutter_store');
+        $entities = [];
+        if (Gate::forUser($request->user())->allows('viewAny', Product::class) || $request->user()->can('View:Pos')) {
+            $entities[] = 'product';
+        }
+        if (Gate::forUser($request->user())->allows('viewAny', Debtor::class)) {
+            $entities[] = 'debtor';
+        }
+        if ($request->user()->can('View:Pos')) {
+            $entities[] = 'client';
+        }
+        abort_unless($entities, 403);
+        $limit     = min(500, max(1, (int) $request->input('limit', 100)));
+        $cursor    = max(0, (int) $request->input('cursor', 0));
+        $revisions = FlutterSyncRevision::query()->where('store_id', $store->id)->whereIn('entity_type', $entities)->where('id', '>', $cursor)->orderBy('id')->limit($limit + 1)->get();
+        $slice     = $revisions->take($limit);
+        $products  = $this->sync->productsQuery($store->id)->whereIn('id', $slice->where('entity_type', 'product')->pluck('entity_id'))->get()->keyBy('id');
+        $debtors   = Debtor::withoutGlobalScope('current_store')->where('store_id', $store->id)
+            ->addSelect(['sync_revision' => FlutterSyncRevision::query()->selectRaw('MAX(revision)')->whereColumn('entity_id', 'debtors.id')->where('store_id', $store->id)->where('entity_type', 'debtor')])
+            ->whereIn('id', $slice->where('entity_type', 'debtor')->pluck('entity_id'))->with(['client', 'transactions'])->get()->keyBy('id');
+        $clients = \App\Models\Client::query()->whereIn('id', $slice->where('entity_type', 'client')->pluck('entity_id'))->get()->keyBy('id');
+        $changes = $slice->map(function ($revision) use ($request, $products, $debtors, $clients): array {
+            $model = match ($revision->entity_type) {
+                'product' => $products->get($revision->entity_id), 'client' => $clients->get($revision->entity_id), default => $debtors->get($revision->entity_id)
+            };
+            $value = $model ? match ($revision->entity_type) {
+                'product' => new ProductResource($model), 'client' => new \App\Http\Resources\Flutter\ClientResource($model), default => new DebtorResource($model)
+            } : null;
+            $value = $value?->resolve($request);
 
-        $revisions = FlutterSyncRevision::query()
-            ->where('store_id', $store->id)
-            ->where('id', '>', $cursor)
-            ->orderBy('id')
-            ->limit($limit + 1)
-            ->get();
+            return ['entity' => $revision->entity_type, 'id' => (string) $revision->entity_id,
+                'revision'   => (string) $revision->revision, 'action' => $model ? 'upsert' : 'delete', 'value' => $value];
+        });
 
-        $hasMore = $revisions->count() > $limit;
-        $slice   = $hasMore ? $revisions->slice(0, $limit) : $revisions;
-        $nextCursor = $slice->isNotEmpty() ? (string) $slice->last()->id : (string) $cursor;
-
-        $changes = $slice->map(fn ($rev): array => [
-            'entity'   => (string) $rev->entity_type,
-            'id'       => (string) $rev->entity_id,
-            'revision' => (string) $rev->revision,
-            'action'   => (string) $rev->action,
-            'value'    => $rev->payload,
-        ]);
-
-        return response()->json([
-            'data' => [
-                'changes'     => $changes,
-                'next_cursor' => $nextCursor,
-                'has_more'    => $hasMore,
-            ],
-        ]);
+        return response()->json(['data' => ['changes' => $changes,
+            'next_cursor'                             => (string) ($slice->last()?->id ?? $cursor), 'has_more' => $revisions->count() > $limit]]);
     }
 
-    public function operations(Request $request): JsonResponse
+    public function operations(SyncOperationsRequest $request): JsonResponse
     {
-        $store      = $request->attributes->get('flutter_store');
-        $device     = $request->attributes->get('flutter_device');
-        $user       = $request->user();
-        $operations = (array) $request->input('operations', []);
-
-        if (empty($operations) && $request->has('operation_id')) {
-            $operations = [$request->all()];
-        }
-
-        if (empty($operations)) {
-            return response()->json(['data' => ['results' => []]]);
-        }
-
         $results = [];
-
-        foreach ($operations as $op) {
-            $opId        = $op['operation_id'] ?? null;
-            $opType      = $op['operation_type'] ?? '';
-            $payload     = (array) ($op['payload'] ?? []);
-            $payloadHash = $this->hashPayload($payload);
-            $occurredAt  = !empty($op['occurred_at']) ? Carbon::parse($op['occurred_at']) : now();
-
-            // 1. Idempotency Check
-            $existing = FlutterSyncOperation::query()->where('operation_id', $opId)->first();
-            if ($existing) {
-                if ($existing->payload_hash !== $payloadHash) {
-                    $results[] = [
-                        'operation_id' => $opId,
-                        'status'       => 'conflict',
-                        'error'        => 'idempotency_mismatch',
-                    ];
-                    continue;
-                }
-
-                $results[] = [
-                    'operation_id'        => $opId,
-                    'status'              => $existing->status,
-                    'canonical_id'        => $existing->entity_id,
-                    'response_data'       => $existing->response_data,
-                    'is_replay'           => true,
-                ];
-                continue;
-            }
-
-            // 2. Process Operation
-            try {
-                $status       = 'applied';
-                $entityId     = $op['entity_id'] ?? null;
-                $responseData = null;
-
-                if ($opType === 'sale.create') {
-                    if (!$user->can('view_pos') && !Gate::forUser($user)->allows('View:Pos')) {
-                        throw new \Exception('POS uchun ruxsat berilmagan.');
-                    }
-                    $saleResult = $this->saleService->createSale($user, $store, $payload);
-                    $entityId   = $saleResult['server_sale_id'];
-                    $responseData = $saleResult;
-
-                    $this->syncService->recordRevision($store->id, 'sale', $entityId, 'upsert', $saleResult);
-                } elseif ($opType === 'debtor.create') {
-                    Gate::forUser($user)->authorize('create', Debtor::class);
-                    $debtor = $this->debtService->createDebtor($user, $store->id, $payload, $opId);
-                    $entityId = (string) $debtor->id;
-                    $responseData = ['debtor_id' => $entityId, 'amount' => (string) $debtor->amount];
-
-                    $this->syncService->recordRevision($store->id, 'debtor', $entityId, 'upsert', $responseData);
-                } elseif ($opType === 'debtor.transact') {
-                    $debtorId = (int) ($op['entity_id'] ?? $payload['debtor_id']);
-                    $debtor   = Debtor::withoutGlobalScope('current_store')->where('store_id', $store->id)->findOrFail($debtorId);
-                    Gate::forUser($user)->authorize('update', $debtor);
-
-                    $transResult = $this->debtService->transact($user, $store->id, $debtorId, $payload, $opId);
-                    $entityId    = (string) $transResult['debtor']->id;
-                    $responseData = [
-                        'debtor_id'      => $entityId,
-                        'amount'         => (string) $transResult['debtor']->amount,
-                        'transaction_id' => (string) $transResult['transaction']->id,
-                    ];
-
-                    $this->syncService->recordRevision($store->id, 'debtor', $entityId, 'upsert', $responseData);
-                } elseif ($opType === 'product.create') {
-                    Gate::forUser($user)->authorize('create', Product::class);
-                    $product = (new Product)->getConnection()->transaction(function () use ($store, $payload): Product {
-                        $product = Product::withoutGlobalScope('current_store')->create([
-                            'store_id'      => $store->id,
-                            'name'          => $payload['name'] ?? 'Mahsulot',
-                            'barcode'       => $payload['barcode'] ?? null,
-                            'type'          => $payload['type'] ?? 'package',
-                            'price'         => $payload['price'] ?? 0,
-                            'initial_price' => $payload['initial_price'] ?? $payload['price'] ?? 0,
-                        ]);
-
-                        $qty = (int) ($payload['stock_quantity'] ?? 0);
-                        if ($qty > 0) {
-                            $stock = Stock::withoutGlobalScope('current_store')
-                                ->whereHas('stores', fn ($q) => $q->whereKey($store->id))
-                                ->first() ?? Stock::first();
-
-                            if ($stock) {
-                                $product->productStocks()->create([
-                                    'stock_id' => $stock->id,
-                                    'quantity' => $qty,
-                                ]);
-                            }
-                        }
-
-                        return $product;
-                    });
-
-                    $entityId = (string) $product->id;
-                    $responseData = ['product_id' => $entityId, 'name' => $product->name, 'barcode' => $product->barcode];
-
-                    $this->syncService->recordRevision($store->id, 'product', $entityId, 'upsert', $responseData);
-                } elseif ($opType === 'product.delete') {
-                    $prodId = (int) ($op['entity_id'] ?? $payload['product_id'] ?? $payload['id'] ?? 0);
-                    $product = Product::withoutGlobalScope('current_store')->where('store_id', $store->id)->find($prodId);
-                    if ($product) {
-                        Gate::forUser($user)->authorize('delete', $product);
-                        $product->delete();
-                        $entityId = (string) $prodId;
-                        $responseData = ['deleted' => true];
-                        $this->syncService->recordRevision($store->id, 'product', $entityId, 'delete', $responseData);
-                    }
-                } else {
-                    $status = 'rejected';
-                    $responseData = ['error' => 'Noma’lum operatsiya turi: ' . $opType];
-                }
-
-                $record = FlutterSyncOperation::query()->create([
-                    'operation_id'   => $opId,
-                    'device_id'      => $device->id,
-                    'user_id'        => $user->id,
-                    'store_id'       => $store->id,
-                    'entity_type'    => $op['entity_type'] ?? 'unknown',
-                    'entity_id'      => $entityId,
-                    'local_id'       => $op['local_id'] ?? null,
-                    'operation_type' => $opType,
-                    'base_revision'  => $op['base_revision'] ?? null,
-                    'payload_hash'   => $payloadHash,
-                    'payload'        => $payload,
-                    'status'         => $status,
-                    'response_data'  => $responseData,
-                    'occurred_at'    => $occurredAt,
-                    'applied_at'     => $status === 'applied' ? now() : null,
-                ]);
-
-                $results[] = [
-                    'operation_id'  => $opId,
-                    'status'        => $status,
-                    'canonical_id'  => $entityId,
-                    'response_data' => $responseData,
-                    'is_replay'     => false,
-                ];
-            } catch (\Exception $e) {
-                $record = FlutterSyncOperation::query()->create([
-                    'operation_id'   => $opId,
-                    'device_id'      => $device->id,
-                    'user_id'        => $user->id,
-                    'store_id'       => $store->id,
-                    'entity_type'    => $op['entity_type'] ?? 'unknown',
-                    'entity_id'      => $op['entity_id'] ?? null,
-                    'local_id'       => $op['local_id'] ?? null,
-                    'operation_type' => $opType,
-                    'base_revision'  => $op['base_revision'] ?? null,
-                    'payload_hash'   => $payloadHash,
-                    'payload'        => $payload,
-                    'status'         => 'conflict',
-                    'response_data'  => ['error' => $e->getMessage()],
-                    'occurred_at'    => $occurredAt,
-                ]);
-
-                FlutterSyncConflict::query()->create([
-                    'operation_id' => $opId,
-                    'store_id'     => $store->id,
-                    'user_id'      => $user->id,
-                    'entity_type'  => $op['entity_type'] ?? 'unknown',
-                    'entity_id'    => $op['entity_id'] ?? null,
-                    'reason'       => $e->getMessage(),
-                    'server_state' => null,
-                    'client_state' => $payload,
-                    'status'       => 'pending',
-                ]);
-
-                $results[] = [
-                    'operation_id' => $opId,
-                    'status'       => 'conflict',
-                    'error'        => $e->getMessage(),
-                ];
-            }
+        foreach ($request->validated('operations') as $envelope) {
+            $results[] = $this->operations->process(
+                $request->user(),
+                $request->attributes->get('flutter_store'),
+                $request->attributes->get('flutter_device'),
+                $envelope
+            );
         }
 
         return response()->json(['data' => ['results' => $results]]);
@@ -355,45 +119,24 @@ class SyncController extends Controller
 
     public function showOperation(Request $request, string $storeId, string $operationId): JsonResponse
     {
-        $store = $request->attributes->get('flutter_store');
-        $op    = FlutterSyncOperation::query()
-            ->where('store_id', $store->id)
-            ->where('operation_id', $operationId)
-            ->firstOrFail();
+        $operation = FlutterSyncOperation::query()->where('store_id', $request->attributes->get('flutter_store')->id)
+            ->where('user_id', $request->user()->id)->where('device_id', $request->attributes->get('flutter_device')->id)
+            ->where('operation_id', $operationId)->firstOrFail();
 
-        return response()->json([
-            'data' => [
-                'operation_id'  => $op->operation_id,
-                'status'        => $op->status,
-                'canonical_id'  => $op->entity_id,
-                'response_data' => $op->response_data,
-            ],
-        ]);
+        return response()->json(['data' => ['operation_id' => $operation->operation_id, 'status' => $operation->status,
+            'canonical_id'                                 => $operation->entity_id, 'response_data' => $operation->response_data]]);
     }
 
     public function conflicts(Request $request): JsonResponse
     {
-        $store     = $request->attributes->get('flutter_store');
-        $conflicts = FlutterSyncConflict::query()
-            ->where('store_id', $store->id)
-            ->where('status', 'pending')
-            ->orderByDesc('id')
-            ->limit(100)
-            ->get();
+        $conflicts = FlutterSyncConflict::query()->where('store_id', $request->attributes->get('flutter_store')->id)
+            ->where('user_id', $request->user()->id)
+            ->whereHas('operation', fn ($query) => $query->where('device_id', $request->attributes->get('flutter_device')->id))
+            ->where('status', 'pending')->orderByDesc('id')->limit(100)->get();
 
-        return response()->json([
-            'data' => $conflicts->map(fn ($c): array => [
-                'id'           => (string) $c->id,
-                'operation_id' => $c->operation_id,
-                'entity_type'  => $c->entity_type,
-                'reason'       => $c->reason,
-                'created_at'   => $c->created_at->toIso8601String(),
-            ]),
-        ]);
-    }
-
-    protected function hashPayload(array $payload): string
-    {
-        return hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
+        return response()->json(['data' => $conflicts->map(fn ($conflict): array => [
+            'id'     => (string) $conflict->id, 'operation_id' => $conflict->operation_id, 'entity_type' => $conflict->entity_type,
+            'reason' => $conflict->reason, 'created_at' => $conflict->created_at->toIso8601String(),
+        ])]);
     }
 }

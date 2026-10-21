@@ -46,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (!mounted) return;
 
-    showDialog(
+    await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Row(
@@ -77,7 +77,8 @@ class _LoginScreenState extends State<LoginScreen> {
         actions: [
           TextButton(
             onPressed: () async {
-              await _storage.setServerUrl(SecureStorageService.defaultServerUrl);
+              await _storage
+                  .setServerUrl(SecureStorageService.defaultServerUrl);
               if (ctx.mounted) Navigator.pop(ctx);
             },
             child: const Text("Standart holatga"),
@@ -86,8 +87,16 @@ class _LoginScreenState extends State<LoginScreen> {
             onPressed: () async {
               final newUrl = urlController.text.trim();
               if (newUrl.isNotEmpty) {
-                await _storage.setServerUrl(newUrl);
-                if (ctx.mounted) Navigator.pop(ctx);
+                try {
+                  await _storage.setServerUrl(newUrl);
+                  if (ctx.mounted) Navigator.pop(ctx);
+                } catch (_) {
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                        content: Text(
+                            'HTTPS API manzilini /api/flutter/v1 bilan kiriting.')));
+                  }
+                }
               }
             },
             child: const Text("Saqlash"),
@@ -95,6 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ],
       ),
     );
+    urlController.dispose();
   }
 
   Future<void> _submit() async {
@@ -105,6 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _errorMessage = "Email va parolni kiriting.");
       return;
     }
+    if (_isLoading) return;
 
     setState(() {
       _isLoading = true;
@@ -119,13 +130,16 @@ class _LoginScreenState extends State<LoginScreen> {
       if (success) {
         widget.onLoginSuccess();
       } else {
-        setState(() => _errorMessage = "Kirish amalga oshmadi. Email yoki parol xato.");
+        setState(() =>
+            _errorMessage = "Kirish amalga oshmadi. Email yoki parol xato.");
       }
     } on DioException catch (e) {
       final msg = e.response?.data is Map
-          ? (e.response?.data['error']?['message'] ?? e.response?.data['message'])
+          ? (e.response?.data['error']?['message'] ??
+              e.response?.data['message'])
           : null;
-      setState(() => _errorMessage = msg?.toString() ?? "Serverga ulanishda xatolik (${e.response?.statusCode ?? 'aloqa yo\'q'}).");
+      setState(() => _errorMessage = msg?.toString() ??
+          "Serverga ulanishda xatolik (${e.response?.statusCode ?? 'aloqa yo\'q'}).");
     } catch (e) {
       setState(() => _errorMessage = "Xatolik: ${e.toString()}");
     } finally {
@@ -141,7 +155,8 @@ class _LoginScreenState extends State<LoginScreen> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings_outlined, color: AppColors.lightMuted),
+            icon: const Icon(Icons.settings_outlined,
+                color: AppColors.lightMuted),
             tooltip: "Server sozlamalari",
             onPressed: _openServerSettings,
           ),

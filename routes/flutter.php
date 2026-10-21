@@ -4,11 +4,11 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Middleware\EnsureFlutterStore;
 use App\Http\Controllers\Flutter\SyncController;
 use App\Http\Controllers\Flutter\LeaseController;
-use App\Http\Controllers\Flutter\DeviceController;
 use App\Http\Controllers\Flutter\DebtorController;
+use App\Http\Controllers\Flutter\DeviceController;
+use App\Http\Middleware\AuthenticateFlutterDevice;
 use App\Http\Controllers\Flutter\ProductController;
 use App\Http\Controllers\Flutter\SessionController;
-use App\Http\Middleware\AuthenticateFlutterDevice;
 use App\Http\Controllers\Flutter\DebtorPhotoController;
 use App\Http\Controllers\Flutter\CapabilitiesController;
 use App\Http\Controllers\Flutter\SalesStatisticsController;
@@ -18,7 +18,7 @@ Route::post('login', [SessionController::class, 'store'])->middleware('throttle:
 
 Route::middleware([AuthenticateFlutterDevice::class, 'throttle:flutter-api'])->group(function (): void {
     Route::get('session', [SessionController::class, 'show'])->name('session');
-    Route::get('stores', function (\Illuminate\Http\Request $request) {
+    Route::get('stores', function (Illuminate\Http\Request $request) {
         return response()->json([
             'data' => $request->user()->stores()->orderBy('stores.id')->get(['stores.id', 'stores.name'])
                 ->map(fn ($store): array => ['id' => (string) $store->id, 'name' => $store->name]),
@@ -31,6 +31,7 @@ Route::middleware([AuthenticateFlutterDevice::class, 'throttle:flutter-api'])->g
         Route::get('session', [SessionController::class, 'show'])->name('session');
         Route::post('lease', [LeaseController::class, 'store'])->name('lease');
         Route::get('statistics', SalesStatisticsController::class)->name('statistics');
+        Route::get('clients', [App\Http\Controllers\Flutter\ClientController::class, 'index'])->name('clients.index');
 
         // Products
         Route::get('products', [ProductController::class, 'index'])->name('products.index');
@@ -58,5 +59,6 @@ Route::middleware([AuthenticateFlutterDevice::class, 'throttle:flutter-api'])->g
         Route::post('operations', [SyncController::class, 'operations'])->name('operations');
         Route::get('operations/{operation}', [SyncController::class, 'showOperation'])->name('operations.show');
         Route::get('conflicts', [SyncController::class, 'conflicts'])->name('conflicts');
+        Route::post('conflicts/{conflict}/resolve', [App\Http\Controllers\Flutter\ConflictController::class, 'update'])->whereNumber('conflict')->name('conflicts.resolve');
     });
 });

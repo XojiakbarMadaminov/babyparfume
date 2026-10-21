@@ -8,14 +8,18 @@ use App\Models\Client;
 use App\Models\Debtor;
 use App\Models\Product;
 use Illuminate\Support\Str;
-use App\Services\FlutterSyncService;
 use Spatie\Permission\Models\Role;
+use App\Services\FlutterSyncService;
 use Spatie\Permission\Models\Permission;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
+    $this->mock(App\Services\SmsService::class)->shouldReceive('sendSms')->andReturn(['success' => true]);
+    $this->mock(App\Services\TelegramNotifier::class)->shouldReceive('sendMessage')->andReturn(true);
+    $this->mock(App\Services\TelegramSaleNotifier::class)->shouldReceive('notify');
+    Illuminate\Support\Facades\Http::preventStrayRequests();
     config()->set('flutter.enabled', true);
 
     $this->storeA = Store::query()->create(['name' => 'Do‘kon A', 'address' => 'Toshkent', 'phone' => '+998901111111']);
@@ -28,7 +32,7 @@ beforeEach(function (): void {
     ]);
     $this->user->stores()->attach($this->storeA->id);
 
-    $role = Role::findOrCreate('admin', 'web');
+    $role        = Role::findOrCreate('admin', 'web');
     $permissions = [
         'view_pos',
         'View:Pos',
@@ -51,12 +55,12 @@ beforeEach(function (): void {
     }
 
     $this->deviceUuid = (string) Str::uuid();
-    $loginResponse = $this->postJson('/api/flutter/v1/login', [
-        'email'         => 'sync_user@example.com',
-        'password'      => 'password',
-        'device_uuid'   => $this->deviceUuid,
-        'device_name'   => 'iPhone 15',
-        'platform'      => 'ios',
+    $loginResponse    = $this->postJson('/api/flutter/v1/login', [
+        'email'       => 'sync_user@example.com',
+        'password'    => 'password',
+        'device_uuid' => $this->deviceUuid,
+        'device_name' => 'iPhone 15',
+        'platform'    => 'ios',
     ])->assertCreated();
 
     $this->token = $loginResponse->json('data.token');
@@ -107,8 +111,8 @@ it('performs bootstrap initialization and returns paginated products and debtors
 
 it('streams delta changes based on watermark revisions', function (): void {
     $syncService = app(FlutterSyncService::class);
-    $rev1 = $syncService->recordRevision($this->storeA->id, 'product', 101, 'upsert', ['name' => 'Delta Product']);
-    $rev2 = $syncService->recordRevision($this->storeA->id, 'debtor', 202, 'upsert', ['amount' => '10000']);
+    $rev1        = $syncService->recordRevision($this->storeA->id, 'product', 101, 'upsert', ['name' => 'Delta Product']);
+    $rev2        = $syncService->recordRevision($this->storeA->id, 'debtor', 202, 'upsert', ['amount' => '10000']);
 
     $response = $this->withToken($this->token)
         ->getJson("/api/flutter/v1/stores/{$this->storeA->id}/delta?cursor=0")
@@ -138,13 +142,13 @@ it('processes offline sales with zero-stock support, deficit audit, and replay',
 
     $client = Client::query()->create(['full_name' => 'Doimiy Xaridor', 'phone' => '+998909998877']);
 
-    $opId = (string) Str::uuid();
+    $opId        = (string) Str::uuid();
     $localSaleId = (string) Str::uuid();
 
     $salePayload = [
-        'local_sale_id'    => $localSaleId,
-        'client'           => ['server_id' => (string) $client->id, 'local_id' => null],
-        'items'            => [
+        'local_sale_id' => $localSaleId,
+        'client'        => ['server_id' => (string) $client->id, 'local_id' => null],
+        'items'         => [
             [
                 'product_id' => (string) $product->id,
                 'stock_id'   => (string) $this->stockA->id,
@@ -153,7 +157,7 @@ it('processes offline sales with zero-stock support, deficit audit, and replay',
                 'discount'   => '0.00',
             ],
         ],
-        'payment'          => [
+        'payment' => [
             'type' => 'cash',
             'cash' => '70000.00',
             'card' => '0.00',
@@ -211,7 +215,7 @@ it('processes offline sales with zero-stock support, deficit audit, and replay',
     expect(Sale::query()->count())->toBe(1);
 
     // Mismatched payload replay (conflict idempotency_mismatch)
-    $tamperedPayload = $salePayload;
+    $tamperedPayload                    = $salePayload;
     $tamperedPayload['payment']['cash'] = '80000.00';
 
     $conflictResp = $this->withToken($this->token)

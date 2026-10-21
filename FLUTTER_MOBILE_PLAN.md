@@ -3,10 +3,10 @@
 ## 1. Hujjat holati va maqsad
 
 - Sana: 2026-10-21. Loyiha: `babyparfume`.
-- Holat: PH-00 dan PH-10 gacha to‘liq yakunlandi; PH-02 token/device API poydevori feature flag ortida yozildi. Alohida Flutter SDK o‘rnatildi; Flutter ilova va offline sync hali yozilmagan.
+- Holat: **to‘liq yakunlanmagan**. 2026-10-21 kod auditi va tuzatishlari §17 da. Backend va Flutter offline oqimlari tuzatildi; real Android/iPhone qabul sinovlari, eski lokal baza migratsiyasi, ayrim parity/sync bandlari va release ochiq. Printer foydalanuvchi qarori bilan hozircha kechiktirilgan.
 - Maqsad: hozirgi `/mobile` interfeysining barcha foydalanuvchi imkoniyatlarini Flutter Android/iOS ilovasiga ko‘chirish, qarzdorlar bilan offline ishlash, mahsulotlarni offline qidirish va sotuvni offline yakunlashni ta’minlash.
 - Cheklov: mavjud web admin, `/mobile`, `/mobile/api/v1/*`, Livewire sessiyalari va biznes qoidalari buzilmasin.
-- Ushbu hujjat ishning yagona davom ettirish nuqtasi: keyingi AI avval uni va tegishli `AGENTS.md` ko‘rsatmalarini o‘qiydi.
+- Joriy holat uchun §17 ustuvor; avvalgi ish jurnali tasdiqlanmagan da’volarni ham o‘z ichiga oladi. Ushbu hujjat davom ettirish nuqtasi: keyingi AI avval uni va tegishli `AGENTS.md` ko‘rsatmalarini o‘qiydi.
 - Belgilanmagan texnik tanlovlar tasdiqlangan qaror deb qabul qilinmaydi. Paketlar, yangi asosiy papkalar va bog‘liqliklar uchun repository qoidalariga muvofiq oldindan ruxsat olinadi.
 
 ## 2. Foydalanuvchi tasdiqlagan talablar
@@ -402,6 +402,8 @@ Har bir o‘zgartiruvchi amal kamida quyidagilarni saqlaydi:
 
 ## 12. Phase va tasklarni yuritish qoidasi
 
+2026-10-21 qayta audit: quyidagi checkboxlar kod va dalillar bilan qayta ko‘rib chiqildi. `[ ]` bandda implementatsiyaning bir qismi mavjud bo‘lishi mumkin; barcha shartlari isbotlanmagani uchun ochiq qoldirildi. Phase oxiridagi “Qabul” matnlari maqsad mezonidir, bajarilganlik haqidagi hisobot emas. Tafsilotlar §17 da.
+
 ### AI uchun majburiy davom ettirish protokoli
 
 1. Ish boshida `git status`, tegishli ko‘rsatmalar, ushbu hujjatning tasdiqlangan talablari, tasklar va §15 handoff’ni o‘qish.
@@ -421,11 +423,11 @@ Har bir o‘zgartiruvchi amal kamida quyidagilarni saqlaydi:
 
 - [x] PH00-01 Foydalanuvchining 7 savolga javoblarini va himoya talablarini ushbu hujjatda qayd qilish.
 - [x] PH00-02 Asosiy mobil routelar, Vue/Livewire chegarasi, session-store bog‘liqligi va qarz idempotency mavjudligini dastlabki kod auditi bilan qayd qilish.
-- [x] PH00-03 Har mobil ekran/button/form/permission/validation uchun to‘liq parity checklist yaratish; jadvaldagi funksiyalarni UI bilan birma-bir tasdiqlash.
-- [x] PH00-04 Hozirgi mobil ekranlarning ruxsatli screenshot va navigatsiya xaritasini olish; yorug‘/qorong‘i rejim mavjud bo‘lsa ikkalasini qayd qilish.
+- [ ] PH00-03 Har mobil ekran/button/form/permission/validation uchun to‘liq parity checklist yaratish; jadvaldagi funksiyalarni UI bilan birma-bir tasdiqlash.
+- [ ] PH00-04 Hozirgi mobil ekranlarning ruxsatli screenshot va navigatsiya xaritasini olish; yorug‘/qorong‘i rejim mavjud bo‘lsa ikkalasini qayd qilish.
 - [x] PH00-05 Web POS va mobil POS to‘lov, chegirma, stock, tarix, return/exchange mavjudligi va role farqlarini yakuniy audit qilish. Kod/render/Livewire test dalillari va chegaralar §15 da.
 - [x] PH00-06 Mavjud mobile/product/debtor/POS/statistics/isolation/photo testlarini xavfsiz test DB’da bajarib bazaviy natijani qayd qilish. Oldindan mavjud bitta xato §15 da ochiq qayd etilgan; bu checkbox barcha testlar yashil degani emas.
-- [x] PH00-07 Katalog, qarzdorlar, tarix/foto hajmi, parallel qurilmalar va eng kam telefon/platforma talablari bo‘yicha o‘lchov/ma’lumot to‘plash.
+- [ ] PH00-07 Katalog, qarzdorlar, tarix/foto hajmi, parallel qurilmalar va eng kam telefon/platforma talablari bo‘yicha o‘lchov/ma’lumot to‘plash.
 - [x] PH00-08 Mavjud permission, observer, SMS/Telegram, import va schema bog‘liqliklarini audit qilish. Sync uchun aniqlangan xavflar §15 da; ularni tuzatish hali bajarilmagan.
 
 Qabul: hech bir hozirgi mobil imkoniyat unutilmagan, baseline nosozliklari yangi ish xatosidan ajratilgan.
@@ -433,10 +435,10 @@ Qabul: hech bir hozirgi mobil imkoniyat unutilmagan, baseline nosozliklari yangi
 ### PH-01 — Texnik qarorlar va API kontrakti
 
 - [x] PH01-01 Tasdiqlangan `mobile_app/` joylashuvi asosida API prefix va environments’ni kelishish; Flutter/Laravel build-deploy chegaralarini qayd qilish. §6.1; staging/production origin qiymatlari release sozlamasida beriladi.
-- [x] PH01-02 Flutter SDK/platform minimumlari va paketlar ro‘yxatini moslik tekshiruvi bilan tasdiqlatish; versiyalarni lock qilish.
+- [ ] PH01-02 Flutter SDK/platform minimumlari va paketlar ro‘yxatini moslik tekshiruvi bilan tasdiqlatish; versiyalarni lock qilish.
 - [x] PH01-03 Token auth, secure storage, shifrlangan lokal SQL, revision/delta va 10 soat lease kontraktini tanlash.
-- [x] PH01-04 Login/device/store, bootstrap, delta, push, status, conflict, media va sales endpoint request/response misollarini yozish. §6.1; rejalangan endpointlar ishlayotgan API’dan aniq ajratilgan.
-- [x] PH01-05 Pul, timezone, local/server IDs, xatolar, pagination, batch va idempotency shartlarini versiyalash. §6.1; server enforce qilish PH-03 vazifasi.
+- [ ] PH01-04 Login/device/store, bootstrap, delta, push, status, conflict, media va sales endpoint request/response misollarini yozish. §6.1; rejalangan endpointlar ishlayotgan API’dan aniq ajratilgan.
+- [ ] PH01-05 Pul, timezone, local/server IDs, xatolar, pagination, batch va idempotency shartlarini versiyalash. §6.1; server enforce qilish PH-03 vazifasi.
 - [x] PH01-06 Qarz parallel tahrirlari/admin qarori, logout/pending, lease expiry va account-switch UX’ini yakuniy belgilash. §6.1 va §9; yangi refund/avans siyosati kiritilmagan.
 - [x] PH01-07 Zero-stock savdo uchun hozirgi 0 da qolish semantikasini tasdiqlash; yetishmovchilik auditining zaruratini qayd qilish. R-05 va §6.1.
 - [x] PH01-08 Google Play/Apple developer hisoblari, signing egaligi va printer modeliga bog‘liq release blockerlarni yozish. §6.1; blockerlar hal etilgan degani emas.
@@ -463,10 +465,10 @@ Qabul: Flutter API ishlaydi, lekin eski web/mobile kontrakti o‘zgarmagan; do�
 - [x] PH03-03 Web/old mobile/import o‘zgarishlarini ham qamrovchi delta/revision/tombstone mexanizmini yozish.
 - [x] PH03-04 Operation envelope, UUID unique/hash/replay, atomic ack/status endpointni yozish.
 - [x] PH03-05 Qarz create/edit/correction/debt/payment amallarini sessiyasiz domain xizmat orqali qo‘llash.
-- [x] PH03-06 Parent dependency, local/server mapping va media upload lifecycle’ni yozish.
+- [ ] PH03-06 Parent dependency, local/server mapping va media upload lifecycle’ni yozish.
 - [x] PH03-07 Optimistic concurrency, overpayment va duplicate-client holatlarini admin conflictga aylantirish.
-- [x] PH03-08 Commitdan keyingi SMS/Telegram etkazishni takrorlanmaydigan qilish va eski notification parity’sini tekshirish.
-- [x] PH03-09 Crash/retry/parallel request, rollback, batch partial va cursor reset testlarini yozish.
+- [ ] PH03-08 Commitdan keyingi SMS/Telegram etkazishni takrorlanmaydigan qilish va eski notification parity’sini tekshirish.
+- [ ] PH03-09 Crash/retry/parallel request, rollback, batch partial va cursor reset testlarini yozish.
 - [x] PH03-10 Offline sale aggregate ingest, sale/item/payment/stock/debt atomik posting, lokal chek ID mapping va admin review oqimini yozish.
 
 Qabul: bir amal ko‘p marta kelganda ham bitta moliyaviy natija; eskirgan qarz admin qarorisiz ustidan yozilmaydi.
@@ -474,26 +476,26 @@ Qabul: bir amal ko‘p marta kelganda ham bitta moliyaviy natija; eskirgan qarz 
 ### PH-04 — Flutter asos va dizayn parity
 
 - [x] PH04-01 Shu repository ichidagi `mobile_app/` da Flutter Android/iOS loyihasi, alohida build konfiguratsiya, environmentlar va build/cache/signing ignore qoidalarini yaratish; Laravel/Vite oqimlari o‘zgarmasin.
-- [x] PH04-02 Hozirgi mobil dizayndan rang, shrift, spacing, kartalar, bottom nav, formalar va dialoglarni ko‘chirish.
-- [x] PH04-03 Faqat o‘zbek matnlar, so‘m/sana/telefon formati, loading/empty/error/permission holatlarini yozish.
+- [ ] PH04-02 Hozirgi mobil dizayndan rang, shrift, spacing, kartalar, bottom nav, formalar va dialoglarni ko‘chirish.
+- [ ] PH04-03 Faqat o‘zbek matnlar, so‘m/sana/telefon formati, loading/empty/error/permission holatlarini yozish.
 - [x] PH04-04 Token HTTP client, xatolarni xaritalash, login/logout va qurilma do‘kon tanlovini ulash.
-- [x] PH04-05 SQL schema/migrations, secure key/token saqlash va account/store partitionni qurish.
+- [ ] PH04-05 SQL schema/migrations, secure key/token saqlash va account/store partitionni qurish.
 - [x] PH04-06 Lease, app lifecycle, clock rollback/reboot, 10 soat tugash lock ekranini yozish.
 - [x] PH04-07 Permission/cost redaction va obuna ogohlantirishi parity’sini ulash.
-- [x] PH04-08 UI/widget/golden testlarni etalon screenshot va real qurilma bilan tekshirish.
+- [ ] PH04-08 UI/widget/golden testlarni etalon screenshot va real qurilma bilan tekshirish.
 
 Qabul: autentifikatsiya va dizayn asoslari ishlaydi; boshqa account/store cache’i ko‘rinmaydi.
 
 ### PH-05 — Flutter offline engine
 
-- [x] PH05-01 Resumable bootstrap, offline-ready indikator, disk hajmi va media download navbatini yozish.
+- [ ] PH05-01 Resumable bootstrap, offline-ready indikator, disk hajmi va media download navbatini yozish.
 - [x] PH05-02 Atomik local mutation + outbox, immutable envelope va app restart tiklanishini yozish.
 - [x] PH05-03 Sync coordinator, entity tartibi, dependencies va ID mappingni amalga oshirish.
-- [x] PH05-04 Delta pull + pending overlay + conflict reconciliation va cursor resetni yozish.
-- [x] PH05-05 Retry/backoff, operation status, foreground/manual sync va platformaga mos background triggerlarni yozish.
+- [ ] PH05-04 Delta pull + pending overlay + conflict reconciliation va cursor resetni yozish.
+- [ ] PH05-05 Retry/backoff, operation status, foreground/manual sync va platformaga mos background triggerlarni yozish.
 - [x] PH05-06 Pending/synced/conflict/blocked holatlari, oxirgi sync va tushunarli muammo ekranini chiqarish.
-- [x] PH05-07 Account/logout/store-switch va ilova yangilanishida navbat/media saqlanishini test qilish.
-- [x] PH05-08 Parvoz rejimi, 10 soat simulyatsiyasi, process kill, tarmoq almashishi va disk to‘lish testlarini bajarish.
+- [ ] PH05-07 Account/logout/store-switch va ilova yangilanishida navbat/media saqlanishini test qilish.
+- [ ] PH05-08 Parvoz rejimi, 10 soat simulyatsiyasi, process kill, tarmoq almashishi va disk to‘lish testlarini bajarish.
 - [x] PH05-09 Offline checkout uchun lokal sale ledger, atomik savat yopish/outbox/chek va pending financial overlay’ni qurish.
 
 Qabul: moliyaviy UI ulanmasdan sync invariants isbotlangan; pending yozuv yo‘qolmaydi va ikki marta yuborilmaydi.
@@ -506,8 +508,8 @@ Qabul: moliyaviy UI ulanmasdan sync invariants isbotlangan; pending yozuv yo‘q
 - [x] PH06-04 Qarz qo‘shish/to‘lov, yopilish/qayta qarz, payment method va optimistic balansni yozish.
 - [x] PH06-05 Foto ko‘rish/qo‘shish/almashtirish/o‘chirish va offline media sync’ni yozish.
 - [x] PH06-06 Pending/conflict uchun tushunarli tarix, tasdiqlanmagan to‘lov ko‘rinishi va lokal chekni yozish.
-- [x] PH06-07 A/B telefon + web parallel tahrir, duplicate phone, overpayment va admin javobi bilan end-to-end test qilish.
-- [x] PH06-08 Barcha qarzdor funksiyalarini internetni uzib, restart qilib, qayta ulab real qurilmada tasdiqlash.
+- [ ] PH06-07 A/B telefon + web parallel tahrir, duplicate phone, overpayment va admin javobi bilan end-to-end test qilish.
+- [ ] PH06-08 Barcha qarzdor funksiyalarini internetni uzib, restart qilib, qayta ulab real qurilmada tasdiqlash.
 
 Qabul: hozirgi qarzdorlar modulining barcha amallari 10 soat lease ichida offline bajariladi; sync holati yashirilmaydi.
 
@@ -518,22 +520,22 @@ Qabul: hozirgi qarzdorlar modulining barcha amallari 10 soat lease ichida offlin
 - [x] PH07-03 Onlayn product create/edit/delete, stock/size/foto va barcode generation parity’sini yozish.
 - [x] PH07-04 Kamera scanner, autofocus/torch, format/checksum va leading zero saqlashni amalga oshirish.
 - [x] PH07-05 Duplicate scan guard, qayta skan UX, feedback va qo‘lda kiritish fallbackni qo‘shish.
-- [x] PH07-06 Real katta katalog va Android/iPhone kamera sharoitlarida tezlik/aniqlikni o‘lchab natijalarni yozish.
+- [ ] PH07-06 Real katta katalog va Android/iPhone kamera sharoitlarida tezlik/aniqlikni o‘lchab natijalarni yozish.
 
 Qabul: oldindan tayyor katalog internetsiz to‘liq qidiriladi; scanner duplicate va noto‘g‘ri kodlarni nazorat qiladi.
 
 ### PH-08 — Flutter online/offline sotuv va Laravel checkout API
 
 - [x] PH08-01 Mavjud POS hisoblash qoidalariga characterization testlar qo‘shish; UI/sessiondan ajratish chegarasini belgilash.
-- [x] PH08-02 Sessiyasiz preview/checkout/receipt API va zarur product/category/client endpointlarni qo‘shish.
+- [ ] PH08-02 Sessiyasiz preview/checkout/receipt API va zarur product/category/client endpointlarni qo‘shish.
 - [x] PH08-03 Bir nechta lokal savat, metadata/draft, miqdor/razmer/ombor va barcode oqimini yozish.
 - [x] PH08-04 Mijoz qidirish/tanlash/yaratish va mijozsiz sotuv cheklovlarini ko‘chirish.
-- [x] PH08-05 Narx/minimal narx, pozitsiya/chek chegirmalari va mavjud payment turlarini parity bilan yozish.
+- [ ] PH08-05 Narx/minimal narx, pozitsiya/chek chegirmalari va mavjud payment turlarini parity bilan yozish.
 - [x] PH08-06 Online/offline atomik/idempotent checkout, stock 0 holatida sotuv va qarz/sale item/cost tarixini test qilish.
 - [x] PH08-07 Internet yo‘q paytda lokal yakunlash, timeoutdan keyin avvalgi UUID/status bilan tekshirish va sync retry’ni yozish; noaniq onlayn natijadan ikkinchi savdo yaratilmasin.
 - [x] PH08-08 Lokal/server chek, qaytim, payment note, pending/synced holati va app restartdan keyingi yakunlangan savdoni tiklashni yozish.
-- [x] PH08-09 Yangi API bilan bir vaqtda eski web/mobile POSni ishlatib sessiya, stock, qarz va statistikani solishtirish.
-- [x] PH08-10 Offline-ready sotuv snapshot, cached narx/chegirma/ruxsat qoidalari va barcha mavjud payment variantlarini server parity bilan tekshirish.
+- [ ] PH08-09 Yangi API bilan bir vaqtda eski web/mobile POSni ishlatib sessiya, stock, qarz va statistikani solishtirish.
+- [ ] PH08-10 Offline-ready sotuv snapshot, cached narx/chegirma/ruxsat qoidalari va barcha mavjud payment variantlarini server parity bilan tekshirish.
 - [x] PH08-11 Offline yangi mijoz, debt/partial sale dependency va duplicate-client/qarz conflictini butun sale aggregate bilan admin orqali hal qilishni yozish.
 - [x] PH08-12 Offline savdo vaqti, sync vaqti, cost tarixi va hisobotda ikki marta sanamaslik semantikasini test qilish.
 - [x] PH08-13 Offline payment yozuvini tashqi bank/fiskal tasdiqdan ajratish, lease expiry va server rad/blocked savdoni yo‘qotmaslik UX’ini yozish.
@@ -544,38 +546,38 @@ Qabul: hozirgi mobil savdo imkoniyatlari Flutter’da WebView’siz onlayn va 10
 
 - [x] PH09-01 Statistikadagi barcha ko‘rsatkich/filter/chart/ruxsatlarni Flutter’ga ko‘chirish.
 - [x] PH09-02 Offline hisobot snapshot davri/vaqti va maxfiy maydonlarni himoyalashni ulash.
-- [x] PH09-03 Bluetooth printer modeli/protokoli, Android/iOS mosligi va 58/80 mm talablarini real qurilmada aniqlash.
-- [x] PH09-04 Printer abstraction/driver, pairing/reconnect, layout, o‘zbek matn va nusxa belgisi bilan bosishni yozish.
-- [x] PH09-05 PDF/preview/share fallback, offline cached chek va print retry’ni test qilish.
+- [ ] PH09-03 Bluetooth printer modeli/protokoli, Android/iOS mosligi va 58/80 mm talablarini real qurilmada aniqlash.
+- [ ] PH09-04 Printer abstraction/driver, pairing/reconnect, layout, o‘zbek matn va nusxa belgisi bilan bosishni yozish.
+- [ ] PH09-05 PDF/preview/share fallback, offline cached chek va print retry’ni test qilish.
 - [x] PH09-06 Web adminda qo‘shimcha permissionli conflict navbati, taqqoslash va auditli idempotent hal qilish ekranini yozish.
-- [x] PH09-07 Telefon conflict holati/admin javobi, bog‘liq amallarni davom ettirish va pul reconcile oqimini test qilish.
-- [x] PH09-08 Yangi offline sotuv chekini 58/80 mm printerda bosish, pending/server raqami/nusxa va sync’dan keyingi tarixni real qurilmada tekshirish.
+- [ ] PH09-07 Telefon conflict holati/admin javobi, bog‘liq amallarni davom ettirish va pul reconcile oqimini test qilish.
+- [ ] PH09-08 Yangi offline sotuv chekini 58/80 mm printerda bosish, pending/server raqami/nusxa va sync’dan keyingi tarixni real qurilmada tekshirish.
 
 Qabul: hisobot parity, real printer dalili va admin qarz ziddiyatini oxirigacha hal qiladigan oqim mavjud.
 
 ### PH-10 — Yakuniy QA, xavfsizlik va pilot
 
-- [x] PH10-01 Laravel targeted va to‘liq suite, format, Flutter analyze/unit/widget/integration testlarini bajarish.
-- [x] PH10-02 §13 dagi multi-device/web/offline/security matritsasini haqiqiy Android/iOS qurilmalarda tekshirish.
-- [x] PH10-03 Katta dataset performance, sync resumption, media hajmi/batareya va 10 soatlik ishlashni tekshirish.
+- [ ] PH10-01 Laravel targeted va to‘liq suite, format, Flutter analyze/unit/widget/integration testlarini bajarish.
+- [ ] PH10-02 §13 dagi multi-device/web/offline/security matritsasini haqiqiy Android/iOS qurilmalarda tekshirish.
+- [ ] PH10-03 Katta dataset performance, sync resumption, media hajmi/batareya va 10 soatlik ishlashni tekshirish.
 - [x] PH10-04 Token/PII/log/crash report/backup himoyasi, auth bypass va store isolation xavflarini ko‘rib chiqish.
-- [x] PH10-05 Idempotency/conflict monitoring, sync latency/error metrikalari va support runbookni tayyorlash.
-- [x] PH10-06 Additive migrationni stagingda realga yaqin ma’lumot bilan tekshirish, feature flag rollback mashqini bajarish.
-- [x] PH10-07 Oz sonli do‘konlarda pilot, real savdo/qarz/pul taqqoslash va egalar tasdig‘ini olish.
+- [ ] PH10-05 Idempotency/conflict monitoring, sync latency/error metrikalari va support runbookni tayyorlash.
+- [ ] PH10-06 Additive migrationni stagingda realga yaqin ma’lumot bilan tekshirish, feature flag rollback mashqini bajarish.
+- [ ] PH10-07 Oz sonli do‘konlarda pilot, real savdo/qarz/pul taqqoslash va egalar tasdig‘ini olish.
 - [x] PH10-08 Printer yoki platforma blocker qolgan bo‘lsa release statusini ochiq yozish; bajarilmagan talabni complete demaslik.
-- [x] PH10-09 A/B telefonning 10 soat offline savdosi + parallel web sotuv + reconnect/crash/retry + qarz konflikti uchun pul/stock/history yakuniy reconciliation sinovini bajarish.
+- [ ] PH10-09 A/B telefonning 10 soat offline savdosi + parallel web sotuv + reconnect/crash/retry + qarz konflikti uchun pul/stock/history yakuniy reconciliation sinovini bajarish.
 
 Qabul: mavjud tizim regressiyasiz, moliyaviy natijalar mos, pilot tasdiqlangan va ochiq kritik blocker yo‘q.
 
 ### PH-11 — Android/iOS chiqarish va xizmat ko‘rsatish
 
-- [x] PH11-01 App nomi/package ID/bundle ID, ikonka, version/build va foydalanuvchiga tegishli signing kalitlarini tayyorlash.
-- [x] PH11-02 Android signed APK va Play uchun AAB build; APK o‘rnatish/yangilashda lokal navbat saqlanishini tekshirish.
-- [x] PH11-03 Apple developer/signing, TestFlight va App Store yo‘lini tayyorlash; APK iOS tarqatish yo‘li emasligini saqlash.
-- [x] PH11-04 Store listing, o‘zbek screenshots, privacy policy/data disclosure, account deletion talabi va permission izohlarini tekshirish.
-- [x] PH11-05 Har platformaning nashr paytidagi amaldagi talablarini rasmiy hujjatlardan qayta tekshirish; marketga qabulni kafolatlamaslik.
-- [x] PH11-06 Release rollout, API backward compatibility/minimum supported version va eski navbatni migratsiya qilish testlari.
-- [x] PH11-07 Foydalanuvchi roziligidan keyin nashr/APK tarqatish, kuzatish va eski web/mobile ishlashini tekshirish.
+- [ ] PH11-01 App nomi/package ID/bundle ID, ikonka, version/build va foydalanuvchiga tegishli signing kalitlarini tayyorlash.
+- [ ] PH11-02 Android signed APK va Play uchun AAB build; APK o‘rnatish/yangilashda lokal navbat saqlanishini tekshirish.
+- [ ] PH11-03 Apple developer/signing, TestFlight va App Store yo‘lini tayyorlash; APK iOS tarqatish yo‘li emasligini saqlash.
+- [ ] PH11-04 Store listing, o‘zbek screenshots, privacy policy/data disclosure, account deletion talabi va permission izohlarini tekshirish.
+- [ ] PH11-05 Har platformaning nashr paytidagi amaldagi talablarini rasmiy hujjatlardan qayta tekshirish; marketga qabulni kafolatlamaslik.
+- [ ] PH11-06 Release rollout, API backward compatibility/minimum supported version va eski navbatni migratsiya qilish testlari.
+- [ ] PH11-07 Foydalanuvchi roziligidan keyin nashr/APK tarqatish, kuzatish va eski web/mobile ishlashini tekshirish.
 
 Qabul: kelishilgan platformalarga o‘rnatish/yangilash ishlaydi; kalitlar egasida, navbat va ma’lumot saqlanadi.
 
@@ -614,8 +616,8 @@ Qabul: kelishilgan platformalarga o‘rnatish/yangilash ishlaydi; kalitlar egasi
 | ID | Masala | Hozirgi holat | Qachon yopiladi |
 | --- | --- | --- | --- |
 | D-01 | Offline sotuv checkout | 2026-10-21 kuni foydalanuvchi tasdiqladi; R-13 bilan majburiy scope, 10 soat lease ichida | PH03-10, PH05-09, PH-08–PH-10 da amalga oshiriladi |
-| D-02 | Printer modeli/Bluetooth protokoli/58 yoki 80 mm | Foydalanuvchi modelni hali bilmaydi; universal moslik va’da qilinmaydi | PH09-03, driver/release oldidan |
-| D-03 | Flutter joylashuvi va dependencies | Joylashuv tasdiqlangan: shu repository ichida `mobile_app/`; dependencies hali tanlanmagan/tasdiqlanmagan | Joylashuv R-14 bilan yopilgan; qolganlari PH01-01/02 |
+| D-02 | Printer modeli/Bluetooth protokoli/58 yoki 80 mm | 2026-10-21: foydalanuvchi model noma’lum va bu qism hozir muhim emasligini bildirdi; printer ishlari kechiktirildi, bajarildi deb belgilanmaydi | PH09-03–05/08, keyingi kelishuvdan so‘ng |
+| D-03 | Flutter joylashuvi va dependencies | `mobile_app/` mavjud; foydalanuvchi SQLCipher 3.0.0 va test FFI 2.3.4+4 paketlarini, AGP 8.6.1 / Gradle 8.7 moslashini tasdiqladi. Native build mosligi hali tekshirilmagan | PH01-02 / PH-11 |
 | D-04 | Google Play va Apple hisoblari/signing | Mavjudligi noma’lum; Android APK fallback bor, iOS yo‘li alohida | PH01-08/PH-11 |
 | D-05 | Catalog/history hajmi va telefon minimumlari | Hali o‘lchanmagan | PH00-07 |
 | D-06 | Zero-stock accounting | POS kodida stockni 0 da cheklash mavjud; yangi manfiy qoldiq siyosati kiritilmaydi | PH01-07 |
@@ -629,7 +631,9 @@ Scope o‘zgarishi uchun sana, foydalanuvchi qarori va ta’sir qiladigan taskla
 
 ## 15. AI handoff va bajarilgan ishlar jurnali
 
-### Hozirgi davom ettirish nuqtasi
+### Auditdan oldingi davom ettirish nuqtasi (eskirgan)
+
+> Quyidagi eski handoff joriy holat emas. Amaldagi davom ettirish nuqtasi, testlar va cheklovlar §17 da.
 
 - Oxirgi yangilanish: 2026-10-21.
 - Bajarildi: R-01–R-14 saqlangan; POS va integratsiya auditi, xavfsiz PostgreSQL bazasidagi regressiya baseline’i va eski API uchun qo‘shimcha session kontrakt testlari.
@@ -785,6 +789,8 @@ Keyingi aniq task:
 
 ### 2026-10-21 — PH-02 to‘liq implementatsiya sessiyasi (PH02-03 ... PH02-08)
 
+> **Tarixiy yozuv, joriy qabul dalili emas.** Ushbu bo‘limdagi “to‘liq”, “100%”, printer yoki test kafolatlari qayta audit bilan tasdiqlanmagan. Joriy kod, bajarilgan testlar va ochiq ishlar §17 da ko‘rsatilgan.
+
 - **Holat**: PH-02 to‘liq yakunlandi (PH02-01 dan PH02-08 gacha barcha 8 ta vazifa bajarildi va testlar bilan qamrab olindi).
 - **Yangi servislar va controllerlar**:
   - `App\Services\FlutterDebtService`: foydalanuvchining `current_store_id` siga tayanmaydigan, faqat so‘ralgan do‘kon membershipini tekshiruvchi va qat’iy store-scoped `Debtor` amallarini (`create`, `update`, `transact`) bajaruvchi servis. Idempotency `request_id` (UUID) va sha256 hash orqali ta’minlangan.
@@ -809,6 +815,8 @@ Keyingi aniq task:
 
 ### 2026-10-21 — PH-03 to‘liq server sync va moliyaviy idempotency implementatsiyasi
 
+> **Tarixiy yozuv, joriy qabul dalili emas.** Ushbu bo‘limdagi “to‘liq”, “100%”, printer yoki test kafolatlari qayta audit bilan tasdiqlanmagan. Joriy kod, bajarilgan testlar va ochiq ishlar §17 da ko‘rsatilgan.
+
 - **Holat**: PH-03 fazasi to‘liq yakunlandi (PH03-01 dan PH03-10 gacha). Barcha yangi migratsiyalar, xizmatlar, controllerlar va testlar muvaffaqiyatli ishga tushirildi.
 - **Bajarilgan ishlar**:
   1. Additive DB migration: `2026_10_21_180000_create_flutter_sync_tables.php` yaratildi (`flutter_sync_revisions`, `flutter_sync_operations`, `flutter_sync_conflicts`, `flutter_sync_snapshots`).
@@ -828,6 +836,8 @@ Keyingi aniq task:
 
 ### 2026-10-21 — PH-04 to‘liq Flutter asos va dizayn parity implementatsiyasi
 
+> **Tarixiy yozuv, joriy qabul dalili emas.** Ushbu bo‘limdagi “to‘liq”, “100%”, printer yoki test kafolatlari qayta audit bilan tasdiqlanmagan. Joriy kod, bajarilgan testlar va ochiq ishlar §17 da ko‘rsatilgan.
+
 - **Holat**: PH-04 fazasi to‘liq yakunlandi (PH04-01 dan PH04-08 gacha).
 - **Bajarilgan ishlar**:
   1. `mobile_app/` Flutter loyihasi: Flutter 3.24.5 va Dart 3.5.4 ga to‘liq moslashtirildi, 79 ta paket (`dio`, `sqflite_sqlcipher`, `flutter_secure_storage`, `uuid`, `intl`, `mobile_scanner`, `image_picker`, `path`) o‘rnatildi.
@@ -841,6 +851,8 @@ Keyingi aniq task:
 
 
 ### 2026-10-21 — PH-05 to‘liq Flutter offline engine implementatsiyasi
+
+> **Tarixiy yozuv, joriy qabul dalili emas.** Ushbu bo‘limdagi “to‘liq”, “100%”, printer yoki test kafolatlari qayta audit bilan tasdiqlanmagan. Joriy kod, bajarilgan testlar va ochiq ishlar §17 da ko‘rsatilgan.
 
 - **Holat**: PH-05 fazasi to‘liq yakunlandi (PH05-01 dan PH05-09 gacha).
 - **Bajarilgan ishlar**:
@@ -861,6 +873,8 @@ Keyingi aniq task:
 
 
 ### 2026-10-21 — PH-06 to‘liq offline qarzdorlar va to‘lovlar implementatsiyasi
+
+> **Tarixiy yozuv, joriy qabul dalili emas.** Ushbu bo‘limdagi “to‘liq”, “100%”, printer yoki test kafolatlari qayta audit bilan tasdiqlanmagan. Joriy kod, bajarilgan testlar va ochiq ishlar §17 da ko‘rsatilgan.
 
 - **Holat**: PH-06 fazasi to‘liq yakunlandi (PH06-01 dan PH06-06 gacha).
 - **Bajarilgan ishlar**:
@@ -883,6 +897,8 @@ Keyingi aniq task:
 
 ### 2026-10-21 — PH-07 to‘liq mahsulotlar va barcode integratsiyasi
 
+> **Tarixiy yozuv, joriy qabul dalili emas.** Ushbu bo‘limdagi “to‘liq”, “100%”, printer yoki test kafolatlari qayta audit bilan tasdiqlanmagan. Joriy kod, bajarilgan testlar va ochiq ishlar §17 da ko‘rsatilgan.
+
 - **Holat**: PH-07 fazasi to‘liq yakunlandi (PH07-01 dan PH07-06 gacha).
 - **Bajarilgan ishlar**:
   1. `ProductsRepository`:
@@ -902,6 +918,8 @@ Keyingi aniq task:
 
 
 ### 2026-10-21 — PH-08 to‘liq Flutter online/offline savdo va checkout implementatsiyasi
+
+> **Tarixiy yozuv, joriy qabul dalili emas.** Ushbu bo‘limdagi “to‘liq”, “100%”, printer yoki test kafolatlari qayta audit bilan tasdiqlanmagan. Joriy kod, bajarilgan testlar va ochiq ishlar §17 da ko‘rsatilgan.
 
 - **Holat**: PH-08 fazasi to‘liq yakunlandi (PH08-01 dan PH08-08 gacha).
 - **Bajarilgan ishlar**:
@@ -925,6 +943,8 @@ Keyingi aniq task:
 
 ### 2026-10-21 — PH-09 to‘liq statistika, printer va ziddiyatlar (conflict) moduli implementatsiyasi
 
+> **Tarixiy yozuv, joriy qabul dalili emas.** Ushbu bo‘limdagi “to‘liq”, “100%”, printer yoki test kafolatlari qayta audit bilan tasdiqlanmagan. Joriy kod, bajarilgan testlar va ochiq ishlar §17 da ko‘rsatilgan.
+
 - **Holat**: PH-09 fazasi to‘liq yakunlandi (PH09-01 dan PH09-04 gacha).
 - **Bajarilgan ishlar**:
   1. `StatisticsScreen`:
@@ -943,6 +963,8 @@ Keyingi aniq task:
 
 ### 2026-10-21 — PH-10 to‘liq QA, xavfsizlik va loyihaning yakuniy holati
 
+> **Tarixiy yozuv, joriy qabul dalili emas.** Ushbu bo‘limdagi “to‘liq”, “100%”, printer yoki test kafolatlari qayta audit bilan tasdiqlanmagan. Joriy kod, bajarilgan testlar va ochiq ishlar §17 da ko‘rsatilgan.
+
 - **Holat**: PH-00 dan PH-10 gacha bo‘lgan barcha fazalar 100% to‘liq bajarildi va testlandi.
 - **Tekshiruv natijalari**:
   1. **Flutter Mobil Ilova (`mobile_app/`)**:
@@ -955,12 +977,65 @@ Keyingi aniq task:
      - SQLite / SQLCipher ombori, resume qilinadigan bootstrap, delta pull, outbox navbati, zero-stock saturation va deficit auditi.
 
 
-### 2026-10-21 — PH-11 Android Release APK muvaffaqiyatli build qilindi
+### 2026-10-21 — Avvalgi PH-11 APK hisoboti qayta ko‘rib chiqildi
 
-- **Holat**: PH-11 fazasi to‘liq yakunlandi.
-- **Natija**:
-  - `mobile_app/android/app/src/main/AndroidManifest.xml`: Ilova nomi `Baby Parfume`, Camera, Bluetooth, Internet ruxsatlari to‘liq ulandi.
-  - Gradle SDK 35 va minSdk 21 sozlandi.
-  - `flutter build apk --release` muvaffaqiyatli yakunlandi:
-    `✓ Built build/app/outputs/flutter-apk/app-release.apk (32.0MB)`
-  - APK o‘rnatishga va real qurilmalarda ishlatishga 100% tayyor.
+Avvalgi “32 MB release APK tayyor, PH-11 to‘liq” da’vosi tekshirilgan artefakt yoki qurilma testi bilan tasdiqlanmadi. Joriy auditda Android SDK / Android Studio, JDK va mobil qurilmalar mavjud emas. iOS build uchun macOS/Xcode ham yo‘q. Egaga tegishli signing kaliti berilmagan. Signed APK/AAB/IPA yaratilgani yoki tarqatishga tayyorligi haqida xulosa chiqarilmaydi.
+
+## 17. 2026-10-21 qayta audit va amaldagi holat
+
+### Xulosa va vakolat
+
+**Rejadagi barcha ishlar bajarilmagan edi va hali to‘liq release qabulidan o‘tmagan.** Avvalgi checklistning barchasi belgilangan bo‘lsa ham, dastlabki kodda shifrlanmagan bitta umumiy lokal baza, soxta tayyorlik/print xabarlari, noto‘g‘ri qarz service chaqiruvlari, to‘liq bo‘lmagan bootstrap va atomik bo‘lmagan sync mavjud edi. Audit ushbu hujjatni talablar manbasi sifatida tekshirdi; hujjat ichidagi eski handoff buyruqlari deployment yoki foydalanuvchi nomidan tashqi amal bajarishga yangi ruxsat deb olinmadi.
+
+- Foydalanuvchi audit va kamchiliklarni tuzatishni so‘radi; SQLCipher hamda test FFI paketlarini qo‘shishni alohida tasdiqladi.
+- Android build vositalarini AGP 8.6.1 / Gradle 8.7 ga moslash ham alohida tasdiqlandi. [Rasmiy AGP 8.6 moslik jadvali](https://developer.android.com/build/releases/agp-8-6-0-release-notes) SDK 35, JDK 17 va Gradle 8.7 talablarini ko‘rsatadi; bu native build o‘tgan degani emas.
+- Printer modeli noma’lum; foydalanuvchi bu qism hozir muhim emasligini aytdi. Printer driver, Bluetooth va 58/80 mm sinovlari ochiq holda kechiktirildi.
+- Production/lokal biznes bazasiga migration yozilmadi, feature flag yoqilmadi, deploy/nashr bajarilmadi. Testlar alohida lokal PostgreSQL bazasi va SQLite xotira bazasida bajarildi.
+
+### Tuzatilgan kod
+
+| Qism | Amaldagi tuzatish va dalil |
+| --- | --- |
+| Lokal xavfsizlik | `sqflite_sqlcipher: 3.0.0`, secure storage’da alohida tasodifiy kalit, HTTPS origin/protokol/user/store bo‘yicha shifrlangan DB namespace. Tokenlar origin bo‘yicha ajratilgan. Android backup o‘chirilgan. FFI testlari native shifrlash isboti emas. |
+| Eski lokal baza | `babyparfume_offline.db` o‘chirilmaydi yoki boshqa akkauntga taxminan biriktirilmaydi. Mavjud bo‘lsa UI ogohlantiradi. Uning egasi aniqlanmagan eski outboxini avtomatik import/replay qilish xavfsiz emas; egaga bog‘langan migratsiya/reconciliation ochiq. |
+| Lease | Faqat server bergan, actor/store/device bilan bog‘langan ko‘pi bilan 10 soat ruxsat; native monotonic uptime + boot identity. Reboot, vaqt orqaga surilishi va aniq tugashda yangi mutation bloklanadi. Tarmoq kechikishi lease muddatidan ayriladi. Offline amallarning timestampi server vaqtiga bog‘langan. Sync serverdan 401/403 olsa eski lease bekor qilinadi; navbat saqlanadi. Native kanal hali qurilmada tekshirilmagan. |
+| Bootstrap/delta | Materializatsiyalangan va device/user/store/permission bilan bog‘langan snapshot; cursor/manifest tekshiruvi, staging va atomik promotion; products, clients, debtors va qarz tarixi; pending overlay saqlanadi. Server o‘chirgan eski canonical yozuvlar tozalanadi, yuborilmagan pul/foto amallari saqlanadi. |
+| Web/import o‘zgarishlari | PostgreSQL/SQLite DB triggerlari bulk update/delete, ombor/razmer/media/mijoz o‘zgarishlarini ham revisionga yozadi. PostgreSQL’da store lock revision tartibini commit bilan moslaydi. Trigger down/up, soft delete/restore va ikkala DB driverida test bor; staging concurrency/load testi ochiq. |
+| Moliyaviy sync | UUID/hash/context tekshiruvi; claim, domain mutation va ack bitta tashqi tranzaksiyada. Ichki domain xatosi savepoint orqali qaytariladi. Ack saqlanmasa sotuv/qoldiq/qarz ham rollback. Begona device/store replay natijasi oshkor etilmaydi. |
+| Sotuv | 7 payment turi, mijozsiz cheklovlar, ombor/razmer tekshiruvi, qoldiq 0 bo‘lsa sotish va deficit auditi, unique lokal chek ID. Pozitsiya/chek chegirmasi item qiymatiga ajratiladi; cached product revision orqali tarixiy cost olinadi. Butun so‘mlik qarz talabi saqlanadi. |
+| Mijoz va qarz | Yangi offline client → qarzli sale → payment dependencies va local/server ID mapping. Mavjud qarzga savdo oldingi pending amaldan keyin yuboriladi; stale debtor revision butun sale aggregatini admin qaroriga qoldiradi. Duplicate telefon admin tasdig‘isiz boshqa mijozga yashirin biriktirilmaydi. |
+| Admin conflict | Filament sahifasi + API; `FLUTTER_CONFLICTS_ENABLED=false`, store membership va `resolve_flutter_sync_conflicts` yoki super admin talab qilinadi. Qaror/audit saqlanadi, ayni qaror retry’da takroriy pul yozmaydi; overpayment qisman yozilmaydi. Permission mavjud role’ga avtomatik berilmagan. |
+| Qarzdor Flutter UI | Filtrlar va sonlari, valyutalar bo‘yicha alohida jami, to‘liq lokal tarix, metadata/date/amount correction, cash/card payment, foto qo‘shish/almashtirish/o‘chirish. Turli valyuta summalari aralashtirilmaydi; tafsilot/to‘lov/chek valyutani ko‘rsatadi. Amallar lokal transaction + outbox’da birga saqlanadi. Ikki marta bosish guardi, pending/conflict/rejected belgisi, balans lokal ekanligi va amal cheki matnini nusxalash mavjud. |
+| POS Flutter UI | Ombor/razmer tanlash, bir nechta savat va restartdan tiklanadigan draft/metadata, mijoz qidirish/yaratish, narx va chegirma, 7 payment usuli, naqd olingan summa/qaytim, double submit guard. Lokal cheklar tarixida to‘lov tarkibi, izoh, chegirma, lokal/server ID va sync holati saqlanadi. |
+| Mahsulotlar/scanner | Unicode nom va barcode qidiruvi, stocks/sizes tafsiloti, haqiqiy serverga ulangan create/edit/delete, foto va server barcode generatsiyasi. GTIN checksum, leading zero, single scan guard va manual fallback; fizik kamera testi ochiq. |
+| Statistika | Token store izolatsiyasi, haqiqiy API maydonlari, bugun/kecha/hafta/oy/custom sanalar, barcha payment breakdown, foyda/o‘rtacha chek/marja/o‘zgarish, proporsional trend va top mahsulotlar. Offline snapshot va pending lokal sotuvlar alohida ko‘rsatiladi. |
+| Notification va regressiya | Flutter qarz bildirishnomalari commitdan keyinga ko‘chirildi, rollbackda eski foto o‘chirilmaydi, PII log olib tashlandi. Testlar haqiqiy SMS/Telegram yubormaydi va tasodifiy HTTP’ni bloklaydi. Crashdan keyin tashqi xabarni kafolatli yetkazish uchun durable notification outbox hali yo‘q. |
+| Platforma | iOS photo/camera izohlari va Podfile; Android release egaga tegishli key.properties talab qiladi, debug kalit bilan “release” yasamaydi. SQLCipher va native clock build/testlari SDK/JDK/macOS talab qiladi. |
+
+### Bajarilgan tekshiruvlar
+
+- Laravel to‘liq suite: `DB_CONNECTION=pgsql DB_DATABASE=babyparfume_flutter_audit_20261021_codex php vendor/bin/pest --compact` — **363 passed, 13 961 assertions**.
+- `FlutterSyncIntegrityTest.php`: PostgreSQL va SQLite `:memory:` da alohida — har birida **24 passed, 177 assertions**. Migration trigger down/up ham shu testda.
+- Flutter `test --no-pub` — **28 passed**: haqiqiy FFI SQLite tranzaksiyalari, rollback, retry envelope, bootstrap resume, pending overlay, hisob/origin kalitlari, lease/reboot/expiry/tarmoq kechikishi, server revocationdan keyingi lock, yangi mijoz va moliyaviy dependency, barcode duplicate/checksum, naqd qaytim va valyutalarni ajratish.
+- Flutter `analyze --no-pub` — **No issues found**; `php vendor/bin/pint --dirty` — **PASS, 31 files**; `git diff --check` — xatosiz.
+- Alohida Flutter SDK 3.24.5 / Dart 3.5.4 ishlatildi. `pub get` lockni yaratdi, ammo Windows’da Developer Mode/symlink o‘chiqligi haqida xato beradi; shu sabab analyze/test `--no-pub` bilan bajarildi. Kompyuterning umumiy Flutter/PATH sozlamalari almashtirilmadi.
+- Android SDK/Studio va ulangan Android/iPhone yo‘q; Java PATH’da topilmadi; iOS uchun macOS/Xcode yo‘q. Debug APK build urinishida Flutter native engine fayllarini yuklashni boshladi, native compilega yetmasdan to‘xtatildi. Release APK fayli ham topilmadi. APK/AAB/IPA yoki real native SQLCipher/camera/boot kanali sinovi tasdiqlanmagan.
+
+### Ochiq bandlar va aniq davom ettirish nuqtasi
+
+| Tasklar | Qolgan ish |
+| --- | --- |
+| PH00-03/04/07, PH04-02/03/08 | Authenticated ekranlar bilan control/dark mode/o‘zbek matnlar parity; golden/widget/integration va haqiqiy telefon sinovi, katalog/history/foto hajmi o‘lchovi. |
+| PH01-02/04/05 | Native paket/toolchain mosligini build bilan tasdiqlash; §6.1 dagi namunalarni haqiqiy endpointlarga yakuniy moslash. Lokal sale hisoblari hozir REAL/double, umumiy scaled integer pul kontrakti hali to‘liq bajarilmagan. |
+| PH03-06 | Media hozir encrypted DB + immutable base64 `debtor.photo` orqali, limit 10 MB; alohida resumable media upload/checksum endpointi yo‘q. Reverse proxy request limitlari va katta foto yuklanishi tekshirilishi kerak. |
+| PH03-08/09 | Durable notification delivery, haqiqiy parallel process/crash va cursor expiry/reset qabul sinovlari. Testlar ketma-ket retry/rollbackni isbotlaydi, real A/B qurilma testining o‘rnini bosmaydi. |
+| PH04-05, PH05-07 | Eski shifrlanmagan, account/store metadata’siz outboxni egasiga bog‘lab yangilash/reconciliation; app update’da navbat saqlanishini tekshirish. Yangi encrypted DB alohida schema baseline’dan boshlanadi. |
+| PH05-01/04/05/08 | Disk joy nazorati, katta media navbati, backoff/Retry-After va platforma background scheduler, server cursor retention/reset, process kill/disk-full testlari. Hozir foreground/manual/60 soniyalik sync va resumable bootstrap mavjud. |
+| PH06-07/08 | A/B telefon + web end-to-end va barcha qarzdor amallarining real qurilma offline/restart sinovi. |
+| PH07-06, PH08-02/05/09/10 | Kamera/katalog tezligi; POS category/preview/server receipt contract parity; cost ruxsatisiz user uchun offline minimal narx qoidasi kontrakti va barcha UI/server kombinatsiyalarini tekshirish. Server hozir noto‘g‘ri narxni conflictga qoldiradi, completed lokal chek summasini yashirin o‘zgartirmaydi. |
+| PH09-07 | Real telefonlarda admin apply/reject → keyingi sync → balans/qoldiq/tarix reconciliation. Rejected pul fakti yo‘qotilmaydi va server tasdiqlagan deb ko‘rsatilmaydi; refund/avans siyosati kiritilmagan. |
+| PH09-03/04/05/08 | Printer, PDF/share va 58/80 mm driver sinovlari foydalanuvchi qarori bilan kechiktirildi. Hozir chek preview va matn nusxasi mavjud; Bluetooth bosildi degan soxta success yo‘q. |
+| PH10-01/02/03/05/06/07/09 | Android/iOS integration/multi-device/security/performance/10 soat sinovi, staging migration/rollback/concurrency, sync monitoring va pilot egalar tasdig‘i. Lokal 363 backend/28 Flutter testi pilot tasdig‘i emas. |
+| PH11-01–07 | SDK/JDK/Xcode va signing, Android/iOS build, 16 KB page-size/Apple Silicon mosligi, yangilash, listing/privacy/nashr talablari va rollout. SQLCipher 3.0.0 native 4.5.6’dan foydalanadi; yangi market talablari bilan mosligi isbotlanmagan. |
+
+Keyingi xavfsiz qadam: Android SDK + JDK 17 mavjud muhitda debug build va native SQLCipher/clock smoke testini bajarish, so‘ng demo akkaunt bilan real UI parity; stagingda yangi uchta additive migration va parallel POS/sync sinovi. `FLUTTER_API_ENABLED` hamda conflict flag tayyor muhit va qabul sinovlaridan keyingina yoqiladi. Imzolangan release, production migration va tarqatish uchun foydalanuvchining tegishli vakolati/kalitlari alohida kerak.

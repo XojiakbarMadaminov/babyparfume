@@ -1,52 +1,86 @@
+import 'dart:convert';
+import 'package:cryptography/cryptography.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 
 class SecureStorageService {
   final FlutterSecureStorage _storage;
-
   SecureStorageService({FlutterSecureStorage? storage})
       : _storage = storage ?? const FlutterSecureStorage();
 
-  static const String defaultServerUrl = 'https://elyorpf.uz/api/flutter/v1';
+  static const defaultServerUrl = String.fromEnvironment('API_BASE_URL',
+      defaultValue: 'https://elyorpf.uz/api/flutter/v1');
+  static const _serverKey = 'flutter_server_url';
 
-  static const String _keyServerUrl = 'flutter_server_url';
-  static const String _keyToken = 'flutter_bearer_token';
-  static const String _keyDeviceUuid = 'flutter_device_uuid';
-  static const String _keyStoreId = 'flutter_selected_store_id';
-  static const String _keyLeaseExpiresAt = 'flutter_lease_expires_at';
+  static String normalizeServerUrl(String value) {
+    final uri = Uri.parse(value.trim());
+    if (uri.scheme != 'https' ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasQuery ||
+        uri.hasFragment ||
+        uri.path.replaceAll(RegExp(r'/+$'), '') != '/api/flutter/v1') {
+      throw ArgumentError(
+          "HTTPS API manzilini /api/flutter/v1 bilan kiriting.");
+    }
+    return uri.replace(path: '/api/flutter/v1').toString();
+  }
 
-  Future<String> getServerUrl() async =>
-      await _storage.read(key: _keyServerUrl) ?? defaultServerUrl;
+  Future<String> getServerUrl() async => normalizeServerUrl(
+      await _storage.read(key: _serverKey) ?? defaultServerUrl);
+  Future<void> setServerUrl(String url) =>
+      _storage.write(key: _serverKey, value: normalizeServerUrl(url));
+  Future<String> _key(String name) async =>
+      'flutter_v1_${base64Url.encode(utf8.encode(await getServerUrl()))}_$name';
 
-  Future<void> setServerUrl(String url) async =>
-      _storage.write(key: _keyServerUrl, value: url.trim());
+  Future<String?> getToken() async => _storage.read(key: await _key('token'));
+  Future<void> setToken(String value) async =>
+      _storage.write(key: await _key('token'), value: value);
+  Future<void> clearToken() async => _storage.delete(key: await _key('token'));
 
-  Future<String?> getToken() async => _storage.read(key: _keyToken);
-  Future<void> setToken(String token) async =>
-      _storage.write(key: _keyToken, value: token);
-  Future<void> clearToken() async => _storage.delete(key: _keyToken);
+  Future<String> getOrCreateDeviceUuid() async {
+    final existing = await _storage.read(key: 'flutter_device_uuid');
+    if (existing != null) return existing;
+    final uuid = const Uuid().v4();
+    await _storage.write(key: 'flutter_device_uuid', value: uuid);
+    return uuid;
+  }
 
-  Future<String> getOrCreateDeviceUuid() async =>
-      await _storage.read(key: _keyDeviceUuid) ??
-      await () async {
-        final newUuid = const Uuid().v4();
-        await _storage.write(key: _keyDeviceUuid, value: newUuid);
-        return newUuid;
-      }();
+  Future<Map<String, dynamic>?> getSession() async {
+    final value = await _storage.read(key: await _key('session'));
+    return value == null ? null : jsonDecode(value) as Map<String, dynamic>;
+  }
 
+  Future<void> setSession(Map<String, dynamic> value) async =>
+      _storage.write(key: await _key('session'), value: jsonEncode(value));
+  Future<String?> getUserId() async =>
+      (await getSession())?['user']?['id']?.toString();
   Future<String?> getSelectedStoreId() async =>
-      _storage.read(key: _keyStoreId);
-  Future<void> setSelectedStoreId(String storeId) async =>
-      _storage.write(key: _keyStoreId, value: storeId);
+      _storage.read(key: await _key('store_${await getUserId()}'));
+  Future<void> setSelectedStoreId(String storeId) async => _storage.write(
+      key: await _key('store_${await getUserId()}'), value: storeId);
+  Future<String> _leaseKey() async =>
+      _key('lease_${await getUserId()}_${await getSelectedStoreId()}');
+  Future<Map<String, dynamic>?> getLease() async {
+    final value = await _storage.read(key: await _leaseKey());
+    return value == null ? null : jsonDecode(value) as Map<String, dynamic>;
+  }
 
-  Future<String?> getLeaseExpiresAt() async =>
-      _storage.read(key: _keyLeaseExpiresAt);
-  Future<void> setLeaseExpiresAt(String isoString) async =>
-      _storage.write(key: _keyLeaseExpiresAt, value: isoString);
-
+  Future<void> setLease(Map<String, dynamic> value) async =>
+      _storage.write(key: await _leaseKey(), value: jsonEncode(value));
+  Future<void> clearLease() async => _storage.delete(key: await _leaseKey());
   Future<void> clearSession() async {
-    await _storage.delete(key: _keyToken);
-    await _storage.delete(key: _keyStoreId);
-    await _storage.delete(key: _keyLeaseExpiresAt);
+    await clearToken();
+    await _storage.delete(key: await _key('session'));
+  }
+
+  Future<String> databasePassword(String namespace) async {
+    final key = 'flutter_database_key_$namespace';
+    final existing = await _storage.read(key: key);
+    if (existing != null) return existing;
+    final secret = await AesGcm.with256bits().newSecretKey();
+    final password = base64Url.encode(await secret.extractBytes());
+    await _storage.write(key: key, value: password);
+    return password;
   }
 }
