@@ -66,8 +66,8 @@ class SyncCoordinator {
       }
 
       final data = response.data['data'] as Map<String, dynamic>;
-      final snapshotId = data['snapshot_id'] as String;
-      final watermark = data['watermark'] as int;
+      final snapshotId = data['snapshot_id'].toString();
+      final watermark = int.tryParse(data['watermark']?.toString() ?? '0') ?? 0;
 
       // Download paginated products
       await _downloadEntityPages(storeId, snapshotId, 'products');
@@ -97,35 +97,50 @@ class SyncCoordinator {
   }
 
   Future<void> _downloadEntityPages(String storeId, String snapshotId, String entity) async {
-    int page = 1;
+    int cursor = 0;
     bool hasMore = true;
     final db = await _getDb();
 
     while (hasMore) {
       final res = await apiClient.get(
         '/stores/$storeId/bootstrap/$snapshotId',
-        queryParameters: {'entity': entity, 'page': page},
+        queryParameters: {'entity': entity, 'cursor': cursor, 'limit': 100},
       );
 
       if (res.statusCode != 200) break;
-      final items = res.data['data'] as List? ?? [];
+      final payload = res.data['data'] is Map<String, dynamic>
+          ? res.data['data'] as Map<String, dynamic>
+          : <String, dynamic>{};
+
+      final items = (payload['items'] as List? ?? res.data['data'] as List? ?? []);
       if (items.isEmpty) break;
 
       final batch = db.batch();
       for (final raw in items) {
         final item = raw as Map<String, dynamic>;
         if (entity == 'products') {
+          final prodId = item['id'].toString();
+          final stockQty = (item['quantity'] as num?)?.toInt() ?? 0;
           batch.insert(
             'products',
             {
-              'id': item['id'].toString(),
+              'id': prodId,
               'store_id': storeId,
               'name': item['name'] ?? '',
               'barcode': item['barcode']?.toString(),
               'type': item['type'] ?? 'package',
               'price': double.tryParse(item['price']?.toString() ?? '0') ?? 0.0,
               'initial_price': double.tryParse(item['initial_price']?.toString() ?? '0'),
-              'updated_at': item['updated_at']?.toString(),
+              'updated_at': DateTime.now().toIso8601String(),
+            },
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          batch.insert(
+            'product_stocks',
+            {
+              'product_id': prodId,
+              'stock_id': 'default',
+              'quantity': stockQty,
             },
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
@@ -142,8 +157,8 @@ class SyncCoordinator {
               'currency': item['currency'] ?? 'UZS',
               'date': item['date']?.toString(),
               'note': item['note']?.toString(),
-              'photo_path': item['photo_path']?.toString(),
-              'updated_at': item['updated_at']?.toString(),
+              'photo_path': (item['photo_url'] ?? item['photo_path'])?.toString(),
+              'updated_at': DateTime.now().toIso8601String(),
             },
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
@@ -151,10 +166,11 @@ class SyncCoordinator {
       }
       await batch.commit(noResult: true);
 
-      final meta = res.data['meta'] as Map<String, dynamic>?;
-      final lastPage = meta?['last_page'] as int? ?? 1;
-      page++;
-      hasMore = page <= lastPage;
+      final nextCursorStr = payload['next_cursor']?.toString();
+      hasMore = payload['has_more'] == true && nextCursorStr != null;
+      if (nextCursorStr != null) {
+        cursor = int.tryParse(nextCursorStr) ?? cursor;
+      }
     }
   }
 
@@ -169,16 +185,30 @@ class SyncCoordinator {
         final response = await apiClient.post(
           '/stores/$storeId/operations',
           data: {
-            'operation_id': op.operationId,
-            'entity_type': op.entityType,
-            'operation_type': op.operationType,
-            'payload': op.payload,
+            'operations': [
+              {
+                'operation_id': op.operationId,
+                'entity_type': op.entityType,
+                'operation_type': op.operationType,
+                'payload': op.payload,
+              }
+            ],
           },
         );
 
         if (response.statusCode == 200 || response.statusCode == 201) {
-          await outboxManager.markOperationApplied(op.operationId);
-          appliedCount++;
+          final results = response.data['data']?['results'] as List? ?? [];
+          final first = results.isNotEmpty ? results.first as Map<String, dynamic> : null;
+          final status = first?['status'] as String?;
+          if (status == 'applied' || status == 'conflict') {
+            await outboxManager.markOperationApplied(op.operationId);
+            appliedCount++;
+          } else {
+            await outboxManager.markOperationFailed(
+              op.operationId,
+              first?['error']?.toString() ?? "Status: $status",
+            );
+          }
         } else {
           await outboxManager.markOperationFailed(
             op.operationId,
@@ -209,8 +239,11 @@ class SyncCoordinator {
       );
 
       if (response.statusCode != 200) return 0;
-      final revisions = response.data['data'] as List? ?? [];
-      final newWatermark = response.data['watermark'] as int? ?? watermark;
+      final revisions = response.data['data']?['changes'] as List?
+          ?? response.data['data'] as List?
+          ?? [];
+      final newWatermarkRaw = response.data['data']?['next_cursor'] ?? response.data['watermark'];
+      final newWatermark = int.tryParse(newWatermarkRaw?.toString() ?? '') ?? watermark;
 
       if (revisions.isNotEmpty) {
         final db = await _getDb();
@@ -313,18 +346,10 @@ class SyncCoordinator {
       }
     } catch (_) {}
 
-    final pending = await outboxManager.getPendingCount();
     _updateProgress(_currentProgress.copyWith(
-      status: pending > 0 ? SyncStatus.hasPendingOperations : SyncStatus.offlineReady,
-      message: pending > 0
-          ? "$pending ta operatsiya serverga yuborilishini kutmoqda"
-          : "Barcha ma'lumotlar server bilan to'liq sinxronlangan",
-      pendingOperationsCount: pending,
+      status: SyncStatus.offlineReady,
+      message: "Sinxronizatsiya muvaffaqiyatli yakunlandi",
       lastSyncTime: DateTime.now(),
     ));
-  }
-
-  void dispose() {
-    _progressController.close();
   }
 }

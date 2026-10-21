@@ -11,7 +11,7 @@ class AuthUser {
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
     return AuthUser(
-      id: json['id'] as int,
+      id: int.tryParse(json['id'].toString()) ?? 0,
       name: json['name'] as String? ?? '',
       email: json['email'] as String? ?? '',
     );
@@ -26,7 +26,7 @@ class StoreItem {
 
   factory StoreItem.fromJson(Map<String, dynamic> json) {
     return StoreItem(
-      id: json['id'] as int,
+      id: int.tryParse(json['id'].toString()) ?? 0,
       name: json['name'] as String? ?? '',
     );
   }
@@ -66,11 +66,22 @@ class AuthRepository {
   }
 
   Future<List<StoreItem>> getStores() async {
-    final response = await apiClient.get('/stores');
-    if (response.statusCode == 200) {
-      final list = response.data['data'] as List;
-      return list.map((item) => StoreItem.fromJson(item as Map<String, dynamic>)).toList();
-    }
+    try {
+      final response = await apiClient.get('/stores');
+      if (response.statusCode == 200 && response.data['data'] is List) {
+        final list = response.data['data'] as List;
+        return list.map((item) => StoreItem.fromJson(item as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+
+    try {
+      final sessionRes = await apiClient.get('/session');
+      if (sessionRes.statusCode == 200 && sessionRes.data['data']?['stores'] is List) {
+        final list = sessionRes.data['data']['stores'] as List;
+        return list.map((item) => StoreItem.fromJson(item as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+
     return [];
   }
 

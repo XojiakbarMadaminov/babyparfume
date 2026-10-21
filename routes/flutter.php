@@ -18,6 +18,12 @@ Route::post('login', [SessionController::class, 'store'])->middleware('throttle:
 
 Route::middleware([AuthenticateFlutterDevice::class, 'throttle:flutter-api'])->group(function (): void {
     Route::get('session', [SessionController::class, 'show'])->name('session');
+    Route::get('stores', function (\Illuminate\Http\Request $request) {
+        return response()->json([
+            'data' => $request->user()->stores()->orderBy('stores.id')->get(['stores.id', 'stores.name'])
+                ->map(fn ($store): array => ['id' => (string) $store->id, 'name' => $store->name]),
+        ]);
+    })->name('stores.index');
     Route::post('logout', [SessionController::class, 'destroy'])->name('logout');
     Route::delete('devices/{device}', [DeviceController::class, 'destroy'])->whereUuid('device')->name('devices.destroy');
 

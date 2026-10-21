@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Flutter;
 
+use App\Models\Stock;
 use App\Models\Debtor;
 use App\Models\Product;
 use Illuminate\Http\Request;
@@ -40,7 +41,7 @@ class SyncController extends Controller
         return response()->json([
             'data' => [
                 'snapshot_id'    => (string) $snapshot->id,
-                'watermark'      => (string) $snapshot->watermark,
+                'watermark'      => (int) $snapshot->watermark,
                 'manifest'       => $manifest,
                 'server_time'    => now()->toIso8601String(),
                 'expires_at'     => $snapshot->expires_at->toIso8601String(),
@@ -163,6 +164,10 @@ class SyncController extends Controller
         $user       = $request->user();
         $operations = (array) $request->input('operations', []);
 
+        if (empty($operations) && $request->has('operation_id')) {
+            $operations = [$request->all()];
+        }
+
         if (empty($operations)) {
             return response()->json(['data' => ['results' => []]]);
         }
@@ -234,6 +239,49 @@ class SyncController extends Controller
                     ];
 
                     $this->syncService->recordRevision($store->id, 'debtor', $entityId, 'upsert', $responseData);
+                } elseif ($opType === 'product.create') {
+                    Gate::forUser($user)->authorize('create', Product::class);
+                    $product = (new Product)->getConnection()->transaction(function () use ($store, $payload): Product {
+                        $product = Product::withoutGlobalScope('current_store')->create([
+                            'store_id'      => $store->id,
+                            'name'          => $payload['name'] ?? 'Mahsulot',
+                            'barcode'       => $payload['barcode'] ?? null,
+                            'type'          => $payload['type'] ?? 'package',
+                            'price'         => $payload['price'] ?? 0,
+                            'initial_price' => $payload['initial_price'] ?? $payload['price'] ?? 0,
+                        ]);
+
+                        $qty = (int) ($payload['stock_quantity'] ?? 0);
+                        if ($qty > 0) {
+                            $stock = Stock::withoutGlobalScope('current_store')
+                                ->whereHas('stores', fn ($q) => $q->whereKey($store->id))
+                                ->first() ?? Stock::first();
+
+                            if ($stock) {
+                                $product->productStocks()->create([
+                                    'stock_id' => $stock->id,
+                                    'quantity' => $qty,
+                                ]);
+                            }
+                        }
+
+                        return $product;
+                    });
+
+                    $entityId = (string) $product->id;
+                    $responseData = ['product_id' => $entityId, 'name' => $product->name, 'barcode' => $product->barcode];
+
+                    $this->syncService->recordRevision($store->id, 'product', $entityId, 'upsert', $responseData);
+                } elseif ($opType === 'product.delete') {
+                    $prodId = (int) ($op['entity_id'] ?? $payload['product_id'] ?? $payload['id'] ?? 0);
+                    $product = Product::withoutGlobalScope('current_store')->where('store_id', $store->id)->find($prodId);
+                    if ($product) {
+                        Gate::forUser($user)->authorize('delete', $product);
+                        $product->delete();
+                        $entityId = (string) $prodId;
+                        $responseData = ['deleted' => true];
+                        $this->syncService->recordRevision($store->id, 'product', $entityId, 'delete', $responseData);
+                    }
                 } else {
                     $status = 'rejected';
                     $responseData = ['error' => 'Noma’lum operatsiya turi: ' . $opType];
@@ -319,7 +367,6 @@ class SyncController extends Controller
                 'status'        => $op->status,
                 'canonical_id'  => $op->entity_id,
                 'response_data' => $op->response_data,
-                'applied_at'    => $op->applied_at?->toIso8601String(),
             ],
         ]);
     }
@@ -330,15 +377,15 @@ class SyncController extends Controller
         $conflicts = FlutterSyncConflict::query()
             ->where('store_id', $store->id)
             ->where('status', 'pending')
-            ->orderBy('id', 'desc')
+            ->orderByDesc('id')
+            ->limit(100)
             ->get();
 
         return response()->json([
             'data' => $conflicts->map(fn ($c): array => [
                 'id'           => (string) $c->id,
-                'operation_id' => (string) $c->operation_id,
+                'operation_id' => $c->operation_id,
                 'entity_type'  => $c->entity_type,
-                'entity_id'    => $c->entity_id,
                 'reason'       => $c->reason,
                 'created_at'   => $c->created_at->toIso8601String(),
             ]),
@@ -347,18 +394,6 @@ class SyncController extends Controller
 
     protected function hashPayload(array $payload): string
     {
-        $normalize = function (&$item) use (&$normalize): void {
-            if (is_array($item)) {
-                ksort($item);
-                foreach ($item as &$value) {
-                    $normalize($value);
-                }
-            }
-        };
-
-        $copy = $payload;
-        $normalize($copy);
-
-        return hash('sha256', (string) json_encode($copy));
+        return hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
     }
 }
