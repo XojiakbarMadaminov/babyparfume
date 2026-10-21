@@ -26,7 +26,7 @@ class LoginRequest extends FormRequest
             'password'    => ['required', 'string', 'max:255'],
             'device_uuid' => ['required', 'uuid'],
             'device_name' => ['required', 'string', 'max:100'],
-            'platform'    => ['required', 'in:android,ios'],
+            'platform'    => ['required', 'in:android,ios,flutter'],
         ];
     }
 
@@ -44,8 +44,8 @@ class LoginRequest extends FormRequest
             'device_name.required' => 'Qurilma nomini kiriting.',
             'device_name.string'   => 'Qurilma nomi matn bo‘lishi kerak.',
             'device_name.max'      => 'Qurilma nomi 100 belgidan oshmasin.',
-            'platform.required'    => 'Qurilma platformasi kerak.',
-            'platform.in'          => 'Faqat Android yoki iOS qo‘llanadi.',
+            'platform.required'    => 'Platformani tanlang.',
+            'platform.in'          => 'Platforma noto‘g‘ri.',
         ];
     }
 }

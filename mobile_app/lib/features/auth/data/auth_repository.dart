@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:babyparfume_mobile/core/api/api_client.dart';
 import 'package:babyparfume_mobile/core/storage/secure_storage.dart';
 
@@ -37,16 +38,22 @@ class AuthRepository {
 
   AuthRepository({required this.apiClient, required this.storage});
 
+  Future<bool> isLoggedIn() async {
+    final token = await storage.getToken();
+    return token != null && token.isNotEmpty;
+  }
+
   Future<bool> login({required String email, required String password}) async {
     final deviceUuid = await storage.getOrCreateDeviceUuid();
+    final platform = Platform.isIOS ? 'ios' : 'android';
     final response = await apiClient.post(
       '/login',
       data: {
         'email': email,
         'password': password,
         'device_uuid': deviceUuid,
-        'device_name': 'Mobile Device',
-        'platform': 'flutter',
+        'device_name': Platform.isIOS ? 'iPhone' : 'Android Device',
+        'platform': platform,
       },
     );
 
@@ -72,10 +79,5 @@ class AuthRepository {
       await apiClient.post('/logout');
     } catch (_) {}
     await storage.clearSession();
-  }
-
-  Future<bool> isLoggedIn() async {
-    final token = await storage.getToken();
-    return token != null && token.isNotEmpty;
   }
 }

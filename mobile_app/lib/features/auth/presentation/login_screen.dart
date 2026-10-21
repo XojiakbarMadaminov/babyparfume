@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../../../core/storage/secure_storage.dart';
 import '../../../core/theme/app_colors.dart';
@@ -118,8 +119,13 @@ class _LoginScreenState extends State<LoginScreen> {
       if (success) {
         widget.onLoginSuccess();
       } else {
-        setState(() => _errorMessage = "Kirish amalga oshmadi. Qayta urinib ko'ring.");
+        setState(() => _errorMessage = "Kirish amalga oshmadi. Email yoki parol xato.");
       }
+    } on DioException catch (e) {
+      final msg = e.response?.data is Map
+          ? (e.response?.data['error']?['message'] ?? e.response?.data['message'])
+          : null;
+      setState(() => _errorMessage = msg?.toString() ?? "Serverga ulanishda xatolik (${e.response?.statusCode ?? 'aloqa yo\'q'}).");
     } catch (e) {
       setState(() => _errorMessage = "Xatolik: ${e.toString()}");
     } finally {
