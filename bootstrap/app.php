@@ -14,5 +14,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [App\Http\Middleware\MobileSalesSession::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->shouldRenderJsonWhen(fn (Illuminate\Http\Request $request, Throwable $exception): bool => $request->is('api/flutter/v1', 'api/flutter/v1/*') || $request->expectsJson());
+
+        $exceptions->respond(function (Symfony\Component\HttpFoundation\Response $response): Symfony\Component\HttpFoundation\Response {
+            if (request()->is('api/flutter/v1', 'api/flutter/v1/*')) {
+                $response->headers->set('Cache-Control', 'no-store, private');
+                $response->headers->set('X-Content-Type-Options', 'nosniff');
+            }
+
+            return $response;
+        });
     })->create();

@@ -15,6 +15,6 @@ class SalesStatisticsController extends Controller
             $request->user()->current_store_id,
             $request->validated(),
             true,
-        )]);
+        )])->header('Cache-Control', 'no-store, private');
     }
 }

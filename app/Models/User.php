@@ -3,17 +3,18 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use Laravel\Sanctum\HasApiTokens;
+use Spatie\Permission\Traits\HasRoles;
+use Illuminate\Notifications\Notifiable;
+use Filament\Models\Contracts\FilamentUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasRoles;
+    use HasApiTokens, HasFactory, HasRoles, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -24,7 +25,7 @@ class User extends Authenticatable implements FilamentUser
         'name',
         'email',
         'password',
-        'current_store_id'
+        'current_store_id',
     ];
 
     /**
@@ -46,7 +47,7 @@ class User extends Authenticatable implements FilamentUser
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'password'          => 'hashed',
         ];
     }
 
@@ -57,7 +58,7 @@ class User extends Authenticatable implements FilamentUser
 
     public function stores()
     {
-        return $this->belongsToMany(Store::class, 'store_user','user_id','store_id')->withPivot('role')->withTimestamps();
+        return $this->belongsToMany(Store::class, 'store_user', 'user_id', 'store_id')->withPivot('role')->withTimestamps();
     }
 
     public function currentStore()
@@ -69,6 +70,4 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->hasRole('super_admin');
     }
-
-
 }
