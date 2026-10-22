@@ -53,8 +53,12 @@ class ApiClient {
     String path, {
     Map<String, dynamic>? queryParameters,
     Options? options,
+    CancelToken? cancelToken,
   }) async {
-    return dio.get(path, queryParameters: queryParameters, options: options);
+    return dio.get(path,
+        queryParameters: queryParameters,
+        options: options,
+        cancelToken: cancelToken);
   }
 
   Future<Response> post(

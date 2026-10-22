@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:cryptography/cryptography.dart';
@@ -9,6 +10,11 @@ import '../storage/secure_storage.dart';
 import '../lease/lease_manager.dart';
 
 class AppDatabase {
+  static final _mediaChanges = StreamController<String>.broadcast();
+  static Stream<String> get mediaChanges => _mediaChanges.stream;
+  static void notifyMediaChanged(String debtorId) =>
+      _mediaChanges.add(debtorId);
+
   static Future<bool> hasLegacyDatabase() async => File(join(
           (await getApplicationDocumentsDirectory()).path,
           'babyparfume_offline.db'))

@@ -11,12 +11,14 @@ class ProductsScreen extends StatefulWidget {
   final String storeId;
   final ProductsRepository? repository;
   final bool canCreate;
+  final int revision;
 
   const ProductsScreen({
     super.key,
     required this.storeId,
     this.repository,
     this.canCreate = false,
+    this.revision = 0,
   });
 
   @override
@@ -29,6 +31,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   List<LocalProduct> _products = [];
   bool _isLoading = true;
   String _searchQuery = '';
+  int _loadRequest = 0;
 
   @override
   void initState() {
@@ -38,11 +41,24 @@ class _ProductsScreenState extends State<ProductsScreen> {
     _loadProducts();
   }
 
+  @override
+  void didUpdateWidget(covariant ProductsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.revision != widget.revision) _loadProducts();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadProducts() async {
-    setState(() => _isLoading = true);
+    final request = ++_loadRequest;
+    if (_products.isEmpty) setState(() => _isLoading = true);
     final list =
         await _repository.searchProducts(widget.storeId, query: _searchQuery);
-    if (mounted) {
+    if (mounted && request == _loadRequest) {
       setState(() {
         _products = list;
         _isLoading = false;
@@ -68,6 +84,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   void _openAddProductDialog() {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => ProductFormDialog(
         storeId: widget.storeId,
         repository: _repository,

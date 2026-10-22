@@ -36,6 +36,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   String? _storeId;
   bool _busy = true;
   bool _hasData = false;
+  bool _silentRefresh = false;
+  DateTime? _lastRefreshAttempt;
+  Future<void>? _refreshTask;
   bool _legacyData = false;
   LeaseState? _leaseState;
   String? _error;
@@ -73,7 +76,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     });
     _load();
     _timer = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (!_busy && _storeId != null) _refresh();
+      if (!_busy && _storeId != null) _refresh(silent: true);
     });
   }
 
@@ -107,16 +110,37 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       _error = null;
       _syncError = null;
     });
+    await _sync.cancelMediaDownloads();
     await AppDatabase.configure(widget.authRepository.storage, id);
     _storeId = id;
     _index = 0;
     await _lease.initialize();
+    final db = await AppDatabase.getInstance();
+    final ready = await db.query('sync_state',
+        where: 'key = ? AND value = ?', whereArgs: ['offline_ready', '1']);
+    final lease = await _lease.checkLease();
+    if (!mounted) return;
+    setState(() {
+      _hasData = ready.isNotEmpty;
+      _leaseState = lease;
+    });
     await _refresh();
   }
 
-  Future<void> _refresh() async {
+  Future<void> _refresh({bool silent = false}) async {
     if (_storeId == null) return;
-    setState(() => _busy = true);
+    return _refreshTask ??= _performRefresh(silent: silent).whenComplete(() {
+      _refreshTask = null;
+    });
+  }
+
+  Future<void> _performRefresh({required bool silent}) async {
+    final oldWatermark = _sync.currentProgress.currentWatermark;
+    _lastRefreshAttempt = DateTime.now();
+    setState(() {
+      _busy = true;
+      _silentRefresh = silent && _hasData;
+    });
     await _sync.syncAll(_storeId!);
     final lease = await _lease.checkLease();
     final session = await widget.authRepository.storage.getSession() ?? {};
@@ -125,16 +149,24 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         _session = session;
         _leaseState = lease;
         _busy = false;
+        if (!_hasData ||
+            oldWatermark != _sync.currentProgress.currentWatermark) {
+          _revision++;
+        }
         _hasData = true;
-        _revision++;
       });
     }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && !_busy && _storeId != null) {
-      _refresh();
+    if (state == AppLifecycleState.resumed &&
+        !_busy &&
+        _storeId != null &&
+        (_lastRefreshAttempt == null ||
+            DateTime.now().difference(_lastRefreshAttempt!) >=
+                const Duration(minutes: 1))) {
+      _refresh(silent: true);
     }
   }
 
@@ -192,8 +224,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       add(
           'products',
           ProductsScreen(
-              key: ValueKey('products_${id}_$_revision'),
+              key: ValueKey('products_$id'),
               storeId: id,
+              revision: _revision,
               canCreate: permissions['create_product'] == true),
           Icons.inventory_2_outlined,
           'Mahsulotlar');
@@ -258,13 +291,14 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               padding: const EdgeInsets.all(12),
               child: Text(subscription['warning_text']?.toString() ?? '',
                   style: const TextStyle(color: Colors.orange))),
-        if (_message.isNotEmpty)
+        if (_message.isNotEmpty && (!_hasData || (_busy && !_silentRefresh)))
           Padding(padding: const EdgeInsets.all(8), child: Text(_message)),
         if (_syncError != null && _leaseState?.isLocked == false)
           Padding(
               padding: const EdgeInsets.all(8),
               child: Text(_syncError!, textAlign: TextAlign.center)),
-        if (_busy && _hasData) const LinearProgressIndicator(),
+        if (_busy && _hasData && !_silentRefresh)
+          const LinearProgressIndicator(),
         Expanded(
             child: _busy && !_hasData
                 ? const Center(child: CircularProgressIndicator())

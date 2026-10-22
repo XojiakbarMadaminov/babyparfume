@@ -136,6 +136,31 @@ it('creates a debtor with photo and returns canonical string numbers and UUID id
         ->assertStatus(409);
 });
 
+it('versions photo urls only when the photo changes', function (): void {
+    $client = Client::query()->create(['full_name' => 'Karim', 'phone' => '+998901234567']);
+    $debtor = Debtor::query()->create([
+        'store_id'   => $this->storeA->id,
+        'client_id'  => $client->id,
+        'amount'     => 100000,
+        'currency'   => 'UZS',
+        'date'       => now()->toDateString(),
+        'photo_path' => 'debtor-photos/first.jpg',
+    ]);
+    $endpoint = "/api/flutter/v1/stores/{$this->storeA->id}/debtors/{$debtor->id}";
+    $original = $this->withToken($this->token)->getJson($endpoint)->assertOk()->json('data.photo_url');
+    expect($original)->toContain('?v=')->not->toContain('debtor-photos/');
+
+    $debtor->update(['amount' => 90000]);
+    $this->withToken($this->token)->getJson($endpoint)->assertOk()->assertJsonPath('data.photo_url', $original);
+
+    $debtor->update(['photo_path' => 'debtor-photos/second.jpg']);
+    $replacement = $this->withToken($this->token)->getJson($endpoint)->assertOk()->json('data.photo_url');
+    expect($replacement)->not->toBe($original);
+
+    $debtor->update(['photo_path' => null]);
+    $this->withToken($this->token)->getJson($endpoint)->assertOk()->assertJsonPath('data.photo_url', null);
+});
+
 it('streams debtor photo securely with private no-store headers and forbids other stores', function (): void {
     Storage::disk('local')->put('debtor-photos/test.jpg', 'fake-image-bytes');
 

@@ -33,6 +33,8 @@ class LocalCache {
               where: 'debtor_id = ?', whereArgs: [id]);
           await db
               .delete('debtor_media', where: 'debtor_id = ?', whereArgs: [id]);
+          await db.delete('sync_state',
+              where: 'key = ?', whereArgs: ['debtor_photo_$id']);
         }
       } else {
         pending = pending ||

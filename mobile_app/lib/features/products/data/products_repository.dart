@@ -20,6 +20,7 @@ class LocalProduct {
   final int stockQuantity;
   final String? updatedAt;
   final String? stockId;
+  final String? stockName;
   final String? sizeId;
   final String? sizeName;
   final bool canUpdate;
@@ -38,6 +39,7 @@ class LocalProduct {
     required this.stockQuantity,
     this.updatedAt,
     this.stockId,
+    this.stockName,
     this.sizeId,
     this.sizeName,
     this.canUpdate = false,
@@ -59,6 +61,7 @@ class LocalProduct {
       stockQuantity: stockQuantity,
       updatedAt: map['updated_at'] as String?,
       stockId: map['stock_id']?.toString(),
+      stockName: map['stock_name']?.toString(),
       sizeId: map['size_id']?.toString(),
       sizeName: map['size_name']?.toString(),
       canUpdate: map['can_update'] == 1 || map['can_update'] == true,
@@ -76,6 +79,7 @@ class LocalProduct {
         'type': type,
         'price': price,
         'stock_id': stockId,
+        'stock_name': stockName,
         'size_id': sizeId,
         'size_name': sizeName,
         'updated_at': updatedAt,
@@ -142,6 +146,20 @@ class ProductsRepository {
     return LocalProduct.fromMap(r, stockQuantity: stock);
   }
 
+  Future<LocalProduct?> getProduct(String storeId, String productId) async {
+    final db = await _getDb();
+    final rows = await db.rawQuery('''
+      SELECT p.*, COALESCE(SUM(s.quantity), 0) AS total_stock
+      FROM products p
+      LEFT JOIN product_stocks s ON p.id = s.product_id
+      WHERE p.store_id = ? AND p.id = ?
+      GROUP BY p.id
+    ''', [storeId, productId]);
+    if (rows.isEmpty) return null;
+    return LocalProduct.fromMap(rows.first,
+        stockQuantity: (rows.first['total_stock'] as num).toInt());
+  }
+
   /// Generates a valid unique 13-digit EAN barcode
   String generateBarcode() {
     final random = Random();
@@ -202,12 +220,22 @@ class ProductsRepository {
 
   Future<List<LocalProduct>> variants(LocalProduct product) async {
     final db = await _getDb();
+    final state = await db
+        .query('sync_state', where: 'key = ?', whereArgs: ['store_stocks']);
+    final stockNames = <String, String>{
+      if (state.isNotEmpty)
+        for (final stock in jsonDecode(state.first['value'] as String) as List)
+          stock['id'].toString(): stock['name'].toString(),
+    };
     final stocks = await db.query('product_stocks',
         where: 'product_id = ?', whereArgs: [product.id]);
     return stocks
-        .map((stock) => LocalProduct.fromMap(
-            {...product.toMap(), ...stock, 'id': product.id},
-            stockQuantity: (stock['quantity'] as num).toInt()))
+        .map((stock) => LocalProduct.fromMap({
+              ...product.toMap(),
+              ...stock,
+              'id': product.id,
+              'stock_name': stockNames[stock['stock_id'].toString()]
+            }, stockQuantity: (stock['quantity'] as num).toInt()))
         .toList();
   }
 

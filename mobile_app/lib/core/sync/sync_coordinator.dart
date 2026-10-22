@@ -30,6 +30,10 @@ class SyncCoordinator {
   Future<bool>? _running;
   String? _activeStore;
   String _phase = '';
+  Future<void>? _mediaTask;
+  CancelToken? _mediaCancelToken;
+  bool _disposed = false;
+  Future<void> get mediaDownloadsComplete => _mediaTask ?? Future<void>.value();
   SyncProgress get currentProgress => _currentProgress;
   Stream<SyncProgress> get progressStream => _progressController.stream;
   SyncCoordinator(
@@ -359,6 +363,7 @@ class SyncCoordinator {
         lastSyncTime: _currentProgress.lastSyncTime));
     _setPhase('Akkaunt va do‘kon ruxsatlari tekshirilmoqda...');
     try {
+      await cancelMediaDownloads();
       final session = Map<String, dynamic>.from(
           (await apiClient.get('/stores/$storeId/session')).data['data']
               as Map);
@@ -390,8 +395,6 @@ class SyncCoordinator {
       await pushOutbox(storeId);
       _setPhase('Serverdagi o‘zgarishlar yuklanmoqda...');
       await pullDelta(storeId);
-      _setPhase('Qarzdorlarning rasmlari yuklanmoqda...');
-      await _downloadMedia();
       _setPhase('Oflayn ruxsat yangilanmoqda...');
       final requestClock = await leaseManager.readClock();
       final lease = Map<String, dynamic>.from(
@@ -408,6 +411,7 @@ class SyncCoordinator {
               : 'Tasdiqlanmagan amallar mavjud.',
           currentWatermark: await getSavedWatermark(),
           lastSyncTime: DateTime.now()));
+      _startMediaDownload();
       return true;
     } catch (error) {
       if (error is DioException &&
@@ -458,40 +462,113 @@ class SyncCoordinator {
     return 'Qurilmada ma’lumotlarni qayta ishlash xatosi (${error.runtimeType}). Ilovani yangilab, qayta urinib ko‘ring.';
   }
 
-  Future<void> _downloadMedia() async {
+  void _startMediaDownload() {
+    if (_disposed || _mediaTask != null) return;
+    final cancelToken = CancelToken();
+    _mediaCancelToken = cancelToken;
+    _mediaTask = _downloadMedia(cancelToken).catchError((Object error) async {
+      if (!_disposed &&
+          error is DioException &&
+          [401, 403].contains(error.response?.statusCode)) {
+        await leaseManager.storage.clearLease();
+        await leaseManager.checkLease();
+        _update(_currentProgress.copyWith(
+            status: SyncStatus.error,
+            message: 'Server ruxsatini qayta tekshiring.',
+            lastError: _describeError(error)));
+      }
+    }).whenComplete(() {
+      _mediaTask = null;
+      _mediaCancelToken = null;
+    });
+  }
+
+  Future<void> cancelMediaDownloads() async {
+    _mediaCancelToken?.cancel();
+    await _mediaTask;
+  }
+
+  Future<void> _downloadMedia(CancelToken cancelToken) async {
     final db = await _getDb();
-    for (final debtor in await db.query('debtors')) {
-      final media = await db.query('debtor_media',
-          where: 'debtor_id = ?', whereArgs: [debtor['id']]);
-      if (media.isNotEmpty && media.first['pending'] == 1) continue;
-      final path = debtor['photo_path'] as String?;
-      if (path == null) {
-        await db.delete('debtor_media',
-            where: 'debtor_id = ?', whereArgs: [debtor['id']]);
-      } else if (path.startsWith('/api/flutter/v1/stores/')) {
+    if (cancelToken.isCancelled || _disposed) return;
+    final debtors = await db.rawQuery('''
+      SELECT d.id, d.photo_path, m.pending, m.bytes IS NOT NULL AS has_bytes,
+        s.value AS cached_source
+      FROM debtors d
+      LEFT JOIN debtor_media m ON m.debtor_id = d.id
+      LEFT JOIN sync_state s ON s.key = 'debtor_photo_' || d.id
+      WHERE COALESCE(m.pending, 0) = 0 AND (
+        (d.photo_path IS NULL AND (m.debtor_id IS NOT NULL OR s.key IS NOT NULL))
+        OR (d.photo_path LIKE '/api/flutter/v1/stores/%' AND
+          (m.bytes IS NULL OR s.value IS NULL OR s.value != d.photo_path))
+      )
+    ''');
+    var next = 0;
+    Future<void> worker() async {
+      while (!cancelToken.isCancelled && !_disposed && next < debtors.length) {
+        final debtor = debtors[next++];
+        if (debtor['pending'] == 1) continue;
+        final id = debtor['id'] as String;
+        final path = debtor['photo_path'] as String?;
+        if (path == null) {
+          await db.transaction((txn) async {
+            final current = await txn.query('debtors',
+                where: 'id = ? AND photo_path IS NULL', whereArgs: [id]);
+            if (current.isEmpty) return;
+            await txn.delete('debtor_media',
+                where: 'debtor_id = ? AND pending = 0', whereArgs: [id]);
+            await txn.delete('sync_state',
+                where: 'key = ?', whereArgs: ['debtor_photo_$id']);
+          });
+          AppDatabase.notifyMediaChanged(id);
+          continue;
+        }
+        if (!path.startsWith('/api/flutter/v1/stores/') ||
+            (debtor['has_bytes'] == 1 && debtor['cached_source'] == path)) {
+          continue;
+        }
         try {
           final response = await apiClient.get(
               path.substring('/api/flutter/v1'.length),
-              options: Options(responseType: ResponseType.bytes));
+              options: Options(
+                  responseType: ResponseType.bytes,
+                  receiveTimeout: const Duration(seconds: 10)),
+              cancelToken: cancelToken);
+          if (cancelToken.isCancelled || _disposed) return;
           final bytes = response.data as List<int>;
-          if (bytes.length <= 10 * 1024 * 1024) {
-            await db.insert(
+          if (bytes.isEmpty || bytes.length > 10 * 1024 * 1024) continue;
+          await db.transaction((txn) async {
+            final current = await txn.query('debtors',
+                where: 'id = ? AND photo_path = ?', whereArgs: [id, path]);
+            final pending = await txn.query('debtor_media',
+                where: 'debtor_id = ? AND pending = 1', whereArgs: [id]);
+            if (current.isEmpty || pending.isNotEmpty) return;
+            await txn.insert(
                 'debtor_media',
                 {
-                  'debtor_id': debtor['id'],
+                  'debtor_id': id,
                   'bytes': Uint8List.fromList(bytes),
                   'pending': 0
                 },
                 conflictAlgorithm: ConflictAlgorithm.replace);
-          }
+            await _save('debtor_photo_$id', path, txn);
+          });
+          AppDatabase.notifyMediaChanged(id);
         } on DioException catch (error) {
-          if ([401, 403].contains(error.response?.statusCode)) rethrow;
+          if ([401, 403].contains(error.response?.statusCode)) {
+            cancelToken.cancel();
+            rethrow;
+          }
         }
       }
     }
+
+    await Future.wait(List.generate(3, (_) => worker()));
   }
 
   void dispose() {
+    _disposed = true;
+    _mediaCancelToken?.cancel();
     _progressController.close();
   }
 }

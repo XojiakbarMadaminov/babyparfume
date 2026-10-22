@@ -1,5 +1,7 @@
 import 'package:babyparfume_mobile/features/pos/data/clients_repository.dart';
 import 'package:babyparfume_mobile/features/products/data/barcode_guard.dart';
+import 'package:babyparfume_mobile/features/products/data/products_repository.dart';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
@@ -18,14 +20,18 @@ import 'package:babyparfume_mobile/core/sync/sync_models.dart';
 import 'package:babyparfume_mobile/features/debtors/data/debtors_repository.dart';
 
 class TestAdapter implements HttpClientAdapter {
-  final Future<Map<String, dynamic>> Function(RequestOptions) handle;
+  final Future<Object> Function(RequestOptions) handle;
   TestAdapter(this.handle);
   @override
   Future<ResponseBody> fetch(RequestOptions options,
-          Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async =>
-      ResponseBody.fromString(jsonEncode(await handle(options)), 200, headers: {
-        Headers.contentTypeHeader: ['application/json']
-      });
+      Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
+    final result = await handle(options);
+    if (result is List<int>) return ResponseBody.fromBytes(result, 200);
+    return ResponseBody.fromString(jsonEncode(result), 200, headers: {
+      Headers.contentTypeHeader: ['application/json']
+    });
+  }
+
   @override
   void close({bool force = false}) {}
 }
@@ -276,6 +282,258 @@ void main() {
     expect(await outbox.getPendingCount(), 1);
     expect((await outbox.getPendingOperations(includeAll: true)).single.status,
         'conflict');
+    sync.dispose();
+  });
+
+  test('media downloads never block the lease and unchanged photos are cached',
+      () async {
+    const firstPath = '/api/flutter/v1/stores/1/debtors/12/photo?v=first';
+    await db.insert('sync_state', {'key': 'watermark', 'value': '0'});
+    await LocalCache.debtor(db, '1', {...debtor(), 'photo_url': firstPath});
+    final started = Completer<void>();
+    final release = Completer<void>();
+    var photoRequests = 0;
+    api.dio.httpClientAdapter = TestAdapter((request) async {
+      if (request.path.endsWith('/session')) {
+        return {
+          'data': {
+            'user': {'id': '1'}
+          }
+        };
+      }
+      if (request.path.endsWith('/delta')) {
+        return {
+          'data': {'changes': [], 'next_cursor': '0', 'has_more': false}
+        };
+      }
+      if (request.path.endsWith('/lease')) return {'data': serverLease()};
+      photoRequests++;
+      if (!started.isCompleted) started.complete();
+      await release.future;
+      return <int>[1, 2, 3];
+    });
+    final sync = SyncCoordinator(
+        apiClient: api,
+        outboxManager: outbox,
+        leaseManager: lease,
+        getDb: () async => db);
+    expect(await sync.syncAll('1').timeout(const Duration(seconds: 2)), isTrue);
+    expect((await lease.checkLease()).isLocked, isFalse);
+    expect(sync.currentProgress.message, isNot(contains('rasmlari')));
+    await started.future;
+    expect(await db.query('debtor_media'), isEmpty);
+    release.complete();
+    await sync.mediaDownloadsComplete;
+    expect((await db.query('debtor_media')).single['bytes'], [1, 2, 3]);
+    expect(photoRequests, 1);
+    await LocalCache.debtor(
+        db, '1', {...debtor(amount: '45000'), 'photo_url': firstPath});
+    expect(await sync.syncAll('1'), isTrue);
+    await sync.mediaDownloadsComplete;
+    expect(photoRequests, 1);
+    await LocalCache.debtor(db, '1', {
+      ...debtor(),
+      'photo_url': '/api/flutter/v1/stores/1/debtors/12/photo?v=second'
+    });
+    expect(await sync.syncAll('1'), isTrue);
+    await sync.mediaDownloadsComplete;
+    expect(photoRequests, 2);
+    await LocalCache.debtor(db, '1', {...debtor(), 'photo_url': null});
+    expect(await sync.syncAll('1'), isTrue);
+    await sync.mediaDownloadsComplete;
+    expect(await db.query('debtor_media'), isEmpty);
+    sync.dispose();
+  });
+
+  for (final change in ['pending_photo', 'new_server_photo', 'cancel']) {
+    test(
+        'in-flight photo respects $change and never overwrites newer local state',
+        () async {
+      await db.insert('sync_state', {'key': 'watermark', 'value': '0'});
+      await LocalCache.debtor(db, '1', {
+        ...debtor(),
+        'photo_url': '/api/flutter/v1/stores/1/debtors/12/photo?v=first'
+      });
+      final started = Completer<void>();
+      final release = Completer<void>();
+      api.dio.httpClientAdapter = TestAdapter((request) async {
+        if (request.path.endsWith('/session')) {
+          return {
+            'data': {
+              'user': {'id': '1'}
+            }
+          };
+        }
+        if (request.path.endsWith('/delta')) {
+          return {
+            'data': {'changes': [], 'next_cursor': '0', 'has_more': false}
+          };
+        }
+        if (request.path.endsWith('/lease')) return {'data': serverLease()};
+        if (!started.isCompleted) started.complete();
+        await release.future;
+        return <int>[1, 2, 3];
+      });
+      final sync = SyncCoordinator(
+          apiClient: api,
+          outboxManager: outbox,
+          leaseManager: lease,
+          getDb: () async => db);
+      expect(await sync.syncAll('1'), isTrue);
+      await started.future;
+      if (change == 'pending_photo') {
+        await db.insert('debtor_media', {
+          'debtor_id': '12',
+          'bytes': Uint8List.fromList([9, 9]),
+          'pending': 1
+        });
+      } else if (change == 'new_server_photo') {
+        await LocalCache.debtor(db, '1', {
+          ...debtor(),
+          'photo_url': '/api/flutter/v1/stores/1/debtors/12/photo?v=second'
+        });
+      } else {
+        await sync.cancelMediaDownloads();
+      }
+      release.complete();
+      await sync.mediaDownloadsComplete;
+      final media = await db.query('debtor_media');
+      if (change == 'pending_photo') {
+        expect(media.single['bytes'], [9, 9]);
+        expect(media.single['pending'], 1);
+      } else {
+        expect(media, isEmpty);
+      }
+      expect(await db.query('sync_state', where: "key = 'debtor_photo_12'"),
+          isEmpty);
+      sync.dispose();
+    });
+  }
+
+  for (final status in [403, null]) {
+    test(
+        'background photo failure $status preserves cache and handles access revocation',
+        () async {
+      await db.insert('sync_state', {'key': 'watermark', 'value': '0'});
+      await LocalCache.debtor(db, '1', {
+        ...debtor(),
+        'photo_url': '/api/flutter/v1/stores/1/debtors/12/photo?v=first'
+      });
+      var fail = true;
+      api.dio.httpClientAdapter = TestAdapter((request) async {
+        if (request.path.endsWith('/session')) {
+          return {
+            'data': {
+              'user': {'id': '1'}
+            }
+          };
+        }
+        if (request.path.endsWith('/delta')) {
+          return {
+            'data': {'changes': [], 'next_cursor': '0', 'has_more': false}
+          };
+        }
+        if (request.path.endsWith('/lease')) return {'data': serverLease()};
+        if (fail) {
+          throw DioException(
+              requestOptions: request,
+              type: status == null
+                  ? DioExceptionType.connectionTimeout
+                  : DioExceptionType.badResponse,
+              response: status == null
+                  ? null
+                  : Response(requestOptions: request, statusCode: status));
+        }
+        return <int>[1, 2, 3];
+      });
+      final sync = SyncCoordinator(
+          apiClient: api,
+          outboxManager: outbox,
+          leaseManager: lease,
+          getDb: () async => db);
+      expect(await sync.syncAll('1'), isTrue);
+      await sync.mediaDownloadsComplete;
+      expect((await lease.checkLease()).isLocked, status == 403);
+      expect(await db.query('debtor_media'), isEmpty);
+      expect(await db.query('debtors'), hasLength(1));
+      if (status == 403) {
+        expect(sync.currentProgress.status, SyncStatus.error);
+      } else {
+        fail = false;
+        expect(await sync.syncAll('1'), isTrue);
+        await sync.mediaDownloadsComplete;
+        expect((await db.query('debtor_media')).single['bytes'], [1, 2, 3]);
+      }
+      sync.dispose();
+    });
+  }
+
+  test('product details read the current stock and warehouse names from cache',
+      () async {
+    final repository =
+        ProductsRepository(outboxManager: outbox, getDb: () async => db);
+    await db.insert('sync_state', {
+      'key': 'store_stocks',
+      'value': jsonEncode([
+        {'id': '71', 'name': 'Asosiy ombor'}
+      ])
+    });
+    final detail = (await repository.getProduct('1', '11'))!;
+    expect(detail.barcode, '0012345678905');
+    expect(detail.stockQuantity, 3);
+    expect(await repository.getProduct('2', '11'), isNull);
+    final variants = await repository.variants(detail);
+    expect(variants.single.stockName, 'Asosiy ombor');
+    expect(variants.single.stockQuantity, 3);
+    expect(detail.toMap().containsKey('initial_price'), isFalse);
+  });
+
+  test('photos download with at most three parallel requests', () async {
+    await db.insert('sync_state', {'key': 'watermark', 'value': '0'});
+    for (var id = 12; id < 18; id++) {
+      await LocalCache.debtor(db, '1', {
+        ...debtor(),
+        'id': id.toString(),
+        'photo_url': '/api/flutter/v1/stores/1/debtors/$id/photo?v=first'
+      });
+    }
+    var active = 0;
+    var maximum = 0;
+    final started = Completer<void>();
+    final release = Completer<void>();
+    api.dio.httpClientAdapter = TestAdapter((request) async {
+      if (request.path.endsWith('/session')) {
+        return {
+          'data': {
+            'user': {'id': '1'}
+          }
+        };
+      }
+      if (request.path.endsWith('/delta')) {
+        return {
+          'data': {'changes': [], 'next_cursor': '0', 'has_more': false}
+        };
+      }
+      if (request.path.endsWith('/lease')) return {'data': serverLease()};
+      active++;
+      if (active > maximum) maximum = active;
+      if (active == 3 && !started.isCompleted) started.complete();
+      await release.future;
+      active--;
+      return <int>[1, 2, 3];
+    });
+    final sync = SyncCoordinator(
+        apiClient: api,
+        outboxManager: outbox,
+        leaseManager: lease,
+        getDb: () async => db);
+    expect(await sync.syncAll('1'), isTrue);
+    await started.future;
+    expect(maximum, 3);
+    release.complete();
+    await sync.mediaDownloadsComplete;
+    expect(maximum, 3);
+    expect(await db.query('debtor_media'), hasLength(6));
     sync.dispose();
   });
 

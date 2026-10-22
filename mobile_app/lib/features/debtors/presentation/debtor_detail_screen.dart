@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'debtor_form_dialog.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/database/app_database.dart';
 import '../../../core/utils/currency_format.dart';
 import '../../../core/utils/date_format.dart';
 import '../../../core/utils/phone_format.dart';
@@ -28,12 +30,24 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
   bool _isLoading = true;
   bool _transactionSaving = false;
   Uint8List? _photo;
+  StreamSubscription<String>? _mediaSubscription;
 
   @override
   void initState() {
     super.initState();
     _currentDebtor = widget.debtor;
+    _mediaSubscription = AppDatabase.mediaChanges.listen((id) async {
+      if (id != _currentDebtor.id) return;
+      final photo = await widget.repository.getPhoto(id);
+      if (mounted) setState(() => _photo = photo);
+    });
     _loadTransactions();
+  }
+
+  @override
+  void dispose() {
+    _mediaSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadTransactions() async {
