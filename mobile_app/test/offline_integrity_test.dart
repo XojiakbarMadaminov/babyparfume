@@ -366,6 +366,183 @@ void main() {
     sync.dispose();
   });
 
+  for (final incompleteManifest in [false, true]) {
+    test(
+        'bootstrap replaces a saved ${incompleteManifest ? 'legacy manifest' : 'incomplete completed snapshot'} without losing pending operations',
+        () async {
+      await db.insert('sync_state', {
+        'key': 'bootstrap',
+        'value': jsonEncode({
+          'snapshot_id': 'broken',
+          'watermark': 5,
+          'manifest': {
+            'products': 2,
+            'debtors': 0,
+            if (!incompleteManifest) 'clients': 0,
+          },
+          'completed': ['products', 'debtors', 'clients'],
+          'cursors': {'products': '13'}
+        })
+      });
+      await db.insert('server_cache', {
+        'entity': 'stage_products',
+        'id': '11',
+        'payload_json': jsonEncode(product())
+      });
+      await outbox.enqueueOperation(
+          storeId: '1',
+          entityType: 'client',
+          operationType: 'client.create',
+          payload: {'full_name': 'Pending'});
+      final pending = await db.query('sync_outbox');
+      var initializes = 0;
+      api.dio.httpClientAdapter = TestAdapter((request) async {
+        if (request.path.endsWith('/bootstrap')) {
+          initializes++;
+          expect(await db.query('products'), hasLength(1));
+          expect(await db.query('sync_outbox'), pending);
+          expect(await db.query('server_cache'), isEmpty);
+          return {
+            'data': {
+              'snapshot_id': 'fresh',
+              'watermark': 10,
+              'manifest': {'products': 1, 'debtors': 0, 'clients': 0},
+            }
+          };
+        }
+        expect(request.path, '/stores/1/bootstrap/fresh');
+        expect(request.queryParameters['entity'], 'products');
+        expect(request.queryParameters['cursor'], '0');
+        return {
+          'data': {
+            'items': [product(id: '13')],
+            'next_cursor': '13',
+            'has_more': false,
+          }
+        };
+      });
+      final sync = SyncCoordinator(
+          apiClient: api,
+          outboxManager: outbox,
+          leaseManager: lease,
+          getDb: () async => db);
+      expect(await sync.runBootstrap('1'), isTrue);
+      expect(initializes, 1);
+      expect(await sync.getSavedWatermark(), 10);
+      expect((await db.query('products')).single['id'], '13');
+      expect(await db.query('sync_outbox'), pending);
+      expect(await db.query('sync_state', where: "key = 'bootstrap'"), isEmpty);
+      expect(await db.query('server_cache', where: "entity LIKE 'stage_%'"),
+          isEmpty);
+      sync.dispose();
+    });
+  }
+
+  for (final failure in ['products', 'debtors', 'clients', 'legacy_manifest']) {
+    test('bootstrap rejects $failure with a specific error and bounded retries',
+        () async {
+      final missingClients = failure == 'legacy_manifest';
+      await outbox.enqueueOperation(
+          storeId: '1',
+          entityType: 'client',
+          operationType: 'client.create',
+          payload: {'full_name': 'Pending'});
+      final pending = await db.query('sync_outbox');
+      final products = await db.query('products');
+      final stocks = await db.query('product_stocks');
+      final debtors = await db.query('debtors');
+      final transactions = await db.query('debtor_transactions');
+      final clients = await db.query('clients');
+      await db.insert('sync_state', {
+        'key': 'store_stocks',
+        'value': jsonEncode([
+          {'id': '71', 'name': 'Existing stock'}
+        ])
+      });
+      var initializes = 0;
+      api.dio.httpClientAdapter = TestAdapter((request) async {
+        if (request.path.endsWith('/session')) {
+          return {
+            'data': {
+              'user': {'id': '1'}
+            }
+          };
+        }
+        if (request.path.endsWith('/bootstrap')) {
+          initializes++;
+          return {
+            'data': {
+              'snapshot_id': 'broken_$initializes',
+              'watermark': 10,
+              'manifest': {
+                'products': failure == 'products' ? 2 : 1,
+                'debtors': failure == 'debtors' ? 2 : 1,
+                if (!missingClients) 'clients': failure == 'clients' ? 2 : 1,
+              },
+              'stocks': [
+                {'id': '72', 'name': 'Replacement stock'}
+              ]
+            }
+          };
+        }
+        expect(missingClients, isFalse);
+        final entity = request.queryParameters['entity'];
+        final item = switch (entity) {
+          'products' => product(id: '13'),
+          'debtors' => debtor(),
+          _ => {'id': '42', 'full_name': 'Server client'},
+        };
+        final firstPage = request.queryParameters['cursor'] == '0';
+        return {
+          'data': {
+            'items': [item],
+            'next_cursor': item['id'],
+            'has_more': entity == failure && firstPage,
+          }
+        };
+      });
+      final sync = SyncCoordinator(
+          apiClient: api,
+          outboxManager: outbox,
+          leaseManager: lease,
+          getDb: () async => db);
+      expect(await sync.syncAll('1'), isFalse);
+      expect(initializes, 2);
+      expect(sync.currentProgress.status, SyncStatus.error);
+      final label = {
+        'products': 'Mahsulotlar',
+        'debtors': 'Qarzdorlar',
+        'clients': 'Mijozlar',
+      }[failure];
+      expect(sync.currentProgress.lastError,
+          contains(missingClients ? 'clients' : '$label: 1 / 2'));
+      if (missingClients) {
+        expect(sync.currentProgress.lastError, contains('Server mobil API'));
+      }
+      expect(await db.query('products'), products);
+      expect(await db.query('product_stocks'), stocks);
+      expect(await db.query('debtors'), debtors);
+      expect(await db.query('debtor_transactions'), transactions);
+      expect(await db.query('clients'), clients);
+      expect(
+          jsonDecode(
+              (await db.query('sync_state', where: "key = 'store_stocks'"))
+                  .single['value'] as String),
+          [
+            {'id': '71', 'name': 'Existing stock'}
+          ]);
+      expect(await db.query('sync_outbox'), pending);
+      expect(await sync.getSavedWatermark(), isNull);
+      expect(await db.query('sync_state', where: "key = 'offline_ready'"),
+          isEmpty);
+      expect(await db.query('sync_state', where: "key = 'bootstrap'"), isEmpty);
+      expect(await db.query('server_cache', where: "entity LIKE 'stage_%'"),
+          isEmpty);
+      expect((await lease.checkLease()).isLocked, isTrue);
+      sync.dispose();
+    });
+  }
+
   for (final status in [404, 409, 410]) {
     test('expired bootstrap HTTP $status restarts within the same sync',
         () async {

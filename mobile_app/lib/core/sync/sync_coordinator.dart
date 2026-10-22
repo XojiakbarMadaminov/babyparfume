@@ -10,7 +10,17 @@ import '../lease/lease_manager.dart';
 import 'outbox_manager.dart';
 import 'sync_models.dart';
 
+class _BootstrapIntegrityException implements Exception {
+  final String message;
+  const _BootstrapIntegrityException(this.message);
+}
+
 class SyncCoordinator {
+  static const _entityLabels = {
+    'products': 'Mahsulotlar',
+    'debtors': 'Qarzdorlar',
+    'clients': 'Mijozlar',
+  };
   final ApiClient apiClient;
   final OutboxManager outboxManager;
   final LeaseManager leaseManager;
@@ -53,12 +63,37 @@ class SyncCoordinator {
     final resuming = await _state('bootstrap') != null;
     try {
       return await _runBootstrap(storeId);
+    } on _BootstrapIntegrityException {
+      return _runBootstrap(storeId);
     } on DioException catch (error) {
       if (!resuming || ![404, 409, 410].contains(error.response?.statusCode)) {
         rethrow;
       }
       return _runBootstrap(storeId);
     }
+  }
+
+  Future<void> _discardBootstrap() async {
+    final db = await _getDb();
+    await db.transaction((txn) async {
+      await txn
+          .delete('sync_state', where: 'key = ?', whereArgs: ['bootstrap']);
+      await txn.delete('server_cache', where: "entity LIKE 'stage_%'");
+    });
+  }
+
+  Map<String, int> _manifestCounts(Map<String, dynamic> snapshot) {
+    final manifest = snapshot['manifest'];
+    final counts = <String, int>{};
+    for (final entity in _entityLabels.keys) {
+      final count = manifest is Map ? manifest[entity] : null;
+      if (count is! int || count < 0) {
+        throw _BootstrapIntegrityException(
+            'Server mobil API manifesti yaroqsiz: $entity soni berilmagan yoki noto‘g‘ri. Server mobil API’sini yangilang va qayta urinib ko‘ring.');
+      }
+      counts[entity] = count;
+    }
+    return counts;
   }
 
   void _setPhase(String message) {
@@ -83,31 +118,25 @@ class SyncCoordinator {
       await db.transaction((txn) async {
         await txn.delete('server_cache', where: "entity LIKE 'stage_%'");
         await _save('bootstrap', jsonEncode(snapshot), txn);
-        await _save('store_stocks', jsonEncode(snapshot['stocks'] ?? []), txn);
       });
     }
     try {
-      for (final entity in ['products', 'debtors', 'clients']) {
+      final manifest = _manifestCounts(snapshot);
+      for (final entity in _entityLabels.keys) {
         final completed = List<String>.from(snapshot['completed'] as List);
         if (completed.contains(entity)) continue;
-        if ((snapshot['manifest'] as Map)[entity] == 0 ||
-            (snapshot['manifest'] as Map)[entity] == null) {
+        if (manifest[entity] == 0) {
           (snapshot['completed'] as List).add(entity);
           continue;
         }
         var cursor = (snapshot['cursors'] as Map)[entity]?.toString() ?? '0';
-        final label = {
-          'products': 'Mahsulotlar',
-          'debtors': 'Qarzdorlar',
-          'clients': 'Mijozlar',
-        }[entity]!;
+        final label = _entityLabels[entity]!;
         var loaded = (await db.query('server_cache',
                 columns: ['id'],
                 where: 'entity = ?',
                 whereArgs: ['stage_$entity']))
             .length;
-        _setPhase(
-            '$label yuklanmoqda: $loaded / ${snapshot['manifest'][entity]}');
+        _setPhase('$label yuklanmoqda: $loaded / ${manifest[entity]}');
         while (true) {
           final response = await apiClient.get(
               '/stores/$storeId/bootstrap/${snapshot['snapshot_id']}',
@@ -122,7 +151,8 @@ class SyncCoordinator {
               .map((v) => Map<String, dynamic>.from(v as Map)));
           final next = page['next_cursor']?.toString() ?? cursor;
           if (page['has_more'] == true && (next == cursor || items.isEmpty)) {
-            throw StateError('Yuklash kursori siljimadi.');
+            throw _BootstrapIntegrityException(
+                '$label yuklash kursori siljimadi. Server mobil API’sini tekshiring.');
           }
           await db.transaction((txn) async {
             for (final item in items) {
@@ -142,20 +172,21 @@ class SyncCoordinator {
             await _save('bootstrap', jsonEncode(snapshot), txn);
           });
           loaded += items.length;
-          _setPhase(
-              '$label yuklanmoqda: $loaded / ${snapshot['manifest'][entity]}');
+          _setPhase('$label yuklanmoqda: $loaded / ${manifest[entity]}');
           cursor = next;
           if (page['has_more'] != true) break;
         }
       }
       _setPhase('Ma’lumotlar qurilmaga saqlanmoqda...');
       await db.transaction((txn) async {
-        for (final entity in ['products', 'debtors', 'clients']) {
+        await _save('store_stocks', jsonEncode(snapshot['stocks'] ?? []), txn);
+        for (final entity in _entityLabels.keys) {
           final rows = await txn.query('server_cache',
               where: 'entity = ?', whereArgs: ['stage_$entity']);
-          final expected = (snapshot['manifest'] as Map)[entity];
-          if (expected is! num || rows.length != expected.toInt()) {
-            throw StateError('To‘liq ma’lumot yuklanmagan.');
+          final expected = manifest[entity]!;
+          if (rows.length != expected) {
+            throw _BootstrapIntegrityException(
+                '${_entityLabels[entity]}: ${rows.length} / $expected. To‘liq ma’lumot yuklanmagan. Server mobil API’sini tekshirib, qayta yangilang.');
           }
           await txn
               .delete('server_cache', where: 'entity = ?', whereArgs: [entity]);
@@ -197,13 +228,12 @@ class SyncCoordinator {
         await txn.delete('server_cache', where: "entity LIKE 'stage_%'");
       });
       return true;
+    } on _BootstrapIntegrityException {
+      await _discardBootstrap();
+      rethrow;
     } on DioException catch (error) {
       if ([404, 409, 410].contains(error.response?.statusCode)) {
-        await db.transaction((txn) async {
-          await txn
-              .delete('sync_state', where: 'key = ?', whereArgs: ['bootstrap']);
-          await txn.delete('server_cache', where: "entity LIKE 'stage_%'");
-        });
+        await _discardBootstrap();
       }
       rethrow;
     }
@@ -423,6 +453,7 @@ class SyncCoordinator {
     if (error is DatabaseException) {
       return 'Qurilma bazasiga ma’lumotni saqlab bo‘lmadi. Bo‘sh xotirani tekshiring; ilova ma’lumotlarini o‘chirmang.';
     }
+    if (error is _BootstrapIntegrityException) return error.message;
     if (error is StateError) return error.message.toString();
     return 'Qurilmada ma’lumotlarni qayta ishlash xatosi (${error.runtimeType}). Ilovani yangilab, qayta urinib ko‘ring.';
   }

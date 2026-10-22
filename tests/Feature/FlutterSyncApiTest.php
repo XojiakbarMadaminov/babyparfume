@@ -92,20 +92,38 @@ it('performs bootstrap initialization and returns paginated products and debtors
         ->assertOk()
         ->assertJsonPath('data.manifest.products', 3)
         ->assertJsonPath('data.manifest.debtors', 1)
+        ->assertJsonPath('data.manifest.clients', 1)
         ->assertJsonPath('data.schema_version', 1);
 
     $snapshotId = $bootstrapResp->json('data.snapshot_id');
 
-    $this->withToken($this->token)
+    $productsPage = $this->withToken($this->token)
         ->getJson("/api/flutter/v1/stores/{$this->storeA->id}/bootstrap/{$snapshotId}?entity=products&limit=2")
         ->assertOk()
         ->assertJsonCount(2, 'data.items')
         ->assertJsonPath('data.has_more', true);
 
+    $cursor           = $productsPage->json('data.next_cursor');
+    $lastProductsPage = $this->withToken($this->token)
+        ->getJson("/api/flutter/v1/stores/{$this->storeA->id}/bootstrap/{$snapshotId}?entity=products&limit=2&cursor={$cursor}")
+        ->assertOk()
+        ->assertJsonCount(1, 'data.items')
+        ->assertJsonPath('data.has_more', false);
+
+    $productIds = array_column(array_merge($productsPage->json('data.items'), $lastProductsPage->json('data.items')), 'id');
+    expect(array_unique($productIds))->toHaveCount($bootstrapResp->json('data.manifest.products'));
+
     $this->withToken($this->token)
         ->getJson("/api/flutter/v1/stores/{$this->storeA->id}/bootstrap/{$snapshotId}?entity=debtors&limit=10")
         ->assertOk()
         ->assertJsonCount(1, 'data.items')
+        ->assertJsonPath('data.has_more', false);
+
+    $this->withToken($this->token)
+        ->getJson("/api/flutter/v1/stores/{$this->storeA->id}/bootstrap/{$snapshotId}?entity=clients&limit=10")
+        ->assertOk()
+        ->assertJsonCount(1, 'data.items')
+        ->assertJsonPath('data.items.0.id', (string) $client->id)
         ->assertJsonPath('data.has_more', false);
 });
 
