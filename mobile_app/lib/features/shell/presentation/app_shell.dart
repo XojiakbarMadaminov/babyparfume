@@ -39,6 +39,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   bool _legacyData = false;
   LeaseState? _leaseState;
   String? _error;
+  String? _syncError;
   String _message = '';
   int _index = 0;
   int _revision = 0;
@@ -63,7 +64,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       }
     });
     _syncSubscription = _sync.progressStream.listen((progress) {
-      if (mounted) setState(() => _message = progress.message ?? '');
+      if (mounted) {
+        setState(() {
+          _message = progress.message ?? '';
+          _syncError = progress.lastError;
+        });
+      }
     });
     _load();
     _timer = Timer.periodic(const Duration(minutes: 1), (_) {
@@ -99,6 +105,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       _hasData = false;
       _storeId = null;
       _error = null;
+      _syncError = null;
     });
     await AppDatabase.configure(widget.authRepository.storage, id);
     _storeId = id;
@@ -253,23 +260,31 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                   style: const TextStyle(color: Colors.orange))),
         if (_message.isNotEmpty)
           Padding(padding: const EdgeInsets.all(8), child: Text(_message)),
+        if (_syncError != null && _leaseState?.isLocked == false)
+          Padding(
+              padding: const EdgeInsets.all(8),
+              child: Text(_syncError!, textAlign: TextAlign.center)),
         if (_busy && _hasData) const LinearProgressIndicator(),
         Expanded(
             child: _busy && !_hasData
                 ? const Center(child: CircularProgressIndicator())
                 : _error != null || _leaseState?.isLocked != false
-                    ? Center(
-                        child:
-                            Column(mainAxisSize: MainAxisSize.min, children: [
-                        Text(
-                            _error ??
-                                _leaseState?.reason ??
-                                'Ma’lumotlarni serverdan yuklang.',
-                            textAlign: TextAlign.center),
-                        ElevatedButton(
-                            onPressed: id == null ? _load : _refresh,
-                            child: const Text('Server bilan yangilash')),
-                      ]))
+                    ? SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: Center(
+                            child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                              Text(
+                                  _error ??
+                                      _syncError ??
+                                      _leaseState?.reason ??
+                                      'Ma’lumotlarni serverdan yuklang.',
+                                  textAlign: TextAlign.center),
+                              ElevatedButton(
+                                  onPressed: id == null ? _load : _refresh,
+                                  child: const Text('Server bilan yangilash')),
+                            ])))
                     : pages.isEmpty
                         ? const Center(
                             child: Text('Bo‘limlarga ruxsat berilmagan.'))

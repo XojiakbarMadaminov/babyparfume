@@ -14,7 +14,7 @@ if (releaseKeyFile.exists()) {
 android {
     namespace = "com.babyparfume.babyparfume_mobile"
     compileSdk = 35
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "26.1.10909125"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
@@ -46,16 +46,10 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.release
-        }
-    }
-}
-
-tasks.configureEach {
-    if (name == 'preReleaseBuild') {
-        doFirst {
-            if (!releaseKeyFile.exists()) {
-                throw new GradleException('Release uchun android/key.properties va egasiga tegishli signing kaliti kerak.')
+            if (releaseKeyFile.exists()) {
+                signingConfig = signingConfigs.release
+            } else {
+                signingConfig = signingConfigs.debug
             }
         }
     }

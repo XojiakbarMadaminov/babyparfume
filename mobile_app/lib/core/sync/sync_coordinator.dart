@@ -19,6 +19,7 @@ class SyncCoordinator {
   SyncProgress _currentProgress = const SyncProgress();
   Future<bool>? _running;
   String? _activeStore;
+  String _phase = '';
   SyncProgress get currentProgress => _currentProgress;
   Stream<SyncProgress> get progressStream => _progressController.stream;
   SyncCoordinator(
@@ -49,15 +50,34 @@ class SyncCoordinator {
   Future<void> saveWatermark(int value) => _save('watermark', value.toString());
 
   Future<bool> runBootstrap(String storeId) async {
+    final resuming = await _state('bootstrap') != null;
+    try {
+      return await _runBootstrap(storeId);
+    } on DioException catch (error) {
+      if (!resuming || ![404, 409, 410].contains(error.response?.statusCode)) {
+        rethrow;
+      }
+      return _runBootstrap(storeId);
+    }
+  }
+
+  void _setPhase(String message) {
+    _phase = message;
+    _update(_currentProgress.copyWith(message: message));
+  }
+
+  Future<bool> _runBootstrap(String storeId) async {
     final db = await _getDb();
     Map<String, dynamic> snapshot;
     final saved = await _state('bootstrap');
     if (saved != null) {
       snapshot = jsonDecode(saved) as Map<String, dynamic>;
     } else {
-      snapshot = Map<String, dynamic>.from(
-          (await apiClient.post('/stores/$storeId/bootstrap')).data['data']
-              as Map);
+      _setPhase('Serverda ma’lumotlar nusxasi tayyorlanmoqda...');
+      snapshot = Map<String, dynamic>.from((await apiClient.post(
+              '/stores/$storeId/bootstrap',
+              options: Options(receiveTimeout: const Duration(minutes: 2))))
+          .data['data'] as Map);
       snapshot['completed'] = <String>[];
       snapshot['cursors'] = <String, dynamic>{};
       await db.transaction((txn) async {
@@ -76,6 +96,18 @@ class SyncCoordinator {
           continue;
         }
         var cursor = (snapshot['cursors'] as Map)[entity]?.toString() ?? '0';
+        final label = {
+          'products': 'Mahsulotlar',
+          'debtors': 'Qarzdorlar',
+          'clients': 'Mijozlar',
+        }[entity]!;
+        var loaded = (await db.query('server_cache',
+                columns: ['id'],
+                where: 'entity = ?',
+                whereArgs: ['stage_$entity']))
+            .length;
+        _setPhase(
+            '$label yuklanmoqda: $loaded / ${snapshot['manifest'][entity]}');
         while (true) {
           final response = await apiClient.get(
               '/stores/$storeId/bootstrap/${snapshot['snapshot_id']}',
@@ -83,7 +115,8 @@ class SyncCoordinator {
                 'entity': entity,
                 'cursor': cursor,
                 'limit': 500
-              });
+              },
+              options: Options(receiveTimeout: const Duration(minutes: 1)));
           final page = Map<String, dynamic>.from(response.data['data'] as Map);
           final items = List<Map<String, dynamic>>.from((page['items'] as List)
               .map((v) => Map<String, dynamic>.from(v as Map)));
@@ -108,10 +141,14 @@ class SyncCoordinator {
             }
             await _save('bootstrap', jsonEncode(snapshot), txn);
           });
+          loaded += items.length;
+          _setPhase(
+              '$label yuklanmoqda: $loaded / ${snapshot['manifest'][entity]}');
           cursor = next;
           if (page['has_more'] != true) break;
         }
       }
+      _setPhase('Ma’lumotlar qurilmaga saqlanmoqda...');
       await db.transaction((txn) async {
         for (final entity in ['products', 'debtors', 'clients']) {
           final rows = await txn.query('server_cache',
@@ -162,8 +199,11 @@ class SyncCoordinator {
       return true;
     } on DioException catch (error) {
       if ([404, 409, 410].contains(error.response?.statusCode)) {
-        await db
-            .delete('sync_state', where: 'key = ?', whereArgs: ['bootstrap']);
+        await db.transaction((txn) async {
+          await txn
+              .delete('sync_state', where: 'key = ?', whereArgs: ['bootstrap']);
+          await txn.delete('server_cache', where: "entity LIKE 'stage_%'");
+        });
       }
       rethrow;
     }
@@ -282,8 +322,12 @@ class SyncCoordinator {
   }
 
   Future<bool> _sync(String storeId) async {
-    _update(_currentProgress.copyWith(
-        status: SyncStatus.syncing, message: 'Ma’lumotlar sinxronlanmoqda...'));
+    _update(SyncProgress(
+        status: SyncStatus.syncing,
+        pendingOperationsCount: _currentProgress.pendingOperationsCount,
+        currentWatermark: _currentProgress.currentWatermark,
+        lastSyncTime: _currentProgress.lastSyncTime));
+    _setPhase('Akkaunt va do‘kon ruxsatlari tekshirilmoqda...');
     try {
       final session = Map<String, dynamic>.from(
           (await apiClient.get('/stores/$storeId/session')).data['data']
@@ -312,9 +356,13 @@ class SyncCoordinator {
       if (newPermissions != null) {
         await _save('permission_hash', newPermissions);
       }
+      _setPhase('Saqlangan amallar serverga yuborilmoqda...');
       await pushOutbox(storeId);
+      _setPhase('Serverdagi o‘zgarishlar yuklanmoqda...');
       await pullDelta(storeId);
+      _setPhase('Qarzdorlarning rasmlari yuklanmoqda...');
       await _downloadMedia();
+      _setPhase('Oflayn ruxsat yangilanmoqda...');
       final requestClock = await leaseManager.readClock();
       final lease = Map<String, dynamic>.from(
           (await apiClient.post('/stores/$storeId/lease')).data['data'] as Map);
@@ -340,9 +388,43 @@ class SyncCoordinator {
       _update(_currentProgress.copyWith(
           status: SyncStatus.error,
           message: 'Sinxronlash yakunlanmadi. Navbat saqlangan.',
-          lastError: 'Internet va akkaunt ruxsatlarini tekshiring.'));
+          lastError: '$_phase\n${_describeError(error)}'));
       return false;
     }
+  }
+
+  String _describeError(Object error) {
+    if (error is DioException) {
+      final status = error.response?.statusCode;
+      final endpoint = error.requestOptions.path;
+      final reason = switch (status) {
+        401 => 'Sessiya tugagan. Akkauntga qayta kiring.',
+        403 => 'Bu amal uchun ruxsat yo‘q. Administratorga murojaat qiling.',
+        404 =>
+          'Server API topilmadi. Server versiyasi va migratsiyalarni tekshiring.',
+        409 || 410 => 'Serverdagi yuklash nusxasi eskirgan. Qayta yangilang.',
+        429 => 'So‘rovlar limiti tugadi. Birozdan keyin qayta yangilang.',
+        int code when code >= 500 =>
+          'Serverda xatolik. Server loglari va migratsiyalarni tekshiring.',
+        _ => switch (error.type) {
+            DioExceptionType.connectionTimeout ||
+            DioExceptionType.sendTimeout ||
+            DioExceptionType.receiveTimeout =>
+              'Server javobini kutish vaqti tugadi. Internetni tekshirib, qayta yangilang.',
+            DioExceptionType.badCertificate =>
+              'Serverning HTTPS sertifikati tekshirilmadi.',
+            DioExceptionType.connectionError =>
+              'Serverga ulanib bo‘lmadi. Internet va server manzilini tekshiring.',
+            _ => 'Serverdan kutilgan javob olinmadi.',
+          },
+      };
+      return '$reason\n${status == null ? '' : 'HTTP $status: '}$endpoint';
+    }
+    if (error is DatabaseException) {
+      return 'Qurilma bazasiga ma’lumotni saqlab bo‘lmadi. Bo‘sh xotirani tekshiring; ilova ma’lumotlarini o‘chirmang.';
+    }
+    if (error is StateError) return error.message.toString();
+    return 'Qurilmada ma’lumotlarni qayta ishlash xatosi (${error.runtimeType}). Ilovani yangilab, qayta urinib ko‘ring.';
   }
 
   Future<void> _downloadMedia() async {

@@ -296,6 +296,7 @@ void main() {
         };
       }
       if (request.path.endsWith('/bootstrap')) {
+        expect(request.receiveTimeout, const Duration(minutes: 2));
         initializes++;
         return {
           'data': {
@@ -307,6 +308,7 @@ void main() {
         };
       }
       if (request.path.endsWith('/bootstrap/snapshot')) {
+        expect(request.receiveTimeout, const Duration(minutes: 1));
         final cursor = request.queryParameters['cursor'];
         if (request.queryParameters['entity'] == 'debtors') {
           return {
@@ -360,8 +362,127 @@ void main() {
     expect(await db.query('products'), hasLength(2));
     expect(await db.query('debtor_transactions'), hasLength(1));
     expect(sync.currentProgress.status, SyncStatus.offlineReady);
+    expect(sync.currentProgress.lastError, isNull);
     sync.dispose();
   });
+
+  for (final status in [404, 409, 410]) {
+    test('expired bootstrap HTTP $status restarts within the same sync',
+        () async {
+      await db.insert('sync_state', {
+        'key': 'bootstrap',
+        'value': jsonEncode({
+          'snapshot_id': 'expired',
+          'watermark': 0,
+          'manifest': {'products': 2, 'debtors': 0, 'clients': 0},
+          'completed': [],
+          'cursors': {'products': '11'}
+        })
+      });
+      await db.insert('server_cache', {
+        'entity': 'stage_products',
+        'id': '11',
+        'payload_json': jsonEncode(product())
+      });
+      await outbox.enqueueOperation(
+          storeId: '1',
+          entityType: 'client',
+          operationType: 'client.create',
+          payload: {'full_name': 'Pending'});
+      var initializes = 0;
+      api.dio.httpClientAdapter = TestAdapter((request) async {
+        if (request.path.endsWith('/bootstrap/expired')) {
+          throw DioException(
+              requestOptions: request,
+              type: DioExceptionType.badResponse,
+              response: Response(requestOptions: request, statusCode: status));
+        }
+        if (request.path.endsWith('/bootstrap')) {
+          initializes++;
+          expect(await db.query('products'), hasLength(1));
+          expect(await outbox.getPendingCount(), 1);
+          expect(await db.query('server_cache'), isEmpty);
+          return {
+            'data': {
+              'snapshot_id': 'fresh',
+              'watermark': 10,
+              'manifest': {'products': 1, 'debtors': 0, 'clients': 0},
+            }
+          };
+        }
+        if (request.path.endsWith('/bootstrap/fresh')) {
+          expect(request.queryParameters['cursor'], '0');
+          return {
+            'data': {
+              'items': [product(id: '13')],
+              'next_cursor': '13',
+              'has_more': false,
+            }
+          };
+        }
+        throw StateError(request.path);
+      });
+      final sync = SyncCoordinator(
+          apiClient: api,
+          outboxManager: outbox,
+          leaseManager: lease,
+          getDb: () async => db);
+      expect(await sync.runBootstrap('1'), isTrue);
+      expect(initializes, 1);
+      expect(await sync.getSavedWatermark(), 10);
+      expect((await db.query('products')).single['id'], '13');
+      expect(await outbox.getPendingCount(), 1);
+      expect(await db.query('server_cache', where: "entity LIKE 'stage_%'"),
+          isEmpty);
+      sync.dispose();
+    });
+  }
+
+  for (final status in [404, 500, null]) {
+    test('bootstrap failure $status exposes a safe actionable error', () async {
+      await outbox.enqueueOperation(
+          storeId: '1',
+          entityType: 'client',
+          operationType: 'client.create',
+          payload: {'full_name': 'Pending'});
+      api.dio.httpClientAdapter = TestAdapter((request) async {
+        if (request.path.endsWith('/session')) {
+          return {
+            'data': {
+              'user': {'id': '1'}
+            }
+          };
+        }
+        throw DioException(
+            requestOptions: request,
+            type: status == null
+                ? DioExceptionType.receiveTimeout
+                : DioExceptionType.badResponse,
+            response: status == null
+                ? null
+                : Response(
+                    requestOptions: request,
+                    statusCode: status,
+                    data: {'message': 'SQLSTATE secret server details'}));
+      });
+      final sync = SyncCoordinator(
+          apiClient: api,
+          outboxManager: outbox,
+          leaseManager: lease,
+          getDb: () async => db);
+      expect(await sync.syncAll('1'), isFalse);
+      expect(sync.currentProgress.lastError,
+          contains('Serverda ma’lumotlar nusxasi tayyorlanmoqda'));
+      expect(sync.currentProgress.lastError, contains('/stores/1/bootstrap'));
+      expect(sync.currentProgress.lastError, isNot(contains('SQLSTATE')));
+      expect(sync.currentProgress.lastError,
+          contains(status == null ? 'kutish vaqti tugadi' : 'HTTP $status'));
+      expect(await outbox.getPendingCount(), 1);
+      expect(await sync.getSavedWatermark(), isNull);
+      expect((await lease.checkLease()).isLocked, isTrue);
+      sync.dispose();
+    });
+  }
 
   test('lease expires at exactly ten hours and rejects reboot or wrong store',
       () async {

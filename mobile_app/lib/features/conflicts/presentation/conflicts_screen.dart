@@ -49,7 +49,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
         SnackBar(
           content: Text(success
               ? widget.syncCoordinator.currentProgress.message ?? 'Yangilandi.'
-              : 'Sinxronlash yakunlanmadi. Navbat saqlangan.'),
+              : widget.syncCoordinator.currentProgress.lastError ??
+                  'Sinxronlash yakunlanmadi. Navbat saqlangan.'),
           backgroundColor: success ? AppColors.success : AppColors.lightDanger,
         ),
       );
