@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>NSCameraUsageDescription</key>
-    <string>Mahsulot shtrix-kodini skanerlash uchun kamera kerak.</string>
+    <string>Mahsulot shtrix-kodini skanerlash, mahsulot yoki qarzdor rasmini olish uchun kamera kerak.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Mahsulot yoki qarzdor rasmini tanlash uchun foto kutubxonasi kerak.</string>
 	<key>CFBundleDevelopmentRegion</key>

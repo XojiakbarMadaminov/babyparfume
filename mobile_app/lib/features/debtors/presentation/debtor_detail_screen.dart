@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
+import '../../../core/utils/photo_picker.dart';
 import 'debtor_form_dialog.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
@@ -29,6 +29,7 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
   List<LocalDebtorTransaction> _transactions = [];
   bool _isLoading = true;
   bool _transactionSaving = false;
+  bool _photoSaving = false;
   Uint8List? _photo;
   StreamSubscription<String>? _mediaSubscription;
 
@@ -202,16 +203,13 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
   }
 
   Future<void> _changePhoto(bool remove) async {
+    if (_photoSaving) return;
+    setState(() => _photoSaving = true);
     try {
       Uint8List? bytes;
       if (!remove) {
-        final image = await ImagePicker().pickImage(
-            source: ImageSource.gallery,
-            maxWidth: 1600,
-            maxHeight: 1600,
-            imageQuality: 80);
-        if (image == null) return;
-        bytes = await image.readAsBytes();
+        bytes = await PhotoPicker.pick(context);
+        if (bytes == null || !mounted) return;
       }
       await widget.repository.setPhoto(_currentDebtor, bytes);
       await _loadTransactions();
@@ -220,6 +218,8 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(error.toString())));
       }
+    } finally {
+      if (mounted) setState(() => _photoSaving = false);
     }
   }
 
@@ -257,11 +257,11 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
           if (_currentDebtor.canUpdate)
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               TextButton.icon(
-                  onPressed: () => _changePhoto(false),
+                  onPressed: _photoSaving ? null : () => _changePhoto(false),
                   icon: const Icon(Icons.photo),
                   label: const Text('Foto tanlash')),
               TextButton.icon(
-                  onPressed: () => _changePhoto(true),
+                  onPressed: _photoSaving ? null : () => _changePhoto(true),
                   icon: const Icon(Icons.delete_outline),
                   label: const Text('Foto o‘chirish')),
             ]),

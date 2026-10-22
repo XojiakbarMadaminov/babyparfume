@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
+import '../../../core/utils/photo_picker.dart';
 import '../data/products_repository.dart';
 import 'barcode_scanner_sheet.dart';
 import 'product_widgets.dart';
@@ -52,6 +52,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   bool _loadFailed = false;
   bool _saving = false;
   bool _generatingBarcode = false;
+  bool _pickingPhoto = false;
   String? _error;
 
   @override
@@ -205,24 +206,28 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   }
 
   Future<void> _pickPhoto() async {
+    if (_pickingPhoto || _saving) return;
+    setState(() => _pickingPhoto = true);
     try {
-      final image = await ImagePicker().pickImage(
-          source: ImageSource.gallery,
-          maxWidth: 1600,
-          maxHeight: 1600,
-          imageQuality: 80);
-      if (image == null) return;
-      final bytes = await image.readAsBytes();
+      final bytes = await PhotoPicker.pick(context, maxBytes: 1024 * 1024);
+      if (bytes == null) return;
       if (mounted) {
         setState(() {
           _photo = bytes;
           _removePhoto = false;
         });
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
-        setState(() => _error = 'Rasmni ochib bo‘lmadi. Qayta tanlang.');
+        final message = error is PhotoPickerException
+            ? error.message
+            : 'Rasmni ochib bo‘lmadi. Qayta tanlang.';
+        setState(() => _error = message);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
       }
+    } finally {
+      if (mounted) setState(() => _pickingPhoto = false);
     }
   }
 
@@ -502,7 +507,9 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                                           children: [
                                             OutlinedButton.icon(
                                                 onPressed:
-                                                    _saving ? null : _pickPhoto,
+                                                    _saving || _pickingPhoto
+                                                        ? null
+                                                        : _pickPhoto,
                                                 icon: const Icon(Icons
                                                     .add_photo_alternate_outlined),
                                                 label:
@@ -511,7 +518,8 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                                                 (_imageUrl != null &&
                                                     !_removePhoto))
                                               TextButton.icon(
-                                                  onPressed: _saving
+                                                  onPressed: _saving ||
+                                                          _pickingPhoto
                                                       ? null
                                                       : () => setState(() {
                                                             _photo = null;
@@ -532,7 +540,9 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                       child: ElevatedButton.icon(
                           onPressed:
-                              _saving || _generatingBarcode ? null : _save,
+                              _saving || _generatingBarcode || _pickingPhoto
+                                  ? null
+                                  : _save,
                           icon: _saving
                               ? const SizedBox(
                                   width: 18,

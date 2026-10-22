@@ -302,6 +302,23 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+      'product photo offers both camera and gallery without changing the form on cancel',
+      (tester) async {
+    final repository = PreviewProductsRepository();
+    await pumpForm(tester, repository);
+    await tester.ensureVisible(find.text('Rasm tanlash'));
+    await tester.tap(find.text('Rasm tanlash'));
+    await tester.pumpAndSettle();
+    expect(find.text('Kamera'), findsOneWidget);
+    expect(find.text('Galereya'), findsOneWidget);
+    await tester.tap(find.text('Bekor qilish'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ProductFormDialog), findsOneWidget);
+    expect(repository.saves, 0);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('failed form load offers retry and never submits a blank form',
       (tester) async {
     final repository = PreviewProductsRepository()..failLoad = true;
