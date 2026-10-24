@@ -7,7 +7,6 @@ use App\Models\User;
 use App\Models\Stock;
 use App\Models\Store;
 use App\Models\Client;
-use App\Models\Debtor;
 use App\Models\ProductStock;
 use Illuminate\Validation\Rule;
 use App\Models\ProductSizeStock;
@@ -244,35 +243,15 @@ class FlutterSaleService
             $debtNote = filled($payload['payment']['note'] ?? null) ? $payload['payment']['note'] : 'Savdo #' . $sale->id . ' bo‘yicha qarz';
             // Record debt on Debtor model if needed
             if ($remainingAmount > 0 && $clientId && $paymentType !== 'preorder') {
-                $client = Client::findOrFail($clientId);
-                $debtor = Debtor::withoutGlobalScope('current_store')
-                    ->where('store_id', $store->id)
-                    ->where('client_id', $client->id)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (!$debtor) {
-                    $debtor = Debtor::query()->create([
-                        'store_id'  => $store->id,
-                        'client_id' => $client->id,
-                        'amount'    => (int) $remainingAmount,
-                        'currency'  => 'UZS',
-                        'date'      => $sale->created_at->toDateString(),
-                        'note'      => $debtNote,
-                    ]);
-                } else {
-                    $debtor->increment('amount', (int) $remainingAmount);
-                }
-
-                $debtor->transactions()->create([
-                    'type'              => 'debt',
-                    'amount'            => (int) $remainingAmount,
-                    'date'              => $sale->created_at,
-                    'note'              => $debtNote,
-                    'mobile_user_id'    => $user->id,
-                    'mobile_request_id' => $payload['local_sale_id'] ?? null,
-                    'sale_id'           => $sale->id,
-                ]);
+                $debtor = app(SaleDebtService::class)->record(
+                    $sale,
+                    $remainingAmount,
+                    $debtNote,
+                    mobileUserId: $user->id,
+                    mobileRequestId: $payload['local_sale_id'],
+                    occurredAt: $sale->created_at,
+                    preferredDebtorId: isset($payload['debtor_context']['id']) ? (int) $payload['debtor_context']['id'] : null,
+                );
             }
 
             return [

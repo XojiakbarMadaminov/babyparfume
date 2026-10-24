@@ -163,7 +163,8 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
               width: 250,
               height: 250,
               decoration: BoxDecoration(
-                border: Border.all(color: AppColors.lightAccent, width: 2),
+                border:
+                    Border.all(color: AppColors.of(context).accent, width: 2),
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
@@ -177,8 +178,8 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
             child: SafeArea(
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.lightCard,
-                  foregroundColor: AppColors.lightText,
+                  backgroundColor: AppColors.of(context).card,
+                  foregroundColor: AppColors.of(context).text,
                 ),
                 icon: const Icon(Icons.keyboard),
                 label: const Text("Barkodni qo'lda kiritish"),

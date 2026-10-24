@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Models\User;
+
 use App\Models\Store;
 use App\Models\Client;
 use App\Models\Debtor;
+use App\Support\PhoneNumber;
 use App\Models\DebtorTransaction;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -27,8 +29,7 @@ class MobileDebtService
                 if (($data['photo'] ?? null) instanceof UploadedFile && $photoPath === null) {
                     $photoPath = app(DebtorPhotoService::class)->store($data['photo']);
                 }
-                $digits = ltrim($data['phone'], '+');
-                $client = Client::withTrashed()->whereIn('phone', [$data['phone'], $digits, substr($digits, -9)])->lockForUpdate()->first();
+                $client = Client::withTrashed()->whereIn('phone', PhoneNumber::aliases($data['phone']))->lockForUpdate()->first();
                 if ($client && Debtor::query()->where('client_id', $client->id)->where('store_id', $store->id)->where('amount', '>', 0)->exists()) {
                     throw ValidationException::withMessages(['phone' => 'Bu mijozda qarz bor. Mavjud mijozga qarz qo‘shish amalidan foydalaning.']);
                 }
@@ -87,9 +88,8 @@ class MobileDebtService
                     }
                 }
 
-                $digits   = ltrim($data['phone'], '+');
                 $existing = Client::withTrashed()
-                    ->whereIn('phone', [$data['phone'], $digits, substr($digits, -9)])
+                    ->whereIn('phone', PhoneNumber::aliases($data['phone']))
                     ->lockForUpdate()
                     ->first();
 

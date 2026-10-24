@@ -93,7 +93,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text("Mahsulot muvaffaqiyatli saqlandi!"),
-              backgroundColor: AppColors.success,
             ),
           );
         },
@@ -109,12 +108,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
           "Mahsulotlar",
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
-        backgroundColor: AppColors.lightCard,
+        backgroundColor: AppColors.of(context).card,
         elevation: 0,
         actions: [
           IconButton(
-            icon:
-                const Icon(Icons.qr_code_scanner, color: AppColors.lightAccent),
+            icon: Icon(Icons.qr_code_scanner,
+                color: AppColors.of(context).accent),
             tooltip: "Shtrix-kod skaneri",
             onPressed: _openScanner,
           ),
@@ -135,11 +134,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     },
                     decoration: InputDecoration(
                       hintText: "Nomi yoki shtrix-kodi bo'yicha qidirish...",
-                      prefixIcon:
-                          const Icon(Icons.search, color: AppColors.lightMuted),
+                      prefixIcon: Icon(Icons.search,
+                          color: AppColors.of(context).muted),
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 12),
-                      fillColor: AppColors.lightSoft,
+                      fillColor: AppColors.of(context).soft,
                       filled: true,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -151,8 +150,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 const SizedBox(width: 8),
                 IconButton.filled(
                   style: IconButton.styleFrom(
-                    backgroundColor: AppColors.lightTint,
-                    foregroundColor: AppColors.lightAccent,
+                    backgroundColor: AppColors.of(context).tint,
+                    foregroundColor: AppColors.of(context).accent,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                   ),
@@ -166,11 +165,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _products.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Text(
                           "Mahsulot topilmadi",
                           style: TextStyle(
-                              color: AppColors.lightMuted, fontSize: 14),
+                              color: AppColors.of(context).muted, fontSize: 14),
                         ),
                       )
                     : ListView.separated(
@@ -194,10 +193,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               child: Container(
                                 padding: const EdgeInsets.all(14),
                                 decoration: BoxDecoration(
-                                  color: AppColors.lightCard,
+                                  color: AppColors.of(context).card,
                                   borderRadius: BorderRadius.circular(12),
-                                  border:
-                                      Border.all(color: AppColors.lightLine),
+                                  border: Border.all(
+                                      color: AppColors.of(context).line),
                                 ),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -206,12 +205,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                       width: 44,
                                       height: 44,
                                       decoration: BoxDecoration(
-                                        color: AppColors.lightSoft,
+                                        color: AppColors.of(context).soft,
                                         borderRadius: BorderRadius.circular(10),
                                       ),
-                                      child: const Icon(
-                                          Icons.inventory_2_outlined,
-                                          color: AppColors.lightMuted),
+                                      child: Icon(Icons.inventory_2_outlined,
+                                          color: AppColors.of(context).muted),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
@@ -230,17 +228,19 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                               item.barcode!.isNotEmpty)
                                             Text(
                                               "Barkod: ${item.barcode}",
-                                              style: const TextStyle(
-                                                  color: AppColors.lightMuted,
+                                              style: TextStyle(
+                                                  color: AppColors.of(context)
+                                                      .muted,
                                                   fontSize: 12),
                                             ),
                                           const SizedBox(height: 6),
                                           Text(
                                             CurrencyFormat.format(item.price),
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontWeight: FontWeight.w700,
                                               fontSize: 14,
-                                              color: AppColors.lightAccent,
+                                              color:
+                                                  AppColors.of(context).accent,
                                             ),
                                           ),
                                         ],
@@ -251,8 +251,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                           horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
                                         color: isOutOfStock
-                                            ? AppColors.lightDangerBg
-                                            : AppColors.successBg,
+                                            ? AppColors.of(context)
+                                                .dangerBackground
+                                            : AppColors.of(context)
+                                                .successBackground,
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(
@@ -261,8 +263,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                             : "${item.stockQuantity} dona",
                                         style: TextStyle(
                                           color: isOutOfStock
-                                              ? AppColors.lightDanger
-                                              : AppColors.success,
+                                              ? AppColors.of(context).danger
+                                              : AppColors.of(context).success,
                                           fontWeight: FontWeight.w600,
                                           fontSize: 12,
                                         ),
@@ -279,8 +281,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
       floatingActionButton: !widget.canCreate
           ? null
           : FloatingActionButton.extended(
-              backgroundColor: AppColors.primaryButton,
-              foregroundColor: Colors.white,
+              backgroundColor: AppColors.of(context).button,
+              foregroundColor: AppColors.of(context).onButton,
               icon: const Icon(Icons.add),
               label: const Text("Mahsulot qo'shish"),
               onPressed: _openAddProductDialog,

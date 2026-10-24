@@ -4,6 +4,7 @@ use App\Models\User;
 use App\Models\Stock;
 use App\Models\Store;
 use App\Models\Product;
+use App\Models\Category;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
@@ -29,7 +30,7 @@ beforeEach(function (): void {
     ]);
     $this->user->stores()->attach([$this->storeA->id, $this->storeB->id]);
 
-    $role = Role::findOrCreate('admin', 'web');
+    $role        = Role::findOrCreate('admin', 'web');
     $permissions = [
         'ViewAny:Product',
         'View:Product',
@@ -45,20 +46,22 @@ beforeEach(function (): void {
     }
 
     $loginResponse = $this->postJson('/api/flutter/v1/login', [
-        'email'         => 'product_mgr@example.com',
-        'password'      => 'password',
-        'device_uuid'   => (string) Str::uuid(),
-        'device_name'   => 'iPhone 15',
-        'platform'      => 'ios',
+        'email'       => 'product_mgr@example.com',
+        'password'    => 'password',
+        'device_uuid' => (string) Str::uuid(),
+        'device_name' => 'iPhone 15',
+        'platform'    => 'ios',
     ])->assertCreated();
 
     $this->token = $loginResponse->json('data.token');
 });
 
 it('lists products scoped to the requested store with stock quantities and canonical string numbers', function (): void {
+    $category = Category::query()->create(['name' => 'Atirlar']);
     $productA = Product::query()->create([
         'store_id'      => $this->storeA->id,
         'name'          => 'Chanel Blue',
+        'category_id'   => $category->id,
         'barcode'       => '4780001112223',
         'type'          => Product::TYPE_PACKAGE,
         'initial_price' => 50000,
@@ -83,6 +86,8 @@ it('lists products scoped to the requested store with stock quantities and canon
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.id', (string) $productA->id)
         ->assertJsonPath('data.0.name', 'Chanel Blue')
+        ->assertJsonPath('data.0.category.id', (string) $category->id)
+        ->assertJsonPath('data.0.category.name', 'Atirlar')
         ->assertJsonPath('data.0.price', '80000')
         ->assertJsonPath('data.0.initial_price', '50000')
         ->assertJsonPath('data.0.quantity', 15)
@@ -96,6 +101,7 @@ it('lists products scoped to the requested store with stock quantities and canon
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.id', (string) $productB->id)
         ->assertJsonPath('data.0.name', 'Dior Sauvage')
+        ->assertJsonPath('data.0.category', null)
         ->assertJsonPath('data.0.price', '95000')
         ->assertJsonPath('data.0.quantity', 20);
 });
@@ -176,6 +182,100 @@ it('creates and updates a product in the given store', function (): void {
         ->assertJsonPath('data.name', 'Tom Ford Tobacco Vanille (Updated)')
         ->assertJsonPath('data.price', '270000')
         ->assertJsonPath('data.quantity', 12);
+});
+
+describe('product stock receipts', function (): void {
+    beforeEach(function (): void {
+        $this->receiptProduct = Product::query()->create([
+            'store_id'      => $this->storeA->id, 'name' => 'Kirim mahsuloti',
+            'barcode'       => '0012345678905', 'type' => Product::TYPE_PACKAGE,
+            'initial_price' => 10000, 'price' => 20000,
+        ]);
+        $this->receiptProduct->productStocks()->create(['stock_id' => $this->stockA->id, 'quantity' => 8]);
+        $this->receiptUrl     = "/api/flutter/v1/stores/{$this->storeA->id}/products/{$this->receiptProduct->id}/stock-in";
+        $this->receiptPayload = ['request_id' => (string) Str::uuid(), 'stock_id' => $this->stockA->id, 'quantity' => 5];
+    });
+
+    it('adds to current stock and replays a receipt only once without editing product fields', function (): void {
+        $payload = [...$this->receiptPayload, 'name' => 'Changed', 'barcode' => '999', 'price' => 1];
+        $this->withToken($this->token)->postJson($this->receiptUrl, $payload)
+            ->assertOk()->assertJsonPath('data.quantity', 13)
+            ->assertJsonPath('data.name', 'Kirim mahsuloti')->assertJsonPath('data.barcode', '0012345678905')
+            ->assertJsonPath('data.price', '20000');
+        $this->withToken($this->token)->postJson($this->receiptUrl, $payload)
+            ->assertOk()->assertJsonPath('data.quantity', 13);
+        $this->withToken($this->token)->postJson($this->receiptUrl, [...$payload, 'quantity' => 6])->assertConflict();
+        $this->withToken($this->token)->postJson($this->receiptUrl, [...$payload, 'request_id' => (string) Str::uuid()])
+            ->assertOk()->assertJsonPath('data.quantity', 18);
+        expect($this->receiptProduct->fresh()->initial_price)->toEqual(10000);
+        $this->assertDatabaseCount('flutter_sync_operations', 2);
+    });
+
+    it('creates an absent stock row only in the selected store warehouse', function (): void {
+        $stock = Stock::query()->create(['name' => 'Yangi ombor', 'is_active' => true]);
+        $stock->stores()->attach($this->storeA);
+        $this->withToken($this->token)->postJson($this->receiptUrl, [...$this->receiptPayload, 'stock_id' => $stock->id])
+            ->assertOk()->assertJsonPath('data.quantity', 13);
+        $this->assertDatabaseHas('product_stocks', ['product_id' => $this->receiptProduct->id, 'stock_id' => $stock->id, 'quantity' => 5]);
+        expect($this->receiptProduct->productStocks()->where('stock_id', $this->stockA->id)->value('quantity'))->toBe(8);
+    });
+
+    it('rejects invalid receipt quantities', function (mixed $quantity): void {
+        $this->withToken($this->token)->postJson($this->receiptUrl, [...$this->receiptPayload, 'quantity' => $quantity])
+            ->assertUnprocessable()->assertJsonValidationErrors('quantity');
+        expect($this->receiptProduct->productStocks()->sum('quantity'))->toEqual(8);
+    })->with([0, -1, 1.5, 'abc', null, 2147483648]);
+
+    it('rejects a final quantity that would overflow storage', function (): void {
+        $this->withToken($this->token)->postJson($this->receiptUrl, [...$this->receiptPayload, 'quantity' => 2147483647])
+            ->assertUnprocessable();
+        expect($this->receiptProduct->productStocks()->sum('quantity'))->toEqual(8);
+    });
+
+    it('rejects warehouses from another store and inactive warehouses', function (bool $inactive): void {
+        $stock = $inactive ? $this->stockA : $this->stockB;
+        if ($inactive) {
+            $stock->update(['is_active' => false]);
+        }
+        $this->withToken($this->token)->postJson($this->receiptUrl, [...$this->receiptPayload, 'stock_id' => $stock->id])
+            ->assertUnprocessable();
+        expect($this->receiptProduct->productStocks()->sum('quantity'))->toEqual(8);
+    })->with([false, true]);
+
+    it('requires update permission and store product ownership', function (): void {
+        $this->withToken($this->token)->postJson(
+            "/api/flutter/v1/stores/{$this->storeB->id}/products/{$this->receiptProduct->id}/stock-in",
+            $this->receiptPayload
+        )->assertForbidden();
+        $this->user->revokePermissionTo('Update:Product');
+        $this->withToken($this->token)->postJson($this->receiptUrl, $this->receiptPayload)->assertForbidden();
+        expect($this->receiptProduct->productStocks()->sum('quantity'))->toEqual(8);
+    });
+
+    it('adds only to the selected size and preserves legacy quantities', function (): void {
+        $this->receiptProduct->productStocks()->delete();
+        $this->receiptProduct->update(['type' => Product::TYPE_SIZE]);
+        $size = $this->receiptProduct->sizes()->create(['size' => '100 ml']);
+        $size->stocks()->create(['stock_id' => $this->stockA->id, 'quantity' => 8]);
+        $other = $this->receiptProduct->sizes()->create(['size' => '50 ml']);
+        $other->productStocks()->create(['stock_id' => $this->stockA->id, 'quantity' => 3]);
+        $this->withToken($this->token)->postJson($this->receiptUrl, $this->receiptPayload)->assertUnprocessable();
+        $this->withToken($this->token)->postJson($this->receiptUrl, [
+            ...$this->receiptPayload, 'request_id' => (string) Str::uuid(), 'product_size_id' => $size->id,
+        ])->assertOk()->assertJsonPath('data.quantity', 16);
+        expect($size->productStocks()->sum('quantity'))->toEqual(13)
+            ->and($other->productStocks()->sum('quantity'))->toEqual(3);
+    });
+
+    it('rejects an unrelated size and sizes on package products', function (): void {
+        $size = $this->receiptProduct->sizes()->create(['size' => '100 ml']);
+        $this->withToken($this->token)->postJson($this->receiptUrl, [...$this->receiptPayload, 'product_size_id' => $size->id])->assertUnprocessable();
+        $this->receiptProduct->update(['type' => Product::TYPE_SIZE]);
+        $this->withToken($this->token)->postJson($this->receiptUrl, [
+            ...$this->receiptPayload, 'request_id' => (string) Str::uuid(), 'product_size_id' => $size->id + 999,
+        ])->assertUnprocessable();
+        expect($this->receiptProduct->productStocks()->sum('quantity'))->toEqual(8);
+    });
 });
 
 it('deletes a product belonging to the store and rejects deleting products from other stores', function (): void {

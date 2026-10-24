@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Models\User;
+
 use App\Models\Store;
 use App\Models\Debtor;
+use App\Support\PhoneNumber;
 use App\Models\FlutterDevice;
 use Illuminate\Validation\Rule;
 use App\Models\FlutterSyncConflict;
@@ -144,15 +146,14 @@ class FlutterOperationService
             if ($operation->entity_type !== 'client') {
                 throw ValidationException::withMessages(['entity_type' => 'Amal va yozuv turi mos emas.']);
             }
-            $digits = preg_replace('/\\D/', '', (string) ($payload['phone'] ?? ''));
-            $phone  = '+' . (strlen($digits) === 9 ? '998' . $digits : $digits);
+            $phone = PhoneNumber::forStorage((string) ($payload['phone'] ?? ''));
             Validator::make(['full_name' => $payload['full_name'] ?? null, 'phone' => $phone], [
-                'full_name' => ['required', 'string', 'max:255'], 'phone' => ['required', 'regex:/^\\+998[0-9]{9}$/'],
+                'full_name' => ['required', 'string', 'max:255'], 'phone' => ['required', 'regex:' . PhoneNumber::PATTERN],
             ])->validate();
             if ($user->getConnection()->getDriverName() === 'pgsql') {
                 $user->getConnection()->select('SELECT pg_advisory_xact_lock(hashtext(?))', [$phone]);
             }
-            $client = \App\Models\Client::withTrashed()->whereIn('phone', [$phone, ltrim($phone, '+'), substr($phone, -9)])->lockForUpdate()->first();
+            $client = \App\Models\Client::withTrashed()->whereIn('phone', PhoneNumber::aliases($phone))->lockForUpdate()->first();
             if ($client && !$administratorReview) {
                 throw ValidationException::withMessages(['phone' => 'Bu telefonli mijoz mavjud. Administrator bog‘lash qarorini berishi kerak.']);
             }
@@ -202,6 +203,7 @@ class FlutterOperationService
                 if (!$administratorReview && ($expected === null || (int) $expected !== $this->sync->entityRevision($store->id, 'debtor', $debtor->id))) {
                     throw ValidationException::withMessages(['debtor_context' => 'Qarzdor boshqa qurilmada o‘zgargan. Butun savdo administrator qarorini kutadi.']);
                 }
+                $payload['debtor_context']['id'] = (string) $debtor->id;
             }
             $payload['occurred_at'] = $operation->occurred_at->toIso8601String();
             $result                 = $this->sales->createSale($user, $store, $payload);
@@ -215,10 +217,9 @@ class FlutterOperationService
         if ($operation->operation_type === 'debtor.create') {
             Gate::forUser($user)->authorize('create', Debtor::class);
             $payload['date'] ??= $operation->occurred_at->toDateString();
-            $digits           = preg_replace('/\D/', '', (string) ($payload['phone'] ?? ''));
-            $payload['phone'] = '+' . (strlen($digits) === 9 ? '998' . $digits : $digits);
+            $payload['phone'] = PhoneNumber::forStorage((string) ($payload['phone'] ?? ''));
             Validator::make($payload, [
-                'full_name' => ['required', 'string', 'max:255'], 'phone' => ['required', 'regex:/^\+998[0-9]{9}$/'],
+                'full_name' => ['required', 'string', 'max:255'], 'phone' => ['required', 'regex:' . PhoneNumber::PATTERN],
                 'amount'    => ['required', 'numeric', 'min:1', 'max:999999999999', 'multiple_of:1'],
                 'date'      => ['required', 'date_format:Y-m-d', 'before_or_equal:today'], 'note' => ['nullable', 'string', 'max:500'],
             ])->validate();
@@ -277,8 +278,9 @@ class FlutterOperationService
                     }
                 }
             } else {
+                $payload['phone'] = PhoneNumber::forStorage((string) ($payload['phone'] ?? ''));
                 Validator::make($payload, ['full_name' => ['required', 'string', 'max:255'],
-                    'phone'                            => ['required', 'regex:/^\+998[0-9]{9}$/'],
+                    'phone'                            => ['required', 'regex:' . PhoneNumber::PATTERN],
                     'amount'                           => ['nullable', 'numeric', 'min:0', 'max:999999999999', 'multiple_of:1'],
                     'date'                             => ['required', 'date_format:Y-m-d', 'before_or_equal:today'], 'note' => ['nullable', 'string', 'max:500'],
                 ])->validate();

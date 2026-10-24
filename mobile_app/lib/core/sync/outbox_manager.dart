@@ -141,11 +141,17 @@ class OutboxManager {
       if (status == 'applied' && item.operationType == 'sale.create') {
         final response =
             Map<String, dynamic>.from(result['response_data'] as Map? ?? {});
-        if (response['client_id'] != null && response['debtor_id'] != null) {
+        final localDebtorId = item.payload['local_debtor_id']?.toString();
+        if (localDebtorId != null && response['debtor_id'] != null) {
           await txn.update(
-              'debtors', {'server_id': response['debtor_id'].toString()},
-              where: 'client_id = ? AND server_id IS NULL',
-              whereArgs: [response['client_id'].toString()]);
+              'debtors',
+              {
+                'server_id': response['debtor_id'].toString(),
+                if (response['debtor_revision'] != null)
+                  'revision': int.parse(response['debtor_revision'].toString()),
+              },
+              where: 'id = ? AND (server_id IS NULL OR server_id = ?)',
+              whereArgs: [localDebtorId, response['debtor_id'].toString()]);
         }
       }
       if (status == 'applied' && item.operationType == 'debtor.photo') {

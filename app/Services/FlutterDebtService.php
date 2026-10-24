@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Models\User;
+
 use App\Models\Store;
 use App\Models\Client;
 use App\Models\Debtor;
+use App\Support\PhoneNumber;
 use App\Models\DebtorTransaction;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -33,9 +35,8 @@ class FlutterDebtService
                     $photoPath = app(DebtorPhotoService::class)->store($data['photo']);
                 }
 
-                $digits = ltrim($data['phone'], '+');
                 $client = Client::withTrashed()
-                    ->whereIn('phone', [$data['phone'], $digits, substr($digits, -9)])
+                    ->whereIn('phone', PhoneNumber::aliases($data['phone']))
                     ->lockForUpdate()
                     ->first();
 
@@ -120,9 +121,8 @@ class FlutterDebtService
                     }
                 }
 
-                $digits   = ltrim($data['phone'], '+');
                 $existing = Client::withTrashed()
-                    ->whereIn('phone', [$data['phone'], $digits, substr($digits, -9)])
+                    ->whereIn('phone', PhoneNumber::aliases($data['phone']))
                     ->lockForUpdate()
                     ->first();
 

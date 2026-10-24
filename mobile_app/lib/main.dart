@@ -22,6 +22,7 @@ class _BabyParfumeAppState extends State<BabyParfumeApp> {
   late final AuthRepository _auth;
   bool _initialized = false;
   bool _loggedIn = false;
+  Brightness _brightness = Brightness.dark;
   @override
   void initState() {
     super.initState();
@@ -38,12 +39,19 @@ class _BabyParfumeAppState extends State<BabyParfumeApp> {
 
   Future<void> _initialize() async {
     final loggedIn = await _auth.isLoggedIn();
+    final themeMode = await _auth.storage.getThemeMode();
     if (mounted) {
       setState(() {
         _loggedIn = loggedIn;
+        _brightness = themeMode == 'light' ? Brightness.light : Brightness.dark;
         _initialized = true;
       });
     }
+  }
+
+  Future<void> _setBrightness(Brightness value) async {
+    setState(() => _brightness = value);
+    await _auth.storage.setThemeMode(value.name);
   }
 
   Future<void> _logout() async {
@@ -59,13 +67,18 @@ class _BabyParfumeAppState extends State<BabyParfumeApp> {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme(),
         darkTheme: AppTheme.darkTheme(),
-        themeMode: ThemeMode.system,
+        themeMode:
+            _brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light,
         home: !_initialized
             ? const Scaffold(body: Center(child: CircularProgressIndicator()))
             : !_loggedIn
                 ? LoginScreen(
                     authRepository: _auth,
                     onLoginSuccess: () => setState(() => _loggedIn = true))
-                : AppShell(authRepository: _auth, onLogout: _logout),
+                : AppShell(
+                    authRepository: _auth,
+                    onLogout: _logout,
+                    brightness: _brightness,
+                    onBrightnessChanged: _setBrightness),
       );
 }

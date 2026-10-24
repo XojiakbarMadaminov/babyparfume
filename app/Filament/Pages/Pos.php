@@ -3,21 +3,23 @@
 namespace App\Filament\Pages;
 
 use Filament\Panel;
+
 use App\Models\Sale;
 use App\Models\Stock;
+use App\Models\Store;
 use App\Models\Client;
-use App\Models\Debtor;
 use App\Models\Product;
 use App\Models\SaleItem;
 use Filament\Pages\Page;
 use Livewire\Attributes\On;
 use App\Models\ProductStock;
+use App\Support\PhoneNumber;
 use App\Services\CartService;
 use App\Enums\NavigationGroup;
 use App\Services\ReturnService;
 use Illuminate\Validation\Rule;
-use App\Models\DebtorTransaction;
 use App\Services\ExchangeService;
+use App\Services\SaleDebtService;
 use Illuminate\Support\Facades\DB;
 use Filament\Notifications\Notification;
 use Filament\Panel\Concerns\HasNotifications;
@@ -119,7 +121,7 @@ class Pos extends Page
 
     public array $newClient = [
         'full_name' => '',
-        'phone'     => '',
+        'phone'     => '+998',
     ];
 
     public function mount(): void
@@ -728,6 +730,7 @@ class Pos extends Page
                 if (!$storeId) {
                     throw new \RuntimeException('Foydalanuvchi uchun joriy do‘kon tanlanmagan.');
                 }
+                Store::query()->whereKey($storeId)->lockForUpdate()->firstOrFail();
                 $paidAmount = match ($paymentType) {
                     'debt'     => 0.0,
                     'partial'  => $partialAmount ?? 0.0,
@@ -789,29 +792,11 @@ class Pos extends Page
                 }
 
                 if ($remainingAmount > 0 && $paymentType !== 'preorder') {
-                    $debtor = Debtor::firstOrCreate(
-                        [
-                            'store_id'  => $storeId,
-                            'client_id' => $clientId,
-                        ],
-                        [
-                            'amount'   => 0,
-                            'currency' => 'UZS',
-                            'date'     => now(),
-                        ]
+                    app(SaleDebtService::class)->record(
+                        $sale,
+                        $remainingAmount,
+                        filled($this->paymentNote) ? $this->paymentNote : null,
                     );
-
-                    $addedAmount = (int) round($remainingAmount);
-                    $debtor->increment('amount', $addedAmount);
-
-                    DebtorTransaction::create([
-                        'debtor_id' => $debtor->id,
-                        'amount'    => $addedAmount,
-                        'type'      => 'debt',
-                        'date'      => now(),
-                        'sale_id'   => $sale->id,
-                        'note'      => filled($this->paymentNote) ? $this->paymentNote : "Sotuv #{$sale->id}",
-                    ]);
                 }
 
                 return [$sale, $remainingAmount];
@@ -1256,21 +1241,31 @@ class Pos extends Page
 
         // Formani ochganda eski ma'lumotlarni tozalash
         if ($this->showCreateClientForm) {
-            $this->newClient = ['full_name' => '', 'phone' => ''];
+            $this->newClient = ['full_name' => '', 'phone' => '+998'];
         }
     }
 
     /* === Yangi klient yaratish === */
     public function createClient(): void
     {
+        $this->newClient['phone'] = PhoneNumber::forStorage($this->newClient['phone'] ?? '');
         $this->validate([
             'newClient.full_name' => 'required|string|min:3',
-            'newClient.phone'     => 'nullable|string|unique:clients,phone',
+            'newClient.phone'     => ['nullable', 'string', 'regex:' . PhoneNumber::PATTERN, 'unique:clients,phone'],
         ], [
             'newClient.full_name.required' => 'To\'liq ismni kiriting',
             'newClient.full_name.min'      => 'Ism kamida 3 ta belgidan iborat bo\'lishi kerak',
             'newClient.phone.unique'       => 'Ushbu telefon raqami allaqachon mavjud.',
+            'newClient.phone.regex'        => 'Telefon raqamini 7–15 ta raqam bilan kiriting.',
         ]);
+
+        if (filled($this->newClient['phone']) && Client::withTrashed()
+            ->whereIn('phone', PhoneNumber::aliases($this->newClient['phone']))
+            ->exists()) {
+            throw ValidationException::withMessages([
+                'newClient.phone' => 'Ushbu telefon raqami allaqachon mavjud.',
+            ]);
+        }
 
         $client = Client::create([
             'full_name' => $this->newClient['full_name'],
@@ -1279,7 +1274,7 @@ class Pos extends Page
 
         $this->selectedClientId                 = $client->id;
         $this->cartClients[$this->activeCartId] = $client->id;
-        $this->newClient                        = ['full_name' => '', 'phone' => ''];
+        $this->newClient                        = ['full_name' => '', 'phone' => '+998'];
         $this->showCreateClientForm             = false;
         $this->loadClients();
         $this->persistCartMeta();

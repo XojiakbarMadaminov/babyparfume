@@ -2,11 +2,7 @@
 
 use App\Models\User;
 use App\Models\Store;
-use App\Models\Client;
-use App\Models\Debtor;
-use App\Models\Product;
 use Illuminate\Support\Str;
-use App\Models\FlutterDevice;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -26,7 +22,7 @@ beforeEach(function (): void {
     ]);
     $this->user->stores()->attach([$this->storeA->id, $this->storeB->id]);
 
-    $role = Role::findOrCreate('admin', 'web');
+    $role        = Role::findOrCreate('admin', 'web');
     $permissions = ['view_pos', 'View:Pos', 'view_mobile_sales_statistics'];
     foreach ($permissions as $p) {
         $perm = Permission::findOrCreate($p, 'web');
@@ -35,15 +31,30 @@ beforeEach(function (): void {
     }
 
     $this->deviceUuid = (string) Str::uuid();
-    $loginResponse = $this->postJson('/api/flutter/v1/login', [
-        'email'         => 'owner@example.com',
-        'password'      => 'password',
-        'device_uuid'   => $this->deviceUuid,
-        'device_name'   => 'iPhone 15',
-        'platform'      => 'ios',
+    $loginResponse    = $this->postJson('/api/flutter/v1/login', [
+        'email'       => 'owner@example.com',
+        'password'    => 'password',
+        'device_uuid' => $this->deviceUuid,
+        'device_name' => 'iPhone 15',
+        'platform'    => 'ios',
     ])->assertCreated();
 
     $this->token = $loginResponse->json('data.token');
+});
+
+it('exposes sales cost visibility only to users with the matching permission', function (): void {
+    $this->withToken($this->token)
+        ->getJson('/api/flutter/v1/session')
+        ->assertOk()
+        ->assertJsonPath('data.permissions.sales_cost_price', false);
+
+    $permission = Permission::findOrCreate('view_mobile_sales_cost_price', 'web');
+    $this->user->givePermissionTo($permission);
+
+    $this->withToken($this->token)
+        ->getJson('/api/flutter/v1/session')
+        ->assertOk()
+        ->assertJsonPath('data.permissions.sales_cost_price', true);
 });
 
 it('guarantees that requesting a store via flutter API never changes users current_store_id in database', function (): void {
@@ -58,13 +69,13 @@ it('guarantees that requesting a store via flutter API never changes users curre
 });
 
 it('keeps request store selection isolated across two concurrent devices belonging to the same user', function (): void {
-    $deviceUuid2 = (string) Str::uuid();
+    $deviceUuid2    = (string) Str::uuid();
     $loginResponse2 = $this->postJson('/api/flutter/v1/login', [
-        'email'         => 'owner@example.com',
-        'password'      => 'password',
-        'device_uuid'   => $deviceUuid2,
-        'device_name'   => 'Samsung Galaxy S24',
-        'platform'      => 'android',
+        'email'       => 'owner@example.com',
+        'password'    => 'password',
+        'device_uuid' => $deviceUuid2,
+        'device_name' => 'Samsung Galaxy S24',
+        'platform'    => 'android',
     ])->assertCreated();
 
     $token2 = $loginResponse2->json('data.token');

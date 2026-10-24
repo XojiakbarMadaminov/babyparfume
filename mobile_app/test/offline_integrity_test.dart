@@ -152,6 +152,39 @@ void main() {
   });
 
   test(
+      'stock receipt caches server quantities while preserving pending sale reservations',
+      () async {
+    final sale = OfflineSaleService(
+        outboxManager: outbox, getDb: () async => db, ensureWrite: () async {});
+    await sale.processOfflineSale(
+        storeId: '1',
+        paymentType: 'cash',
+        totalAmount: 15000,
+        paidAmount: 15000,
+        remainingAmount: 0,
+        items: [
+          {...saleItems().first, 'quantity': 1}
+        ]);
+    final repository = ProductsRepository(
+        apiClient: api, outboxManager: outbox, getDb: () async => db);
+    final existing = (await repository.getProduct('1', '11'))!;
+    api.dio.httpClientAdapter = TestAdapter((request) async {
+      expect(request.path, '/stores/1/products/11/stock-in');
+      expect(request.method, 'POST');
+      expect(request.data,
+          {'request_id': 'receipt-uuid', 'stock_id': '71', 'quantity': 5});
+      return {
+        'data': {...product(quantity: 8), 'quantity': 8}
+      };
+    });
+    final received = await repository.receiveStock(existing,
+        requestId: 'receipt-uuid', stockId: '71', quantity: 5);
+    expect(received.stockQuantity, 7);
+    expect((await repository.variants(received)).single.stockQuantity, 7);
+    expect(await db.query('sync_outbox'), hasLength(1));
+  });
+
+  test(
       'sale, debt, warehouse deduction, receipt and immutable outbox commit together',
       () async {
     await db.insert('product_stocks',
@@ -975,6 +1008,169 @@ void main() {
         [operations.first.operationId]);
     expect(operations.last.operationType, 'debtor.photo');
   });
+  for (final method in ['debt', 'partial']) {
+    test(
+        'repeated $method sales reuse the active debtor and keep other accounts intact',
+        () async {
+      await LocalCache.client(db, '1',
+          {'id': '42', 'full_name': 'Ali Audit', 'phone': '+998901234567'});
+      await LocalCache.debtor(db, '1', {
+        ...debtor(amount: '0'),
+        'id': '1',
+        'transactions': [],
+      });
+      await LocalCache.debtor(db, '1', {
+        ...debtor(amount: '100'),
+        'id': '2',
+        'currency': 'USD',
+        'transactions': [],
+      });
+      await db.insert('debtors', {
+        'id': 'foreign-local',
+        'store_id': '2',
+        'client_id': '42',
+        'full_name': 'Ali Audit',
+        'amount': 90000,
+        'currency': 'UZS',
+      });
+      final sales = OfflineSaleService(
+          outboxManager: outbox,
+          getDb: () async => db,
+          ensureWrite: () async {});
+      final paid = method == 'partial' ? 10000.0 : 0.0;
+      final remaining = 30000 - paid;
+      for (var index = 0; index < 2; index++) {
+        await sales.processOfflineSale(
+            storeId: '1',
+            customerId: '42',
+            items: saleItems(),
+            totalAmount: 30000,
+            paidAmount: paid,
+            cashAmount: paid,
+            cardAmount: 0,
+            remainingAmount: remaining,
+            paymentType: method);
+      }
+      final rows = {
+        for (final row in await db.query('debtors')) row['id']: row
+      };
+      expect(rows, hasLength(4));
+      expect(rows['12']!['amount'], 50000 + remaining * 2);
+      expect(rows['1']!['amount'], 0);
+      expect(rows['2']!['amount'], 100);
+      expect(rows['foreign-local']!['amount'], 90000);
+      final operations = await outbox.getPendingOperations();
+      expect(operations, hasLength(2));
+      for (final operation in operations) {
+        expect(operation.payload['local_debtor_id'], '12');
+        expect(operation.payload['debtor_context']['id'], '12');
+      }
+      expect(operations.last.envelope!['depends_on'],
+          [operations.first.operationId]);
+      await outbox.acknowledge(operations.first, {
+        'status': 'applied',
+        'canonical_id': '100',
+        'response_data': {
+          'client_id': '42',
+          'debtor_id': '12',
+          'debtor_revision': '2'
+        },
+      });
+      final foreign = (await db
+              .query('debtors', where: 'id = ?', whereArgs: ['foreign-local']))
+          .single;
+      expect(foreign['server_id'], isNull);
+      expect(
+          (await db.query('debtors', where: 'id = ?', whereArgs: ['12']))
+              .single['revision'],
+          2);
+    });
+  }
+
+  test('credit after a pending full payment stays on the same debtor',
+      () async {
+    await LocalCache.client(db, '1',
+        {'id': '42', 'full_name': 'Ali Audit', 'phone': '+998901234567'});
+    await LocalCache.debtor(
+        db, '1', {...debtor(amount: '0'), 'id': '1', 'transactions': []});
+    final debtors = DebtorsRepository(
+        outboxManager: outbox, getDb: () async => db, ensureWrite: () async {});
+    await debtors.addTransaction(
+        storeId: '1', debtorId: '12', type: 'payment', amount: 50000);
+    final sales = OfflineSaleService(
+        outboxManager: outbox, getDb: () async => db, ensureWrite: () async {});
+    await sales.processOfflineSale(
+        storeId: '1',
+        customerId: '42',
+        items: saleItems(),
+        totalAmount: 30000,
+        paidAmount: 0,
+        remainingAmount: 30000,
+        paymentType: 'debt');
+    final operations = await outbox.getPendingOperations();
+    expect(operations.last.payload['local_debtor_id'], '12');
+    expect(operations.last.envelope!['depends_on'],
+        [operations.first.operationId]);
+    expect(
+        (await db.query('debtors', where: 'id = ?', whereArgs: ['12']))
+            .single['amount'],
+        30000);
+    expect(
+        (await db.query('debtors', where: 'id = ?', whereArgs: ['1']))
+            .single['amount'],
+        0);
+  });
+
+  test('credit sale reuses a closed debtor when no active balance exists',
+      () async {
+    await LocalCache.client(db, '1',
+        {'id': '42', 'full_name': 'Ali Audit', 'phone': '+998901234567'});
+    await LocalCache.debtor(
+        db, '1', {...debtor(amount: '0'), 'transactions': []});
+    final sales = OfflineSaleService(
+        outboxManager: outbox, getDb: () async => db, ensureWrite: () async {});
+    await sales.processOfflineSale(
+        storeId: '1',
+        customerId: '42',
+        items: saleItems(),
+        totalAmount: 30000,
+        paidAmount: 0,
+        remainingAmount: 30000,
+        paymentType: 'debt');
+    final row = (await db.query('debtors')).single;
+    expect(row['id'], '12');
+    expect(row['amount'], 30000);
+  });
+
+  test(
+      'repeated credit sales for a new offline customer create only one debtor',
+      () async {
+    final clients = ClientsRepository(
+        outbox: outbox, getDb: () async => db, ensureWrite: () async {});
+    final customer = await clients.create('1', 'Yangi Xaridor', '901234569');
+    final sales = OfflineSaleService(
+        outboxManager: outbox, getDb: () async => db, ensureWrite: () async {});
+    for (var index = 0; index < 2; index++) {
+      await sales.processOfflineSale(
+          storeId: '1',
+          customerId: customer.id,
+          items: saleItems(),
+          totalAmount: 30000,
+          paidAmount: 0,
+          remainingAmount: 30000,
+          paymentType: 'debt');
+    }
+    final row = (await db
+            .query('debtors', where: 'client_id = ?', whereArgs: [customer.id]))
+        .single;
+    expect(row['amount'], 60000);
+    final operations = await outbox.getPendingOperations();
+    expect(operations, hasLength(3));
+    expect(operations.last.payload['local_debtor_id'], row['id']);
+    expect(operations.last.envelope!['depends_on'],
+        containsAll([operations.first.operationId, operations[1].operationId]));
+  });
+
   test(
       'new offline client credit sale and payment keep their dependency mapping',
       () async {
@@ -1019,6 +1215,43 @@ void main() {
     expect(mapped['client_id'], '88');
     expect(mapped['amount'], 20000);
   });
+  for (final phone in [
+    '+998901234569',
+    '+79031234567',
+    '901234569',
+    '998901234569'
+  ]) {
+    test('offline customer keeps the user chosen phone prefix $phone',
+        () async {
+      final clients = ClientsRepository(
+          outbox: outbox, getDb: () async => db, ensureWrite: () async {});
+      final client = await clients.create('1', 'Telefon Mijozi', phone);
+      expect(client.phone, phone);
+      expect(
+          (await db.query('clients', where: 'id = ?', whereArgs: [client.id]))
+              .single['phone'],
+          phone);
+      expect(
+          (await outbox.getPendingOperations()).single.payload['phone'], phone);
+    });
+
+    test('offline debtor keeps the user chosen phone prefix $phone', () async {
+      final repository = DebtorsRepository(
+          outboxManager: outbox,
+          getDb: () async => db,
+          ensureWrite: () async {});
+      final created = await repository.createDebtor(
+          storeId: '1',
+          fullName: 'Telefon Mijozi',
+          phone: phone,
+          initialAmount: 10000,
+          date: DateTime.now().toIso8601String().substring(0, 10));
+      expect(created.phone, phone);
+      expect(
+          (await outbox.getPendingOperations()).single.payload['phone'], phone);
+    });
+  }
+
   test('barcode keeps leading zero and accepts a scan only once', () {
     final guard = BarcodeGuard();
     expect(BarcodeGuard.validChecksum('0012345678905'), isTrue);

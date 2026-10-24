@@ -201,9 +201,9 @@ it('accepts a payment without recording a payment method', function (): void {
     expect($debtor->transactions()->sole()->note)->toBe('Mobil');
 });
 
-it('creates a debtor with a canonical phone and initial transaction exactly once', function (): void {
+it('preserves the entered phone and creates an initial transaction exactly once', function (): void {
     $data     = ['request_id' => (string) Str::uuid(), 'store_id' => $this->store->id, 'full_name' => 'Yangi Mijoz', 'phone' => '90 123 45 69', 'amount' => 300000, 'date' => now()->toDateString()];
-    $response = $this->postJson('/mobile/api/v1/debtors', $data)->assertSuccessful()->assertJsonPath('data.amount', 300000)->assertJsonPath('data.phone', '+998901234569');
+    $response = $this->postJson('/mobile/api/v1/debtors', $data)->assertSuccessful()->assertJsonPath('data.amount', 300000)->assertJsonPath('data.phone', '901234569');
     $this->postJson('/mobile/api/v1/debtors', $data)->assertSuccessful()->assertJsonPath('data.id', $response->json('data.id'));
     expect(Debtor::query()->count())->toBe(1);
     expect(DebtorTransaction::query()->count())->toBe(1);

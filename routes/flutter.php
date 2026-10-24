@@ -40,6 +40,7 @@ Route::middleware([AuthenticateFlutterDevice::class, 'throttle:flutter-api'])->g
         Route::get('products/barcode', [ProductController::class, 'generateBarcode'])->name('products.barcode');
         Route::get('products/lookup', [ProductController::class, 'lookup'])->name('products.lookup');
         Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
+        Route::post('products/{product}/stock-in', [ProductController::class, 'receiveStock'])->name('products.stock-in');
         Route::match(['post', 'patch'], 'products/{product}', [ProductController::class, 'update'])->name('products.update');
         Route::delete('products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
 

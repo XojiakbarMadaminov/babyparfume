@@ -52,7 +52,7 @@ class FlutterSyncService
                 ->orWhereHas('sizes.stocks.stock', fn ($stock) => $stock->withoutGlobalScope('current_store')->whereHas('stores', fn ($stores) => $stores->whereKey($storeId)));
         })
             ->addSelect(['sync_revision' => FlutterSyncRevision::query()->selectRaw('MAX(revision)')->whereColumn('entity_id', 'products.id')->where('store_id', $storeId)->where('entity_type', 'product')])
-            ->with(['media', 'productStocks' => $stockInStore,
+            ->with(['media', 'category', 'productStocks' => $stockInStore,
                 'sizes' => fn ($sizes) => $sizes->with(['productStocks' => $stockInStore, 'stocks' => $stockInStore])
                     ->withCount(['productStocks as mobile_stock_count' => $stockInStore])
                     ->withSum(['productStocks as mobile_quantity' => $stockInStore], 'quantity')

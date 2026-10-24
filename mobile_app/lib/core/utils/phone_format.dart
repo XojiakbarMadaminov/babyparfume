@@ -1,6 +1,26 @@
 class PhoneFormat {
   PhoneFormat._();
 
+  static const defaultPrefix = '+998';
+
+  static String forStorage(String phone) =>
+      phone.trim().replaceAll(RegExp(r'[\s()\-]'), '');
+
+  static bool isValid(String phone) =>
+      RegExp(r'^\+?[0-9]{7,15}$').hasMatch(forStorage(phone));
+
+  static List<String> aliases(String phone) {
+    final value = forStorage(phone);
+    final digits = value.replaceFirst(RegExp(r'^\+'), '');
+    final values = {value, digits, '+$digits'};
+    if ((digits.length == 9 && !value.startsWith('+')) ||
+        (digits.length == 12 && digits.startsWith('998'))) {
+      final local = digits.substring(digits.length - 9);
+      values.addAll([local, '998$local', '+998$local']);
+    }
+    return values.toList();
+  }
+
   /// Canonical string: +998901234567 -> +998 90 123 45 67
   static String format(String? phone) {
     if (phone == null || phone.isEmpty) return '';

@@ -27,6 +27,7 @@ class SessionResource extends JsonResource
             'permissions'       => [
                 'sales'            => $this->resource->can('View:Pos'),
                 'sales_statistics' => $this->resource->can('View:Pos') && $this->resource->can('view_mobile_sales_statistics'),
+                'sales_cost_price' => $this->resource->can('view_mobile_sales_cost_price'),
                 'products'         => \Illuminate\Support\Facades\Gate::forUser($this->resource)->allows('viewAny', \App\Models\Product::class),
                 'create_product'   => \Illuminate\Support\Facades\Gate::forUser($this->resource)->allows('create', \App\Models\Product::class),
                 'debtors'          => \Illuminate\Support\Facades\Gate::forUser($this->resource)->allows('viewAny', \App\Models\Debtor::class),

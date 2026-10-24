@@ -129,8 +129,14 @@ class OfflineSaleService {
         }
         if (remainingAmount > 0 && paymentType != 'preorder') {
           final existing = await txn.query('debtors',
-              where: 'client_id = ? AND store_id = ?',
-              whereArgs: [serverId ?? customerId, storeId]);
+              where:
+                  'client_id IN (?, ?) AND store_id = ? AND UPPER(currency) = ?',
+              whereArgs: [serverId ?? customerId, customerId, storeId, 'UZS'],
+              orderBy: 'CASE WHEN amount > 0 THEN 0 WHEN EXISTS '
+                  '(SELECT 1 FROM debtor_transactions WHERE debtor_id = debtors.id '
+                  "AND sync_status != 'synced') THEN 1 ELSE 2 END, "
+                  'CAST(COALESCE(server_id, id) AS INTEGER), id',
+              limit: 1);
           if (existing.isNotEmpty) {
             localDebtorId = existing.first['id'] as String;
           } else {

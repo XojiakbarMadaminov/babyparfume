@@ -35,11 +35,11 @@ class ClientsRepository {
   Future<LocalClient> create(
       String storeId, String name, String rawPhone) async {
     await _ensureWrite();
-    final phone = PhoneFormat.normalize(rawPhone);
+    final phone = PhoneFormat.forStorage(rawPhone);
     if (name.trim().isEmpty ||
         name.length > 255 ||
-        !RegExp(r'^\+998[0-9]{9}$').hasMatch(phone)) {
-      throw ArgumentError('Ism va +998 telefon raqamini tekshiring.');
+        !PhoneFormat.isValid(phone)) {
+      throw ArgumentError('Ism va telefon raqamini tekshiring.');
     }
     final db = await _getDb();
     final id = const Uuid().v4();
@@ -50,7 +50,10 @@ class ClientsRepository {
       'phone': phone
     };
     await db.transaction((txn) async {
-      if ((await txn.query('clients', where: 'phone = ?', whereArgs: [phone]))
+      final aliases = PhoneFormat.aliases(phone);
+      if ((await txn.query('clients',
+              where: 'phone IN (${List.filled(aliases.length, '?').join(',')})',
+              whereArgs: aliases))
           .isNotEmpty) {
         throw StateError('Bu telefonli mijoz mavjud. Ro‘yxatdan tanlang.');
       }

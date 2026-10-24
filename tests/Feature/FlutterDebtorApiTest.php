@@ -114,7 +114,7 @@ it('creates a debtor with photo and returns canonical string numbers and UUID id
         ->postJson("/api/flutter/v1/stores/{$this->storeA->id}/debtors", $payload)
         ->assertCreated()
         ->assertJsonPath('data.full_name', 'Rustam Qosimov')
-        ->assertJsonPath('data.phone', '+998931112233')
+        ->assertJsonPath('data.phone', '998931112233')
         ->assertJsonPath('data.amount', '1200000')
         ->assertJsonPath('data.currency', 'UZS')
         ->assertJsonPath('data.scale', 0);

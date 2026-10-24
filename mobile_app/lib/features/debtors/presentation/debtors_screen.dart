@@ -69,7 +69,6 @@ class _DebtorsScreenState extends State<DebtorsScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text("Yangi qarzdor muvaffaqiyatli saqlandi!"),
-              backgroundColor: AppColors.success,
             ),
           );
         },
@@ -98,7 +97,7 @@ class _DebtorsScreenState extends State<DebtorsScreen> {
           "Qarzdorlar",
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
-        backgroundColor: AppColors.lightCard,
+        backgroundColor: AppColors.of(context).card,
         elevation: 0,
       ),
       body: Column(
@@ -128,26 +127,30 @@ class _DebtorsScreenState extends State<DebtorsScreen> {
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.lightTint,
+              color: AppColors.of(context).tint,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.lightAccent.withOpacity(0.2)),
+              border: Border.all(
+                  color: AppColors.of(context).accent.withOpacity(0.2)),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       "Jami qarz miqdori",
-                      style:
-                          TextStyle(color: AppColors.lightMuted, fontSize: 13),
+                      style: TextStyle(
+                          color: AppColors.of(context).muted, fontSize: 13),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       "${_debtors.length} ta qarzdor",
-                      style: const TextStyle(
-                          color: AppColors.lightMuted, fontSize: 11),
+                      style: TextStyle(
+                          color: AppColors.of(context).muted, fontSize: 11),
                     ),
                   ],
                 ),
@@ -158,10 +161,10 @@ class _DebtorsScreenState extends State<DebtorsScreen> {
                             CurrencyFormat.format(entry.value,
                                 suffix:
                                     entry.key == 'UZS' ? "so'm" : entry.key),
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w800,
-                                color: AppColors.lightAccent)))
+                                color: AppColors.of(context).accent)))
                         .toList()),
               ],
             ),
@@ -179,10 +182,10 @@ class _DebtorsScreenState extends State<DebtorsScreen> {
               decoration: InputDecoration(
                 hintText: "Ism yoki telefon raqami bo'yicha qidirish...",
                 prefixIcon:
-                    const Icon(Icons.search, color: AppColors.lightMuted),
+                    Icon(Icons.search, color: AppColors.of(context).muted),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                fillColor: AppColors.lightSoft,
+                fillColor: AppColors.of(context).soft,
                 filled: true,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -197,11 +200,11 @@ class _DebtorsScreenState extends State<DebtorsScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _debtors.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Text(
                           "Qarzdor topilmadi",
                           style: TextStyle(
-                              color: AppColors.lightMuted, fontSize: 14),
+                              color: AppColors.of(context).muted, fontSize: 14),
                         ),
                       )
                     : ListView.separated(
@@ -216,21 +219,22 @@ class _DebtorsScreenState extends State<DebtorsScreen> {
                             child: Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: AppColors.lightCard,
+                                color: AppColors.of(context).card,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColors.lightLine),
+                                border: Border.all(
+                                    color: AppColors.of(context).line),
                               ),
                               child: Row(
                                 children: [
                                   Container(
                                     width: 44,
                                     height: 44,
-                                    decoration: const BoxDecoration(
-                                      color: AppColors.lightSoft,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.of(context).soft,
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(Icons.person_outline,
-                                        color: AppColors.lightMuted),
+                                    child: Icon(Icons.person_outline,
+                                        color: AppColors.of(context).muted),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
@@ -247,8 +251,9 @@ class _DebtorsScreenState extends State<DebtorsScreen> {
                                         const SizedBox(height: 2),
                                         Text(
                                           PhoneFormat.format(debtor.phone),
-                                          style: const TextStyle(
-                                              color: AppColors.lightMuted,
+                                          style: TextStyle(
+                                              color:
+                                                  AppColors.of(context).muted,
                                               fontSize: 12),
                                         ),
                                       ],
@@ -263,8 +268,8 @@ class _DebtorsScreenState extends State<DebtorsScreen> {
                                       fontWeight: FontWeight.w700,
                                       fontSize: 14,
                                       color: debtor.amount > 0
-                                          ? AppColors.lightDanger
-                                          : AppColors.success,
+                                          ? AppColors.of(context).danger
+                                          : AppColors.of(context).success,
                                     ),
                                   ),
                                 ],
@@ -279,8 +284,8 @@ class _DebtorsScreenState extends State<DebtorsScreen> {
       floatingActionButton: !widget.canCreate
           ? null
           : FloatingActionButton.extended(
-              backgroundColor: AppColors.primaryButton,
-              foregroundColor: Colors.white,
+              backgroundColor: AppColors.of(context).button,
+              foregroundColor: AppColors.of(context).onButton,
               icon: const Icon(Icons.person_add_alt_1),
               label: const Text("Qarz qo'shish"),
               onPressed: _openAddDebtorDialog,

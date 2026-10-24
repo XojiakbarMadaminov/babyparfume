@@ -312,6 +312,78 @@ it('keeps a stale credit sale atomic until an administrator approves it', functi
         ->and(Sale::withoutGlobalScopes()->count())->toBe(1);
 });
 
+it('adds repeated flutter credit sales to the active debtor without reopening a closed account', function (string $method, int $cash, int $remaining): void {
+    $client = Client::factory()->create();
+    $closed = Debtor::withoutEvents(fn (): Debtor => Debtor::query()->create([
+        'store_id' => $this->store->id, 'client_id' => $client->id, 'amount' => 0, 'currency' => 'UZS',
+    ]));
+    $active = Debtor::withoutEvents(fn (): Debtor => Debtor::query()->create([
+        'store_id' => $this->store->id, 'client_id' => $client->id, 'amount' => 50000, 'currency' => 'UZS',
+    ]));
+    $foreign = Debtor::withoutEvents(fn (): Debtor => Debtor::query()->create([
+        'store_id' => $this->otherStore->id, 'client_id' => $client->id, 'amount' => 90000, 'currency' => 'UZS',
+    ]));
+    $payload = ['client' => ['server_id' => (string) $client->id],
+        'payment'        => ['type' => $method, 'cash' => (string) $cash, 'card' => '0']];
+    $envelope = integritySaleEnvelope($this, $payload);
+    $this->withToken($this->token)->postJson($this->prefix . '/operations', ['operations' => [$envelope]])
+        ->assertOk()->assertJsonPath('data.results.0.status', 'applied')
+        ->assertJsonPath('data.results.0.response_data.debtor_id', (string) $active->id);
+    $this->withToken($this->token)->postJson($this->prefix . '/operations', ['operations' => [$envelope]])
+        ->assertOk()->assertJsonPath('data.results.0.is_replay', true);
+    expect((int) $active->fresh()->amount)->toBe(50000 + $remaining);
+
+    $this->withToken($this->token)->postJson($this->prefix . '/operations', [
+        'operations' => [integritySaleEnvelope($this, $payload)],
+    ])->assertOk()->assertJsonPath('data.results.0.response_data.debtor_id', (string) $active->id);
+
+    expect(Debtor::withoutGlobalScopes()->count())->toBe(3)
+        ->and((int) $active->fresh()->amount)->toBe(50000 + 2 * $remaining)
+        ->and((int) $closed->fresh()->amount)->toBe(0)
+        ->and((int) $foreign->fresh()->amount)->toBe(90000)
+        ->and($active->transactions()->count())->toBe(2)
+        ->and(Sale::withoutGlobalScopes()->count())->toBe(2);
+})->with([['debt', 0, 30000], ['partial', 10000, 20000]]);
+
+it('reuses a closed flutter debtor when the customer has no active debt', function (): void {
+    $client = Client::factory()->create();
+    $closed = Debtor::withoutEvents(fn (): Debtor => Debtor::query()->create([
+        'store_id' => $this->store->id, 'client_id' => $client->id, 'amount' => 0, 'currency' => 'UZS',
+    ]));
+    $envelope = integritySaleEnvelope($this, ['client' => ['server_id' => (string) $client->id],
+        'payment'                                      => ['type' => 'debt', 'cash' => '0', 'card' => '0']]);
+
+    $this->withToken($this->token)->postJson($this->prefix . '/operations', ['operations' => [$envelope]])
+        ->assertOk()->assertJsonPath('data.results.0.response_data.debtor_id', (string) $closed->id);
+
+    expect(Debtor::withoutGlobalScopes()->count())->toBe(1)
+        ->and((int) $closed->fresh()->amount)->toBe(30000);
+});
+
+it('keeps a flutter credit sale on the account that was just paid off', function (): void {
+    $client = Client::factory()->create();
+    $older  = Debtor::withoutEvents(fn (): Debtor => Debtor::query()->create([
+        'store_id' => $this->store->id, 'client_id' => $client->id, 'amount' => 0, 'currency' => 'UZS',
+    ]));
+    $current = Debtor::withoutEvents(fn (): Debtor => Debtor::query()->create([
+        'store_id' => $this->store->id, 'client_id' => $client->id, 'amount' => 0, 'currency' => 'UZS',
+    ]));
+    $envelope = integritySaleEnvelope($this, [
+        'client'         => ['server_id' => (string) $client->id],
+        'debtor_context' => ['id' => (string) $current->id,
+            'base_revision'       => app(App\Services\FlutterSyncService::class)->entityRevision($this->store->id, 'debtor', $current->id)],
+        'payment' => ['type' => 'debt', 'cash' => '0', 'card' => '0'],
+    ]);
+
+    $this->withToken($this->token)->postJson($this->prefix . '/operations', ['operations' => [$envelope]])
+        ->assertOk()->assertJsonPath('data.results.0.status', 'applied')
+        ->assertJsonPath('data.results.0.response_data.debtor_id', (string) $current->id);
+
+    expect((int) $older->fresh()->amount)->toBe(0)
+        ->and((int) $current->fresh()->amount)->toBe(30000)
+        ->and(Debtor::withoutGlobalScopes()->count())->toBe(2);
+});
+
 it('posts each existing payment method with the correct receipt and debt totals', function (string $method, int $cash, int $card, int $paid, int $remaining): void {
     $client   = Client::factory()->create();
     $envelope = integritySaleEnvelope($this, ['client' => ['server_id' => (string) $client->id],

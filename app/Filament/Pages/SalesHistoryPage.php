@@ -6,13 +6,13 @@ use Throwable;
 use Carbon\Carbon;
 use App\Models\Sale;
 use App\Models\Stock;
-use App\Models\Debtor;
 use Filament\Pages\Page;
 use Filament\Tables\Table;
 use App\Models\ProductStock;
 use Filament\Actions\Action;
 use App\Enums\NavigationGroup;
 use App\Models\DebtorTransaction;
+use App\Services\SaleDebtService;
 use Illuminate\Support\Facades\DB;
 use Filament\Support\Icons\Heroicon;
 use Filament\Forms\Components\Select;
@@ -254,11 +254,11 @@ class SalesHistoryPage extends Page implements HasTable
                         Select::make('payment_type')
                             ->label('To‘lov turi')
                             ->options([
-                                'cash'     => 'Naqd',
-                                'card'     => 'Karta',
-                                'debt'     => 'Qarz',
-                                'partial'  => 'Qisman',
-                                'mixed'    => 'Karta + Naqd',
+                                'cash'    => 'Naqd',
+                                'card'    => 'Karta',
+                                'debt'    => 'Qarz',
+                                'partial' => 'Qisman',
+                                'mixed'   => 'Karta + Naqd',
                             ])
                             ->required()
                             ->reactive(),
@@ -510,38 +510,7 @@ class SalesHistoryPage extends Page implements HasTable
 
     protected function recordSaleDebt(Sale $sale, float $remainingAmount, ?string $note = null): void
     {
-        $storeId  = $sale->store_id;
-        $clientId = $sale->client_id;
-
-        if (!$storeId || !$clientId) {
-            throw ValidationException::withMessages([
-                'sale' => 'Klient tanlanmaganligi sababli qarz qayd qilib bo‘lmaydi.',
-            ]);
-        }
-
-        $debtor = Debtor::firstOrCreate(
-            [
-                'store_id'  => $storeId,
-                'client_id' => $clientId,
-            ],
-            [
-                'amount'   => 0,
-                'currency' => 'uzs',
-                'date'     => now(),
-            ]
-        );
-
-        $addedAmount = (int) round($remainingAmount);
-        $debtor->increment('amount', $addedAmount);
-
-        DebtorTransaction::create([
-            'debtor_id' => $debtor->id,
-            'amount'    => $addedAmount,
-            'type'      => 'debt',
-            'date'      => now(),
-            'sale_id'   => $sale->id,
-            'note'      => $note ?: "Sotuv #{$sale->id}",
-        ]);
+        app(SaleDebtService::class)->record($sale, $remainingAmount, $note);
     }
 
     protected function restockSaleItems(Sale $sale): void
