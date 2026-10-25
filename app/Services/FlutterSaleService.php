@@ -36,6 +36,7 @@ class FlutterSaleService
             'payment.type'             => ['required', Rule::in(['cash', 'card', 'transfer', 'mixed', 'partial', 'debt', 'preorder'])],
             'payment.cash'             => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
             'payment.card'             => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
+            'payment.received_cash'    => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
             'client.server_id'         => ['nullable', 'integer', 'min:1'],
             'payment.note'             => ['nullable', 'string', 'max:500'],
         ])->validate();
@@ -95,13 +96,15 @@ class FlutterSaleService
                 $totalAmount += $rowTotal;
 
                 $itemsData[] = [
-                    'product'         => $product,
-                    'product_size_id' => !empty($item['product_size_id']) ? (int) $item['product_size_id'] : null,
-                    'stock_id'        => (int) $item['stock_id'],
-                    'quantity'        => $qty,
-                    'unit_price'      => $unitPrice,
-                    'unit_cost'       => $unitCost,
-                    'total'           => $rowTotal,
+                    'product'          => $product,
+                    'product_size_id'  => !empty($item['product_size_id']) ? (int) $item['product_size_id'] : null,
+                    'stock_id'         => (int) $item['stock_id'],
+                    'quantity'         => $qty,
+                    'unit_price'       => $unitPrice,
+                    'receipt_price'    => (string) $unitPrice,
+                    'receipt_discount' => (string) $discount,
+                    'unit_cost'        => $unitCost,
+                    'total'            => $rowTotal,
                 ];
             }
 
@@ -173,6 +176,20 @@ class FlutterSaleService
                 'mixed_card_amount'     => $paymentType === 'mixed' ? $cardAmount : 0,
                 'created_at'            => $payload['occurred_at'] ?? now(),
             ]);
+
+            if (config('printing.enabled')) {
+                $sizeNames = \App\Models\ProductSize::query()->whereIn('id', array_filter(array_column($itemsData, 'product_size_id')))->pluck('size', 'id');
+                $received  = $paymentType === 'cash' ? max($paidAmount, (float) ($payload['payment']['received_cash'] ?? $paidAmount)) : null;
+                $sale->update(['flutter_receipt_meta' => [
+                    'items' => array_map(fn (array $row): array => ['name' => $row['product']->name,
+                        'size'                                             => $sizeNames[$row['product_size_id']] ?? null, 'qty' => $row['quantity'],
+                        'price'                                            => $row['receipt_price'], 'discount' => $row['receipt_discount']], $itemsData),
+                    'receipt_discount' => (string) $receiptDiscount, 'cash' => (string) ($paymentType === 'cash' ? $paidAmount : $cashAmount),
+                    'card'             => (string) ($paymentType === 'card' ? $paidAmount : $cardAmount),
+                    'received_cash'    => $received === null ? null : (string) $received,
+                    'change'           => $received === null ? null : (string) ($received - $paidAmount),
+                ]]);
+            }
 
             $deficits = [];
 

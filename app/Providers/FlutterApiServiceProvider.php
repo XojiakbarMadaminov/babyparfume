@@ -29,6 +29,9 @@ class FlutterApiServiceProvider extends ServiceProvider
         ));
 
         if (!$this->app->routesAreCached()) {
+            Route::middleware(['api', \App\Http\Middleware\EnsurePrintingEnabled::class])
+                ->prefix('api/print-agent/v1')->name('print-agent.')
+                ->group(base_path('routes/print-agent.php'));
             Route::middleware(['api', EnsureFlutterApiEnabled::class])
                 ->prefix('api/flutter/v1')
                 ->name('flutter.')

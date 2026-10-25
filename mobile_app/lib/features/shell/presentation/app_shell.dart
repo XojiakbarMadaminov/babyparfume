@@ -249,6 +249,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                   '',
               revision: _revision,
               canSeeCostPrice: permissions['sales_cost_price'] == true,
+              canPrintReceipts:
+                  (_session['printing'] as Map?)?['receipts'] == true,
               onViewStatistics: permissions['sales_statistics'] == true
                   ? () => setState(() => _showStatistics = true)
                   : null),
@@ -260,6 +262,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               key: ValueKey('products_$id'),
               storeId: id,
               revision: _revision,
+              canPrintBarcodes:
+                  (_session['printing'] as Map?)?['barcodes'] == true,
               canCreate: permissions['create_product'] == true),
           Icons.inventory_2_outlined,
           'Mahsulotlar');

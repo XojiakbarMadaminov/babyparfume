@@ -6,12 +6,14 @@ import '../data/products_repository.dart';
 import 'barcode_scanner_sheet.dart';
 import 'product_form_dialog.dart';
 import 'product_detail_screen.dart';
+import '../../printing/presentation/print_dialog.dart';
 
 class ProductsScreen extends StatefulWidget {
   final String storeId;
   final ProductsRepository? repository;
   final bool canCreate;
   final int revision;
+  final bool canPrintBarcodes;
 
   const ProductsScreen({
     super.key,
@@ -19,6 +21,7 @@ class ProductsScreen extends StatefulWidget {
     this.repository,
     this.canCreate = false,
     this.revision = 0,
+    this.canPrintBarcodes = false,
   });
 
   @override
@@ -32,6 +35,15 @@ class _ProductsScreenState extends State<ProductsScreen> {
   bool _isLoading = true;
   String _searchQuery = '';
   int _loadRequest = 0;
+  final _selected = <String, LocalProduct>{};
+
+  void _select(LocalProduct product) => setState(() {
+        if (_selected.containsKey(product.id)) {
+          _selected.remove(product.id);
+        } else {
+          _selected[product.id] = product;
+        }
+      });
 
   @override
   void initState() {
@@ -111,6 +123,27 @@ class _ProductsScreenState extends State<ProductsScreen> {
         backgroundColor: AppColors.of(context).card,
         elevation: 0,
         actions: [
+          if (widget.canPrintBarcodes) ...[
+            IconButton(
+                tooltip: 'Tanlangan barcodelarni chop etish',
+                icon: const Icon(Icons.print_outlined),
+                onPressed: _selected.isEmpty
+                    ? null
+                    : () => showDialog<void>(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (_) => PrintDialog(
+                            storeId: widget.storeId,
+                            products: _selected.values.toList()))),
+            IconButton(
+                tooltip: 'Chop etish tarixi',
+                icon: const Icon(Icons.history),
+                onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            PrintHistoryScreen(storeId: widget.storeId)))),
+          ],
           IconButton(
             icon: Icon(Icons.qr_code_scanner,
                 color: AppColors.of(context).accent),
@@ -181,12 +214,21 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           final isOutOfStock = item.stockQuantity <= 0;
 
                           return GestureDetector(
+                              onLongPress: widget.canPrintBarcodes
+                                  ? () => _select(item)
+                                  : null,
                               onTap: () async {
+                                if (_selected.isNotEmpty) {
+                                  _select(item);
+                                  return;
+                                }
                                 await Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                         builder: (_) => ProductDetailScreen(
                                             product: item,
+                                            canPrintBarcodes:
+                                                widget.canPrintBarcodes,
                                             repository: _repository)));
                                 if (mounted) _loadProducts();
                               },
@@ -201,6 +243,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    if (widget.canPrintBarcodes)
+                                      Checkbox(
+                                          value: _selected.containsKey(item.id),
+                                          onChanged: (_) => _select(item)),
                                     Container(
                                       width: 44,
                                       height: 44,

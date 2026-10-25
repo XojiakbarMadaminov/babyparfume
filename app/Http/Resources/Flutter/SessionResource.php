@@ -38,6 +38,11 @@ class SessionResource extends JsonResource
                 'warning_text'   => \App\Models\GeneralSetting::getSubscriptionWarningText(),
             ],
             'offline_ready' => false,
+            'printing'      => [
+                'enabled'  => (bool) config('printing.enabled'),
+                'receipts' => (bool) config('printing.enabled') && ($this->resource->isSuperAdmin() || $this->resource->can('print_receipts')),
+                'barcodes' => (bool) config('printing.enabled') && ($this->resource->isSuperAdmin() || $this->resource->can('print_barcodes')),
+            ],
         ];
     }
 }

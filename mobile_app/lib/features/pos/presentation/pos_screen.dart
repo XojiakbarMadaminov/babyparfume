@@ -1,4 +1,6 @@
 import 'dart:async';
+import '../../printing/data/printing_repository.dart';
+import '../../printing/presentation/print_dialog.dart';
 import 'pos_widgets.dart';
 import 'pos_variants_sheet.dart';
 import 'pos_discount_sheet.dart';
@@ -51,6 +53,8 @@ class PosScreen extends StatefulWidget {
   final ProductsRepository? productsRepository;
   final DebtorsRepository? debtorsRepository;
   final OfflineSaleService? saleService;
+  final bool canPrintReceipts;
+  final PrintingRepository? printingRepository;
 
   const PosScreen({
     super.key,
@@ -65,6 +69,8 @@ class PosScreen extends StatefulWidget {
     this.productsRepository,
     this.debtorsRepository,
     this.saleService,
+    this.canPrintReceipts = false,
+    this.printingRepository,
   });
 
   @override
@@ -108,10 +114,16 @@ class _PosScreenState extends State<PosScreen> {
   String? _cardDraft;
   List<String> _cartIds = ['1'];
   Future<void> _draftSaving = Future.value();
+  late final PrintingRepository _printing;
 
   @override
   void initState() {
     super.initState();
+    _printing =
+        widget.printingRepository ?? PrintingRepository(getDb: widget.getDb);
+    if (widget.canPrintReceipts) {
+      _refreshPrintingOptions();
+    }
     final outbox = OutboxManager();
     _productsRepo =
         widget.productsRepository ?? ProductsRepository(outboxManager: outbox);
@@ -127,6 +139,31 @@ class _PosScreenState extends State<PosScreen> {
   void didUpdateWidget(covariant PosScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.revision != widget.revision) _loadProducts();
+    if (widget.canPrintReceipts &&
+        (oldWidget.revision != widget.revision ||
+            !oldWidget.canPrintReceipts)) {
+      _refreshPrintingOptions();
+    }
+  }
+
+  Future<void> _refreshPrintingOptions() async {
+    try {
+      await _printing.options(widget.storeId);
+    } catch (_) {}
+  }
+
+  Future<void> _autoPrint(String receiptId) async {
+    try {
+      final intent = await _printing.receiptIntent(receiptId);
+      if (intent == null) return;
+      final job = await _printing
+          .retry((intent['payload'] as Map)['client_job_id'].toString());
+      if (mounted) {
+        _notice(PrintingRepository.statusLabel(job['status'].toString()));
+      }
+    } catch (e) {
+      if (mounted) _notice(PrintingRepository.error(e));
+    }
   }
 
   void _onSearch(String query) {
@@ -590,6 +627,8 @@ class _PosScreenState extends State<PosScreen> {
                               if (item.product.sizeId != null)
                                 'product_size_id': item.product.sizeId,
                               'name': item.product.name,
+                              if (item.product.sizeName != null)
+                                'size_name': item.product.sizeName,
                               'quantity': item.quantity,
                               'unit_price': item.price.toStringAsFixed(2),
                               'discount': item.discount.toStringAsFixed(2),
@@ -647,6 +686,9 @@ class _PosScreenState extends State<PosScreen> {
       });
       _persistCart();
       _loadProducts();
+      if (widget.canPrintReceipts) {
+        unawaited(_autoPrint(result.localSaleId));
+      }
     } catch (error) {
       if (mounted) _notice(error.toString());
     } finally {
@@ -741,7 +783,8 @@ class _PosScreenState extends State<PosScreen> {
   void _openReceipts() => Navigator.push(
       context,
       MaterialPageRoute(
-          builder: (_) => ReceiptsScreen(storeId: widget.storeId)));
+          builder: (_) => ReceiptsScreen(
+              storeId: widget.storeId, canPrint: widget.canPrintReceipts)));
 
   Widget _breakdown(String label, String value, {bool bold = false}) =>
       Row(children: [
@@ -1199,6 +1242,21 @@ class _PosScreenState extends State<PosScreen> {
                     icon: Icons.receipt_long_outlined,
                     outlined: true,
                     onPressed: _showReceipt)),
+            if (widget.canPrintReceipts) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                  width: double.infinity,
+                  child: PosButton(
+                      label: 'Chekni chop etish',
+                      icon: Icons.print_outlined,
+                      onPressed: () => showDialog<void>(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (_) => PrintDialog(
+                              storeId: widget.storeId,
+                              receiptId: _receipt!.localSaleId,
+                              repository: _printing)))),
+            ],
             const SizedBox(height: 10),
             SizedBox(
                 width: double.infinity,

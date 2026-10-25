@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../database/app_database.dart';
 import 'outbox_manager.dart';
+import '../printing/print_intent.dart';
 
 class OfflineSaleResult {
   final String localSaleId;
@@ -285,6 +286,10 @@ class OfflineSaleService {
         'sync_status': 'pending',
         'operation_id': operationId
       });
+      final savedSale = (await txn.query('offline_sales',
+              where: 'local_sale_id = ?', whereArgs: [localSaleId]))
+          .single;
+      await PrintIntent.automatic(txn, storeId, savedSale);
       await outboxManager.enqueueOperation(
           executor: txn,
           customOperationId: operationId,
@@ -301,6 +306,8 @@ class OfflineSaleService {
             'payment': {
               'type': paymentType,
               'note': paymentNote,
+              if (paymentType == 'cash' && receivedCash != null)
+                'received_cash': receivedCash.toStringAsFixed(2),
               'cash': (cashAmount ??
                       (paymentType == 'cash' || paymentType == 'partial'
                           ? paidAmount

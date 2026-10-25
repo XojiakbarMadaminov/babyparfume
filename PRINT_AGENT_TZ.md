@@ -87,10 +87,10 @@ flowchart LR
 Tavsiya: C# / .NET 10 LTS, Windows tray ilovasi, o‘rnatilgan .NET talab qilmaydigan `win-x64` self-contained tarqatma. .NET 10 LTS holati [Microsoft rasmiy qo‘llab-quvvatlash siyosatida](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core) ko‘rsatilgan.
 
 - Ishchi qismlar: API klient, lokal jurnal, hujjat tekshiruvchi, renderer, printer adapteri, tray/sozlamalar UI.
-- Lokal jurnal diskda tranzaksiyali saqlanadi; SQLite tavsiya etiladi. Agent tokeni Windows foydalanuvchisiga bog‘langan DPAPI bilan himoyalanadi.
+- Lokal jurnal diskda durable saqlanadi. V1 implementatsiya qarori: har job uchun atomic JSON fayl, write-through/flush va atomic replace; SQLite dependency qo‘shilmaydi. Agent tokeni Windows foydalanuvchisiga bog‘langan DPAPI bilan himoyalanadi.
 - V1da kirilgan Windows foydalanuvchisi nomidan ishlaydi. Kompyuter yoqilgan, lekin Windowsga login qilinmagan yoki kompyuter uxlayotgan bo‘lsa agent mavjud deb hisoblanmaydi.
 - Bitta Windows foydalanuvchisi uchun ikkinchi agent jarayoni bir vaqtda ishga tushmaydi.
-- Agent/installer manbasi uchun taklif etiladigan joy: `print_agent/`. Bu hujjatni tayyorlashda katalog yoki yangi dependency yaratilmaydi. Implement boshlanganda repo qoidalariga muvofiq joylashuv va dependencylar kelishiladi.
+- Agent/installer manbasi `print_agent/`da alohida .NET project. Foydalanuvchi implementatsiyani va Flutter preview uchun `printing` paketini qo‘shishni tasdiqlagan. .NET SDK developer uchun; ownerga self-contained EXE tarqatiladi.
 
 ## 6. Admin sozlamalari va yo‘naltirish
 
@@ -194,10 +194,10 @@ Do‘kon nomi, vaqt (`Asia/Tashkent` ko‘rinishi), kassir, chek identifikatorla
 
 V1 asosiy yo‘li: server tayyorlagan, hash bilan tekshiriladigan PDF hujjatni agentdagi renderer bilan printer o‘lchamida rasterlash va Windows drayveri orqali chop etish. Mavjud Blade/DomPDF imkoniyatlari qayta ishlatiladi; `.exe` brauzer yoki tashqi PDF viewerning `print` buyrug‘iga tayanmaydi.
 
-- PDF renderer kutubxonasi versiyasi va litsenziyasi implement boshida tanlanadi, repoda qayd qilinadi va dependency qo‘shish qoidasi bajariladi.
+- V1 renderer: Windowsning `Windows.Data.Pdf` API; alohida uchinchi tomon renderer paketi yo‘q. Agent targeti .NET 10 / Windows 11 build 22621+, x64. Flutter preview `printing: 5.13.4` bilan mavjud Flutter 3.24.5/Dart 3.5ga moslangan.
 - Modelga mos TSPL/ESC/POS adapterlarini shu interfeys ortida qo‘shish mumkin; ular generic driver usulini almashtirish sharti emas.
 - Adapter `validateProfile`, `render/preview`, `submit` va mavjud bo‘lsa `queryStatus` amallarini ajratadi. Flutter printer buyruq tilini bilmaydi.
-- Windows `StartDocPrinter` qaytargan job ID agent jurnalida saqlanadi; blocking printer chaqiruvlari UI threadida ishlamaydi.
+- Windows GDI `StartDoc` qaytargan job ID agent jurnalida saqlanadi; blocking printer chaqiruvlari UI threadida ishlamaydi.
 - Har qanday Xprinterda barcha imkoniyatlar borligi va’da qilinmaydi. Model/drayver/material bo‘yicha sinovdan o‘tgan imkoniyatlar matritsasi yuritiladi. Cutter, gap sensori va qog‘oz holati faqat apparat qo‘llasa ko‘rsatiladi.
 
 ## 9. Job holatlari, 10 daqiqa va takrorlanish
@@ -375,28 +375,32 @@ Apparat dalili alohida qayd qilinadi: modelning to‘liq nomi, ulanish, driver/f
 
 ## 14. Implementatsiya bosqichlari
 
-Barcha bandlar boshlanish holatida ochiq. Kod bo‘lmasdan yoki real dalilsiz bajarilgan deb belgilanmaydi.
+2026-10-25 holati. Quyidagi belgilar kod va avtomatik dalillarni ko‘rsatadi; apparat/owner kompyuteri/prod qabulini avtomatik testlar bilan bajarilgan deb hisoblamaymiz. O‘rnatish va diagnostika: [print_agent/README.md](print_agent/README.md).
 
 - [ ] P-01: Apparat/drayver/materialni aniqlash; agent katalogi, renderer va installer dependencylarini tasdiqlash; API/schema shartnomasi.
-- [ ] P-02: Backend migratsiya/model/policy, pairing, agent credentiali va inventar/heartbeat; faqat test DBda tekshiruv.
-- [ ] P-03: Filament profillar/routes/defaultlar, auto print, store permission va test hujjati UI.
+- [x] P-02: Backend migratsiya/model/ruxsat, pairing, agent credentiali va inventar/heartbeat; faqat alohida `test` DBda tekshirildi.
+- [x] P-03: Filament profillar/routes/defaultlar, auto print, store permission va test hujjati UI; Livewire testi o‘tdi.
 - [ ] P-04: Agent tray, ulash, lokal durable jurnal va generic Windows driver orqali demo chek/etiketka; dialogsiz chiqarish dalili.
-- [ ] P-05: Job API, PDF snapshot/preview, hash/idempotency, claim va status protokoli; 600 soniya qoidasi va noaniq natija ishlovi.
-- [ ] P-06: Flutter receipt va barcode/bulk UI, profil/nusxa tanlash, manual/auto print va lokal intent/retry.
-- [ ] P-07: Printer/agent uzilishi, parallel job, crash, restart, qisman batch, revocation va do‘konlar izolatsiyasi testlari.
+- [x] P-05: Job API, PDF snapshot/preview, hash/idempotency, claim va status protokoli; original `requested_at`dan 600 soniya, agentda server vaqti/monotonic clock bilan cheklash va noaniq natija ishlovi.
+- [x] P-06: Flutter receipt va barcode/bulk UI, profil/nusxa tanlash, manual/auto print va lokal intent/retry; light/dark kichik ekran testlari o‘tdi. iOS va fizik telefon qabul sinovi alohida qoladi.
+- [ ] P-07: Crash/restart/qisman batch/revocation va do‘kon izolatsiyasi avtomatik testlari o‘tdi; haqiqiy printer/elektr uzilishi va parallel fizik job qabul sinovi hali ochiq.
 - [ ] P-08: Aniq XP365 modeli va kamida bitta chek printerida fizik qabul; mavjud sale/debt/sync va web print regressiyasini tekshirish.
 - [ ] P-09: Installer, startup, diagnostika, versiyalash/update/rollback; demo/staging tekshiruvi va reviewga tayyor natija.
 - [ ] P-10: Tasdiqlangan release jarayoni orqali server/agent/Flutter tarqatish; bu TZni yaratishning o‘zi prodga deploy yoki prod sinov ruxsati emas.
 
 Yetkaziladigan natijalar: Laravel/Filament o‘zgarishlari va migratsiyalar, agent manbasi va installer, Flutter integratsiyasi, avtomatik testlar, apparat imkoniyatlari/qabul dalili, qisqa o‘rnatish va diagnostika yo‘riqnomasi. Implementatsiya davomida yangi vazifa topilsa tegishli scope/qabul bandiga kiritiladi.
 
+Avtomatik dalillar: Laravelda 56 test, Flutterda 156 test, agentda 9 test (Windows native renderer haqiqiy ikki sahifali 30×20 mm PDFni ochdi). Agent self-contained release va Android debug APK yig‘ildi. Published EXE barcode/chekni render qildi, kirill va bold shriftlar vizual tekshirildi; testlarda haqiqiy printer yoki prod baza ishlatilmadi. SQL migratsiya, feature flag va ruxsatlarni prodga chiqarish bajarilmadi. Installer imzolanmagan; owner sessiyasida install/startup/update/uninstall va XP365/cutter/sensor/barcode skan sinovi ochiq.
+
 ## 15. Manbalar
 
 - [Xprinter XP-365B rasmiy xususiyatlari](https://www.xprintertech.com/xp-365b-xp-365bm-3-inch-label-printer): chek/etiketka rejimlari, 203 DPI, 76 mm maksimal chop etish eni, TSPL/ESC-POS va variantlar. Bu faktlar foydalanuvchining kelajakda ulanadigan aniq qurilmasi hali tekshirilganini bildirmaydi.
 - [Xprinter rasmiy SDKlar](https://www.xprintertech.com/sdk.html): SDK model va buyruq tiliga mos tanlanadi.
 - [Microsoft StartDocPrinter](https://learn.microsoft.com/en-us/windows/win32/printdocs/startdocprinter): Windows spool job ID va chaqiruv xatti-harakati.
+- [Microsoft GDI StartDoc](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-startdocw): V1 adapteridagi Windows job ID va blocking chaqiruv.
+- [Microsoft Windows.Data.Pdf](https://learn.microsoft.com/en-us/uwp/api/windows.data.pdf.pdfdocument): V1dagi tizim PDF renderer API.
 - [Microsoft Print Spooler](https://learn.microsoft.com/en-us/windows/win32/printdocs/print-spooler): Windows chop etish navbati va driver bilan ishlash.
 - [Microsoft ProtectedData / DPAPI](https://learn.microsoft.com/dotnet/api/system.security.cryptography.protecteddata): Windowsdagi credentialni himoyalash.
 - [Microsoft .NET qo‘llab-quvvatlash siyosati](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core): .NET 10 LTS tanlovi.
 
-Rasmiy manbalar tekshirilgan sana: 2026-10-24. Dependency versiyalari va aniq apparat imkoniyatlari implement boshlanishida yana tekshiriladi.
+Rasmiy manbalar tekshirilgan sana: dastlab 2026-10-24; GDI StartDoc va Windows.Data.Pdf 2026-10-25 kuni qayta tekshirildi. Aniq apparat imkoniyatlari fizik qabulda tekshiriladi.
