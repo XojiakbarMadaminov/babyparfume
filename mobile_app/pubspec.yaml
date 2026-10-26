@@ -1,7 +1,7 @@
 name: babyparfume_mobile
 description: Oson POS Android va iOS mobil ilovasi.
 publish_to: none
-version: 0.1.4+6
+version: 0.1.5+7
 
 environment:
   sdk: '>=3.5.0 <4.0.0'

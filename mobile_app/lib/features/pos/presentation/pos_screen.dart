@@ -1114,12 +1114,9 @@ class _PosScreenState extends State<PosScreen> {
                                 product.imageUrl == null
                             ? Icon(Icons.inventory_2_outlined,
                                 color: _colors.muted)
-                            : Image.network(
-                                product.thumbnailUrl ?? product.imageUrl!,
-                                fit: BoxFit.contain,
-                                errorBuilder: (_, __, ___) => Icon(
-                                    Icons.inventory_2_outlined,
-                                    color: _colors.muted)))))),
+                            : ProductImage(
+                                url: product.thumbnailUrl ?? product.imageUrl,
+                                height: 58))))),
         const SizedBox(width: 12),
         Expanded(
             child:

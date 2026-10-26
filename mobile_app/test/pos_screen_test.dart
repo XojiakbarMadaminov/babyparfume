@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:babyparfume_mobile/core/storage/secure_storage.dart';
+import 'package:babyparfume_mobile/features/products/presentation/product_widgets.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -63,6 +66,8 @@ class CartDatabase implements Database {
 class PosProducts extends ProductsRepository {
   final delayedSearches = <String, Completer<List<LocalProduct>>>{};
   bool failSearch = false;
+  String? imageUrl;
+  String? thumbnailUrl;
   PosProducts() : super(outboxManager: OutboxManager());
 
   LocalProduct product(String id, String name,
@@ -86,7 +91,9 @@ class PosProducts extends ProductsRepository {
           sizeId: size,
           sizeName: sizeName,
           categoryId: category == null ? null : '1',
-          categoryName: category);
+          categoryName: category,
+          imageUrl: id == '11' ? imageUrl : null,
+          thumbnailUrl: id == '11' ? thumbnailUrl : null);
 
   @override
   Future<List<LocalProduct>> searchProducts(String storeId,
@@ -628,6 +635,38 @@ void main() {
     expect(find.text('Bahor atiri'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  for (final brightness in Brightness.values) {
+    for (final thumbnail in [null, '/photos/thumb.webp']) {
+      testWidgets(
+          'catalog resolves ${thumbnail == null ? 'photo' : 'thumbnail'} and opens full photo in ${brightness.name} mode',
+          (tester) async {
+        FlutterSecureStorage.setMockInitialValues({});
+        await SecureStorageService()
+            .setServerUrl('https://shop.test/api/flutter/v1');
+        products.imageUrl = '/photos/product.webp';
+        products.thumbnailUrl = thumbnail;
+        await pumpPage(tester, brightness: brightness);
+
+        final preview = tester.widget<ProductImage>(find.byType(ProductImage));
+        expect(preview.url, thumbnail ?? products.imageUrl);
+        final image = tester.widget<Image>(find.byType(Image));
+        expect((image.image as NetworkImage).url,
+            'https://shop.test${thumbnail ?? products.imageUrl}');
+
+        await tester.tap(find.byType(ProductImage));
+        await tester.pumpAndSettle();
+        final fullPhoto = find.descendant(
+            of: find.byType(Dialog), matching: find.byType(ProductImage));
+        expect(tester.widget<ProductImage>(fullPhoto).url, products.imageUrl);
+        final fullImage = tester.widget<Image>(
+            find.descendant(of: fullPhoto, matching: find.byType(Image)));
+        expect((fullImage.image as NetworkImage).url,
+            'https://shop.test/photos/product.webp');
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
 
   test('public catalog metadata survives drafts without persisting cost prices',
       () {
