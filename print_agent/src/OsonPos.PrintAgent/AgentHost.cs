@@ -140,7 +140,7 @@ public static class AgentInstallation
                 if (!string.Equals(Path.GetFullPath(source), Path.GetFullPath(InstalledExe), StringComparison.OrdinalIgnoreCase)) File.Copy(source, InstalledExe, true);
                 AutoStart(startup.Checked);
                 using var uninstall = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\OsonPOSPrintAgent");
-                uninstall.SetValue("DisplayName", "OsonPOS Print Agent"); uninstall.SetValue("DisplayVersion", "1.0.0");
+                uninstall.SetValue("DisplayName", "OsonPOS Print Agent"); uninstall.SetValue("DisplayVersion", AgentVersion.Current);
                 uninstall.SetValue("Publisher", "OsonPOS"); uninstall.SetValue("UninstallString", "\"" + InstalledExe + "\" --uninstall");
                 uninstall.SetValue("InstallLocation", InstallRoot);
                 var settings = AgentStorage.Load(); settings.AutoStart = startup.Checked; AgentStorage.Save(settings);

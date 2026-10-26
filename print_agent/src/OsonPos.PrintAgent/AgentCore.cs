@@ -12,6 +12,11 @@ public static class AgentJson
     public static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web) { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
 }
 
+public static class AgentVersion
+{
+    public static string Current => typeof(AgentVersion).Assembly.GetName().Version!.ToString(3);
+}
+
 public sealed class AgentSettings
 {
     public string ServerUrl { get; set; } = "";
@@ -159,8 +164,8 @@ public sealed class AgentApi : IAgentApi, IDisposable
         return doc.RootElement.GetProperty("data").Clone();
     }
 
-    public Task<JsonElement> Pair(string code, string name, CancellationToken ct) => Post("pair", new { code, name, version = "1.0.0" }, ct);
-    public Task<JsonElement> Heartbeat(object printers, CancellationToken ct) => Post("heartbeat", new { version = "1.0.0", printers }, ct);
+    public Task<JsonElement> Pair(string code, string name, CancellationToken ct) => Post("pair", new { code, name, version = AgentVersion.Current }, ct);
+    public Task<JsonElement> Heartbeat(object printers, CancellationToken ct) => Post("heartbeat", new { version = AgentVersion.Current, printers }, ct);
     public async Task<AgentJob?> Claim(CancellationToken ct)
     {
         long started = Environment.TickCount64;
@@ -293,7 +298,7 @@ public sealed class JobProcessor(IAgentApi api, AgentJournal journal, IPrintAdap
             entry.Stage = started || entry.Stage == "submitting" ? "unknown" : "failed_before_submission";
             journal.Save(entry);
             string code = started ? "submission_unknown" : error.Message.StartsWith("paper_size_unsupported") ? "paper_size_unsupported" : error.Message == "printer_not_found" ? "printer_not_found" : error.Message == "job_expired" ? "job_expired" : "render_failed";
-            string message = code == "paper_size_unsupported" ? "Windows drayveri qog‘oz o‘lchamini qabul qilmadi. Profil va drayverni tekshiring." : code == "printer_not_found" ? "Tanlangan printer topilmadi. Admin uni qayta biriktirsin." : code == "submission_unknown" ? "Qisman chiqish ehtimoli bor. Qayta chiqarishdan oldin printerni tekshiring." : "Printer va qog‘oz sozlamalarini tekshiring.";
+            string message = code == "paper_size_unsupported" ? error.Message.Replace("paper_size_unsupported:", "").Trim() : code == "printer_not_found" ? "Tanlangan printer topilmadi. Admin uni qayta biriktirsin." : code == "submission_unknown" ? "Qisman chiqish ehtimoli bor. Qayta chiqarishdan oldin printerni tekshiring." : "Printer va qog‘oz sozlamalarini tekshiring.";
             await Send(entry, entry.Stage, ct, code, message);
         }
     }

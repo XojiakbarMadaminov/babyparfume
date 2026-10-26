@@ -1,8 +1,10 @@
 using OsonPos.PrintAgent;
 using System.Security.Cryptography;
 using System.Text;
+using System.Drawing.Printing;
 
 int passed = 0;
+bool submittedDemo = false;
 void Assert(bool condition, string message) { if (!condition) throw new Exception(message); }
 async Task Check(string name, Func<Task> test) { await test(); passed++; Console.WriteLine("PASS " + name); }
 string root = Path.Combine(Path.GetTempPath(), "OsonPosAgentTests", Guid.NewGuid().ToString());
@@ -62,6 +64,59 @@ await Check("revoked permission quarantines an unacknowledged grant", async () =
     await new JobProcessor(api, new AgentJournal(journal.Root), printer).Recover(CancellationToken.None);
     Assert(printer.Count == 0, "permission denial printed"); Assert(new AgentJournal(journal.Root).ReadAll().Single().Stage == "unknown", "permission denial blocked journal recovery");
 });
+await Check("80 mm receipt uses the driver's declared 72 mm print area", async () =>
+{
+    var form = new PaperSize("80(72.1) x 297 mm", 283, 1169);
+    var selected = PrinterPaperLayout.ReceiptForm(80, form, [form]);
+    Assert(selected == form, "roll nominal width was not recognized");
+    var layout = PrinterPaperLayout.Create("receipt", 80, 160, form.Width * .254,
+        new(203, 203, 576, 2374, 576, 1279, 0, 0));
+    Assert(layout.Bounds.Width == 576 && layout.Bounds.Height <= 1279, "receipt is cropped");
+    Assert(layout.Scale < 1 && layout.Scale > .89, "wrong printable width scale");
+    await Task.CompletedTask;
+});
+await Check("a 58 mm roll is not accepted as an 80 mm receipt", async () =>
+{
+    var form = new PaperSize("58(48) x 3276 mm", 189, 12897);
+    Assert(PrinterPaperLayout.ReceiptForm(80, form, [form]) is null, "wrong roll was selected");
+    bool rejected = false;
+    try { PrinterPaperLayout.Create("receipt", 80, 160, 80, new(203, 203, 384, 2374, 384, 1279, 0, 0)); }
+    catch (InvalidDataException) { rejected = true; }
+    Assert(rejected, "wrong roll passed dimensions"); await Task.CompletedTask;
+});
+await Check("label dimensions stay strict and never use receipt scaling", async () =>
+{
+    bool rejected = false;
+    try { PrinterPaperLayout.Create("barcode", 80, 160, 80, new(203, 203, 576, 2374, 576, 1279, 0, 0)); }
+    catch (InvalidDataException) { rejected = true; }
+    Assert(rejected, "label size was silently changed");
+    var layout = PrinterPaperLayout.Create("barcode", 30, 20, 30, new(203, 203, 240, 160, 240, 160, 0, 0));
+    Assert(layout.Scale == 1 && layout.Bounds.Width == 240, "label was scaled"); await Task.CompletedTask;
+});
+await Check("an 82 mm roll with an 80 mm print area is not selected for an 80 mm roll", async () =>
+{
+    var form = new PaperSize("82(80) x 3276 mm", 315, 12897);
+    Assert(PrinterPaperLayout.ReceiptForm(80, form, [form]) is null, "printable width hid a different roll size");
+    await Task.CompletedTask;
+});
+await Check("a receipt driver that ignores custom length is rejected", async () =>
+{
+    bool rejected = false;
+    try { PrinterPaperLayout.Create("receipt", 80, 160, 80, new(203, 203, 640, 2374, 640, 2374, 0, 0)); }
+    catch (InvalidDataException) { rejected = true; }
+    Assert(rejected, "ignored receipt length was accepted"); await Task.CompletedTask;
+});
+if (args.Length == 2 && args[0] == "--printer")
+{
+    await Check("installed receipt driver accepts an 80 mm receipt without submission", async () =>
+    {
+        using var device = new PrintDevice(args[1], 80, 160, "receipt");
+        Assert(device.Layout.Bounds.Width <= device.Metrics.PrintableWidth, "receipt exceeds driver width");
+        Assert(device.Layout.Bounds.Height <= device.Metrics.PrintableHeight, "receipt exceeds driver length");
+        Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new { device.DriverPaperName, device.Metrics, device.Layout }, AgentJson.Options));
+        await Task.CompletedTask;
+    });
+}
 if (args.Length == 2 && args[0] == "--pdf")
 {
     await Check("Windows native PDF renderer reads real barcode document", async () =>
@@ -74,7 +129,21 @@ if (args.Length == 2 && args[0] == "--pdf")
         Console.WriteLine("Preview: " + Path.Combine(root, "barcode-preview.png"));
     });
 }
-Console.WriteLine(passed + " agent tests passed. No printer was used.");
+if (args.Length == 2 && args[0] == "--print-demo")
+{
+    await Check("one local diagnostic receipt reaches the selected Windows queue", async () =>
+    {
+        var printer = WindowsPrinters.List().Single(p => p.Name == args[1]);
+        var job = Job();
+        job.Profile = new() { PrinterName = printer.Name, LocalKey = printer.LocalKey, DocumentType = "receipt", WidthMm = 80 };
+        using var prepared = await new WindowsPdfPrinter(Path.Combine(root, "demo")).Prepare(job, DemoReceiptPdf.Create(), CancellationToken.None);
+        int id = prepared.Submit("OsonPOS TEST 1.0.1", 1, id => Console.WriteLine("Windows spool job: " + id),
+            () => { if (DateTimeOffset.UtcNow >= job.AutoSubmitUntil) throw new InvalidDataException("expired"); });
+        Assert(id > 0, "Windows did not accept the diagnostic job");
+        submittedDemo = true;
+    });
+}
+Console.WriteLine(passed + " agent tests passed. " + (submittedDemo ? "One explicit local demo was submitted; no server or database was used." : "No print job was submitted."));
 
 sealed class FakeApi : IAgentApi
 {

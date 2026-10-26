@@ -20,7 +20,7 @@ public sealed class MainForm : Form
     public MainForm(bool background)
     {
         this.background = background;
-        Text = "OsonPOS Print Agent"; Width = 560; Height = 740; MinimumSize = new Size(540, 580);
+        Text = "OsonPOS Print Agent " + AgentVersion.Current; Width = 560; Height = 740; MinimumSize = new Size(540, 580);
         StartPosition = FormStartPosition.CenterScreen;
         var panel = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding(20), AutoScroll = true };
         panel.Controls.Add(new Label { Text = "OsonPOS · chek va barcode", AutoSize = true, Font = new Font("Segoe UI", 15, FontStyle.Bold) });

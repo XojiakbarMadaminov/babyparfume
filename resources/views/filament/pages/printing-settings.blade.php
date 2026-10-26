@@ -12,6 +12,9 @@
             @if($pairingCode)<p class="font-mono text-xl">{{ $pairingCode }} <span class="text-sm">· 10 daqiqa amal qiladi</span></p>@endif
         </x-filament::section>
         <form wire:submit="save" class="space-y-6">
+            @if($disconnectedProfiles)
+                <p role="alert" class="text-sm text-gray-600 dark:text-gray-400">Quyidagi profillarning avvalgi printeri joriy kompyuterda mavjud emas: {{ implode(', ', $disconnectedProfiles) }}. Printerni qayta tanlab, sozlamalarni saqlang.</p>
+            @endif
             <x-filament::section heading="Printerdagi qog‘oz">
                 @forelse($printers as $printer)
                     <div class="flex flex-wrap items-center gap-3 py-2" wire:key="printer-{{ $printer['id'] }}">
@@ -29,7 +32,7 @@
                             <label class="flex flex-col gap-1">{{ $label }}<x-filament::input.wrapper><x-filament::input :type="$field==='name'?'text':'number'" step="any" wire:model="profiles.{{ $index }}.{{ $field }}" /></x-filament::input.wrapper></label>
                         @endforeach
                         <label class="flex flex-col gap-1">Hujjat turi<select wire:model="profiles.{{ $index }}.document_type" class="rounded-lg border-gray-300 bg-white text-gray-950 dark:border-gray-600 dark:bg-gray-900 dark:text-white"><option value="receipt">Chek</option><option value="barcode">Barcode</option></select></label>
-                        <label class="flex flex-col gap-1">Printer<select wire:model="profiles.{{ $index }}.printer_id" class="rounded-lg border-gray-300 bg-white text-gray-950 dark:border-gray-600 dark:bg-gray-900 dark:text-white"><option value="">Biriktirilmagan</option>@foreach($printers as $printer)<option value="{{ $printer['id'] }}">{{ $printer['name'] }}</option>@endforeach</select></label>
+                        <label class="flex flex-col gap-1">Printer<select wire:key="profile-printer-{{ $profile['id'] }}-{{ sha1(implode('|', array_column($printers, 'id'))) }}" wire:model="profiles.{{ $index }}.printer_id" class="rounded-lg border-gray-300 bg-white text-gray-950 dark:border-gray-600 dark:bg-gray-900 dark:text-white"><option value="" @selected(blank($profile['printer_id']))>Biriktirilmagan</option>@foreach($printers as $printer)<option value="{{ $printer['id'] }}" @selected($profile['printer_id'] === $printer['id'])>{{ $printer['name'] }}</option>@endforeach</select></label>
                         <label class="flex flex-col gap-1">Barcode formati<select wire:model="profiles.{{ $index }}.symbology" class="rounded-lg border-gray-300 bg-white text-gray-950 dark:border-gray-600 dark:bg-gray-900 dark:text-white"><option value="auto">Avtomatik</option><option value="EAN13">EAN13</option><option value="C128">Code128</option></select></label>
                     </div>
                     <div class="flex flex-wrap gap-5 py-4">@foreach(['active'=>'Faol','selectable'=>'Kassir tanlay oladi','is_default'=>'Standart','show_price'=>'Etiketkada narx'] as $field=>$label)<label class="flex items-center gap-2"><input type="checkbox" wire:model="profiles.{{ $index }}.{{ $field }}">{{ $label }}</label>@endforeach</div>

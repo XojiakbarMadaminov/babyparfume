@@ -9,6 +9,7 @@ use App\Models\PrintAgent;
 use Illuminate\Support\Str;
 use App\Models\PrintProfile;
 use App\Models\PrintPairingCode;
+use App\Models\PrintStoreSetting;
 
 class PrintAgentService
 {
@@ -49,9 +50,13 @@ class PrintAgentService
             Store::query()->whereKey($store->id)->lockForUpdate()->firstOrFail();
             $agent = PrintAgent::query()->where('store_id', $store->id)->lockForUpdate()->findOrFail($id);
             $agent->update(['revoked_at' => now(), 'active_store_id' => null]);
+            PrintProfile::query()->where('store_id', $store->id)
+                ->whereHas('printer', fn ($query) => $query->where('agent_id', $id))
+                ->increment('version', 1, ['printer_id' => null]);
+            PrintStoreSetting::query()->where('store_id', $store->id)->update(['auto_print_receipt' => false]);
             PrintJob::query()->where('agent_id', $id)->whereIn('status', ['claimed', 'rendering', 'submitting'])
                 ->update(['status' => 'unknown', 'error_code' => 'agent_revoked', 'message' => 'Eski kompyuterda chiqish holatini tekshiring.']);
-            PrintJob::query()->where('agent_id', $id)->where('status', 'queued')->update(['status' => 'cancelled', 'error_code' => 'agent_revoked']);
+            PrintJob::query()->where('agent_id', $id)->whereIn('status', ['queued', 'failed_before_submission'])->update(['status' => 'cancelled', 'error_code' => 'agent_revoked']);
         });
     }
 

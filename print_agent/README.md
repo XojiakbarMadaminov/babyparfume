@@ -9,7 +9,7 @@ Bu V1: har do‘konga bitta faol kompyuter, internet orqali ulanish. Kompyuter v
 - Windows 11 22H2 / build 22621 yoki yangiroq, x64.
 - Windowsga o‘rnatilgan mos chek/etiketka printer drayveri. Model nomi dasturga yozilmagan; admin Windows queue nomini ro‘yxatdan tanlaydi. Har bir model, drayver va materialda fizik tekshiruv zarur.
 - Agent: `.NET 10`, WinForms, `win-x64`, self-contained. Do‘kon owneriga .NET yoki SDK o‘rnatish kerak emas.
-- Installer: `print_agent/artifacts/OsonPOSPrintAgentSetup.exe`, versiya `1.0.0`. Bu fayl Gitga kiritilmaydi, release bilan alohida tarqatiladi. Authenticode imzosi hozircha yo‘q.
+- Installer: `print_agent/artifacts/OsonPOSPrintAgentSetup.exe`, versiya `1.0.1`. Bu fayl Gitga kiritilmaydi, release bilan alohida tarqatiladi. Authenticode imzosi hozircha yo‘q.
 - Renderer: Windowsning `Windows.Data.Pdf` API; alohida PDF dasturi yoki uchinchi tomon PDF renderer paketi talab qilinmaydi.
 - Flutter: rozilik bilan qo‘shilgan `printing: 5.13.4`, ilova ichidagi PDF preview uchun. Haqiqiy chop etish Windows agent orqali bajariladi.
 
@@ -57,6 +57,14 @@ APIlar: agent uchun `/api/print-agent/v1`, Flutter uchun mavjud `/api/flutter/v1
 9. **Test chiqarish** bilan demo hujjat yuboring. Bu savdo, mahsulot, qoldiq yoki qarz yozuvi yaratmaydi. Barcode skan bilan aynan o‘sha qiymatga qaytishini, boshidagi nollarni, matnni, orientatsiya va qog‘oz uzilishini tekshiring.
 
 Bitta qurilma chek va etiketka rejimlarini qo‘llasa ham, fizik qog‘oz va drayver rejimi o‘zgarishi kerak. Admin media belgisini ham moslashtiradi. Ikki alohida printer ishlatilsa, har biri o‘z profiliga biriktiriladi. Virtual PDF/XPS/OneNote printerlari avtomatik yo‘lga ruxsat etilmaydi.
+
+### 1.0.1: chek lentasi va bosiladigan en
+
+XP-80C kabi drayverlar 80 mm lentani `80(72.1)` shaklida qaytaradi: lenta 80 mm, bosiladigan joy taxminan 72 mm. Agent chek uchun drayverdagi shu nominal o‘lchamga mos formani oladi va barcha kontentni bosiladigan joyga mutanosib joylaydi. Admin profilidagi 80 mm nominal qiymat saqlanadi. Drayver qaytargan eski fizik balandlikdan tashqari haqiqiy bosiladigan balandlik ham tekshiriladi; e’tiborsiz qoldirilgan custom uzunlik qabul qilinmaydi. Barcode etiketkasida avtomatik kichraytirish qo‘llanmaydi va o‘lcham qat’iy tekshiriladi.
+
+`paper_size_unsupported`ning avvalgi XP-80C holati real drayverda qayta hosil qilindi. Tuzatilgan yo‘l 80×160 mm chekni tayyorladi, shuningdek lokal `OSONPOS TEST 1.0.1` demo Windows navbatiga bir marta yuborildi; server yoki biznes bazasiga murojaat qilinmadi. Windows navbatiga qabul fizik bosma/sifat isboti sifatida ko‘rsatilmaydi.
+
+Yangi agentni o‘rnatishda avval traydan **Chiqish**, so‘ng setupni ustiga o‘rnating. Pairing va jurnal saqlanadi. Muddati tugagan eski topshiriq o‘rniga admindan yangi **Test hujjati chiqarish** yuboring. Bu tuzatish uchun Flutter APK yoki Laravel migratsiyasini yangilash talab qilinmaydi.
 
 ## Flutterdagi ish tartibi
 
@@ -113,10 +121,16 @@ Agent testlari:
 
 ```powershell
 dotnet run --project print_agent/tests/OsonPos.PrintAgent.Tests
+# O‘rnatilgan drayver bilan tekshiruv, qog‘oz chiqarmaydi:
+dotnet run --project print_agent/tests/OsonPos.PrintAgent.Tests -- --printer XP-80C
+# Faqat ataylab tanlanganda bitta lokal demo chiqaradi, server/baza ishlatilmaydi:
+dotnet run --project print_agent/tests/OsonPos.PrintAgent.Tests -- --print-demo XP-80C
 # Lokal demo PDF bilan qo‘shimcha renderer testi:
 dotnet run --project print_agent/tests/OsonPos.PrintAgent.Tests -- --pdf C:/path/to/two-label-30x20.pdf
 # Published EXEni printerni ishlatmasdan tekshirish:
 ./print_agent/artifacts/app/OsonPOSPrintAgent.exe --check-pdf C:/path/to/demo.pdf C:/path/to/report.json
+# Published agentda drayver/o‘lcham diagnostikasi, qog‘oz chiqarmaydi:
+./print_agent/artifacts/app/OsonPOSPrintAgent.exe --check-printer XP-80C receipt 80 160 C:/path/to/printer.json
 ```
 
 PHP testlarida `DB_DATABASE=test`, `DB_HOST=127.0.0.1`, `DB_PORT=5432`, `DB_URL=''`ni alohida o‘rnating. `tests/Feature/PrintingApiTest.php`, `PrintingReceiptMetadataTest.php`, `FlutterSyncIntegrityTest.php`, `SaleDebtTest.php`ni ishlating. Flutter testini `--dart-define=API_BASE_URL=https://one.test/api/flutter/v1` bilan bajaring. Prod baza yoki prodga ulangan app test manbasi bo‘lmaydi.

@@ -78,7 +78,7 @@ public sealed class WindowsPdfPrinter(string cacheRoot) : IPrintAdapter
         double height = first.Size.Height * 25.4 / 96;
         if (Math.Abs(width - job.Profile.WidthMm) > .6 || (job.Profile.HeightMm is double h && Math.Abs(height - h) > .6))
             throw new InvalidDataException("PDF va profil o‘lchami mos emas.");
-        var device = new PrintDevice(job.Profile.PrinterName, width, height);
+        var device = new PrintDevice(job.Profile.PrinterName, width, height, job.Profile.DocumentType);
         try
         {
             var pages = new List<string>();
@@ -90,8 +90,8 @@ public sealed class WindowsPdfPrinter(string cacheRoot) : IPrintAdapter
                 using var page = document.GetPage(i);
                 if (Math.Abs(page.Size.Width * 25.4 / 96 - width) > .6 || Math.Abs(page.Size.Height * 25.4 / 96 - height) > .6)
                     throw new InvalidDataException("PDF sahifalari o‘lchami turlicha.");
-                uint w = (uint)Math.Ceiling(page.Size.Width * dpi / 96);
-                uint hPx = (uint)Math.Ceiling(page.Size.Height * dpi / 96);
+                uint w = (uint)Math.Ceiling(page.Size.Width * dpi / 96 * device.Layout.Scale);
+                uint hPx = (uint)Math.Ceiling(page.Size.Height * dpi / 96 * device.Layout.Scale);
                 if ((long)w * hPx > 40_000_000) throw new InvalidDataException("Render o‘lchami juda katta.");
                 using var memory = new InMemoryRandomAccessStream();
                 await page.RenderToStreamAsync(memory, new PdfPageRenderOptions { DestinationWidth = w, DestinationHeight = hPx, BackgroundColor = Windows.UI.Color.FromArgb(255, 255, 255, 255) });
@@ -138,25 +138,28 @@ public sealed class PrintDevice : IDisposable
 {
     private IntPtr dc;
     public int DpiX => GetDeviceCaps(dc, 88);
-    private readonly double widthMm;
-    private readonly double heightMm;
-    public PrintDevice(string name, double width, double height)
+    public PrinterPageMetrics Metrics { get; }
+    public PrinterPaperLayout Layout { get; }
+    public string DriverPaperName { get; }
+    public PrintDevice(string name, double width, double height, string documentType = "barcode")
     {
-        widthMm = width; heightMm = height;
         var printer = new PrinterSettings { PrinterName = name };
         if (!printer.IsValid) throw new InvalidDataException("Printer drayveri topilmadi.");
-        var page = new PageSettings(printer) { PaperSize = new PaperSize("OsonPOS", (int)Math.Round(width * 100 / 25.4), (int)Math.Round(height * 100 / 25.4)), Margins = new Margins(0, 0, 0, 0) };
+        var form = documentType == "receipt" ? PrinterPaperLayout.ReceiptForm(width, printer.DefaultPageSettings.PaperSize, printer.PaperSizes.Cast<PaperSize>()) : null;
+        double driverWidth = form?.Width * .254 ?? width;
+        DriverPaperName = form?.PaperName ?? "OsonPOS custom";
+        var page = new PageSettings(printer) { Landscape = false, PaperSize = new PaperSize("OsonPOS", (int)Math.Round(driverWidth * 100 / 25.4), (int)Math.Round(height * 100 / 25.4)), Margins = new Margins(0, 0, 0, 0) };
         IntPtr mode = printer.GetHdevmode(page);
         try { var pointer = GlobalLock(mode); if (pointer == IntPtr.Zero) throw new Win32Exception(); try { dc = CreateDC("WINSPOOL", name, null, pointer); } finally { GlobalUnlock(mode); } }
         finally { GlobalFree(mode); }
         if (dc == IntPtr.Zero) throw new Win32Exception();
-        double actual = GetDeviceCaps(dc, 110) * 25.4 / GetDeviceCaps(dc, 88);
-        double actualHeight = GetDeviceCaps(dc, 111) * 25.4 / GetDeviceCaps(dc, 90);
-        if (Math.Abs(actual - width) > 2 || Math.Abs(actualHeight - height) > 3)
+        try
         {
-            Dispose();
-            throw new InvalidDataException("paper_size_unsupported: Windows drayverida qog‘oz o‘lchamini tekshiring.");
+            Metrics = new(GetDeviceCaps(dc, 88), GetDeviceCaps(dc, 90), GetDeviceCaps(dc, 110), GetDeviceCaps(dc, 111),
+                GetDeviceCaps(dc, 8), GetDeviceCaps(dc, 10), GetDeviceCaps(dc, 112), GetDeviceCaps(dc, 113));
+            Layout = PrinterPaperLayout.Create(documentType, width, height, driverWidth, Metrics);
         }
+        catch { Dispose(); throw; }
     }
     public int Start(string title)
     {
@@ -173,8 +176,8 @@ public sealed class PrintDevice : IDisposable
         {
             graphics.PageUnit = GraphicsUnit.Pixel;
             graphics.Clear(Color.White);
-            graphics.DrawImage(image, new Rectangle(-GetDeviceCaps(dc, 112), -GetDeviceCaps(dc, 113),
-                (int)Math.Round(widthMm * GetDeviceCaps(dc, 88) / 25.4), (int)Math.Round(heightMm * GetDeviceCaps(dc, 90) / 25.4)));
+            graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+            graphics.DrawImage(image, Layout.Bounds);
         }
         if (EndPage(dc) <= 0) throw new Win32Exception();
     }

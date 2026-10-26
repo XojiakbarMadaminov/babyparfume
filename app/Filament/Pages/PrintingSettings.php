@@ -28,6 +28,7 @@ class PrintingSettings extends Page
     public array $profiles                                   = [];
     public array $printers                                   = [];
     public array $media                                      = [];
+    public array $disconnectedProfiles                       = [];
     public bool $autoReceipt                                 = false;
     public ?string $pairingCode                              = null;
 
@@ -64,14 +65,24 @@ class PrintingSettings extends Page
 
     public function reload(): void
     {
-        $store          = $this->store();
-        $this->profiles = PrintProfile::query()->where('store_id', $store->id)->orderBy('created_at')->get()->map(fn ($p) => [
-            'id'             => $p->id, 'name' => $p->name, 'document_type' => $p->document_type, 'width_mm' => $p->width_mm, 'height_mm' => $p->height_mm,
-            'printer_id'     => $p->printer_id, 'active' => $p->active, 'selectable' => $p->selectable, 'is_default' => $p->is_default,
-            'default_copies' => $p->default_copies, 'max_copies' => $p->max_copies, 'margin_mm' => $p->layout['margin_mm'] ?? 1,
-            'show_price'     => $p->layout['show_price'] ?? false, 'symbology' => $p->layout['symbology'] ?? 'auto'])->all();
-        $agent             = PrintAgent::query()->where('active_store_id', $store->id)->first();
-        $this->printers    = $agent?->printers()->get()->map(fn ($p) => ['id' => $p->id, 'name' => $p->name, 'available' => $p->available])->all() ?? [];
+        $store                      = $this->store();
+        $agent                      = PrintAgent::query()->where('active_store_id', $store->id)->first();
+        $this->printers             = $agent?->printers()->orderBy('name')->get()->map(fn ($p) => ['id' => $p->id, 'name' => $p->name, 'available' => $p->available])->all() ?? [];
+        $printerIds                 = array_column($this->printers, 'id');
+        $this->disconnectedProfiles = [];
+        $this->profiles             = PrintProfile::query()->where('store_id', $store->id)->orderBy('created_at')->orderBy('id')->get()->map(function (PrintProfile $p) use ($printerIds): array {
+            $printerId = $p->printer_id;
+            if ($printerId && !in_array($printerId, $printerIds, true)) {
+                $this->disconnectedProfiles[] = $p->name;
+                $printerId                    = null;
+            }
+
+            return [
+                'id'             => $p->id, 'name' => $p->name, 'document_type' => $p->document_type, 'width_mm' => $p->width_mm, 'height_mm' => $p->height_mm,
+                'printer_id'     => $printerId, 'active' => $p->active, 'selectable' => $p->selectable, 'is_default' => $p->is_default,
+                'default_copies' => $p->default_copies, 'max_copies' => $p->max_copies, 'margin_mm' => $p->layout['margin_mm'] ?? 1,
+                'show_price'     => $p->layout['show_price'] ?? false, 'symbology' => $p->layout['symbology'] ?? 'auto'];
+        })->all();
         $this->media       = $agent?->printers()->pluck('loaded_media', 'id')->all() ?? [];
         $this->autoReceipt = (bool) PrintStoreSetting::query()->where('store_id', $store->id)->value('auto_print_receipt');
     }
@@ -100,7 +111,7 @@ class PrintingSettings extends Page
             Store::query()->whereKey($store->id)->lockForUpdate()->firstOrFail();
             $agent    = PrintAgent::query()->where('active_store_id', $store->id)->first();
             $defaults = [];
-            foreach ($data['profiles'] as $row) {
+            foreach ($data['profiles'] as $index => $row) {
                 if ($row['document_type'] === 'barcode' && empty($row['height_mm'])) {
                     throw ValidationException::withMessages(['profiles' => 'Etiketka balandligini kiriting.']);
                 }
@@ -114,7 +125,9 @@ class PrintingSettings extends Page
                     $defaults[$row['document_type']] = $row;
                 }
                 if ($row['printer_id']) {
-                    abort_unless($agent?->printers()->whereKey($row['printer_id'])->exists(), 422, 'Printer shu kompyuterga tegishli emas.');
+                    if (!$agent?->printers()->whereKey($row['printer_id'])->exists()) {
+                        throw ValidationException::withMessages(["profiles.{$index}.printer_id" => $row['name'] . ': avvalgi printer joriy kompyuterga tegishli emas. Printerni qayta tanlab saqlang.']);
+                    }
                 }
                 $profile = PrintProfile::query()->find($row['id']);
                 abort_if($profile && $profile->store_id !== $store->id, 403);
@@ -132,7 +145,9 @@ class PrintingSettings extends Page
             }
             foreach ($data['media'] as $id => $kind) {
                 $printer = $agent?->printers()->find($id);
-                abort_unless($printer, 422);
+                if (!$printer) {
+                    throw ValidationException::withMessages(['media' => 'Printerlar ro‘yxati o‘zgargan. “Yangilash”ni bosib, printerlarni qayta tanlang.']);
+                }
                 $printer->update(['loaded_media' => $kind]);
             }
             PrintStoreSetting::query()->updateOrCreate(['store_id' => $store->id], ['auto_print_receipt' => $this->autoReceipt]);

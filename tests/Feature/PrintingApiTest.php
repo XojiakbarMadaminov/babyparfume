@@ -188,7 +188,9 @@ it('renders the admin printing page and validates route ownership', function ():
     $this->actingAs($this->user);
     Filament\Facades\Filament::setCurrentPanel(Filament\Facades\Filament::getPanel('admin'));
     Livewire\Livewire::test(App\Filament\Pages\PrintingSettings::class)
-        ->assertSee('Chop etish sozlamalari')->assertSee('XP365')->call('save')->assertHasNoErrors();
+        ->assertSee('Chop etish sozlamalari')->assertSee('XP365')
+        ->assertSeeHtml('value="' . $this->printer->id . '" selected')
+        ->call('save')->assertHasNoErrors();
     expect($this->profile->fresh()->store_id)->toBe($this->store->id);
 });
 
@@ -199,6 +201,52 @@ it('creates admin test documents without creating a sale or product', function (
     $this->assertDatabaseCount('sales', 0);
     $this->assertDatabaseCount('products', 1);
     $this->assertDatabaseCount('print_jobs', 1);
+});
+
+it('shows stale printer bindings as unbound and validates them before saving', function (): void {
+    $oldAgent   = PrintAgent::factory()->create(['store_id' => $this->store->id, 'active_store_id' => null, 'revoked_at' => now()]);
+    $oldPrinter = $oldAgent->printers()->create(['local_key' => hash('sha256', 'old printer'), 'name' => 'Old XP365']);
+    $this->profile->update(['printer_id' => $oldPrinter->id]);
+    $this->actingAs($this->user);
+    Filament\Facades\Filament::setCurrentPanel(Filament\Facades\Filament::getPanel('admin'));
+
+    $page = Livewire\Livewire::test(App\Filament\Pages\PrintingSettings::class)
+        ->assertSet('profiles.0.printer_id', null)
+        ->assertSee('avvalgi printeri joriy kompyuterda mavjud emas')
+        ->set('profiles.0.printer_id', $oldPrinter->id)
+        ->call('save')
+        ->assertHasErrors(['profiles.0.printer_id']);
+    expect($this->profile->fresh()->printer_id)->toBe($oldPrinter->id);
+
+    $page->set('profiles.0.printer_id', $this->printer->id)->call('save')->assertHasNoErrors()
+        ->assertSet('disconnectedProfiles', []);
+    expect($this->profile->fresh()->printer_id)->toBe($this->printer->id);
+});
+
+it('returns validation errors for stale media controls and rolls back profile changes', function (): void {
+    $this->actingAs($this->user);
+    Filament\Facades\Filament::setCurrentPanel(Filament\Facades\Filament::getPanel('admin'));
+
+    Livewire\Livewire::test(App\Filament\Pages\PrintingSettings::class)
+        ->set('profiles.0.name', 'Must be rolled back')
+        ->set('media.' . Str::uuid(), 'receipt')
+        ->call('save')->assertHasErrors(['media']);
+    expect($this->profile->fresh()->name)->toBe('30×20');
+});
+
+it('detaches revoked computer printers and disables automatic receipts without affecting other stores', function (): void {
+    PrintStoreSetting::query()->create(['store_id' => $this->store->id, 'auto_print_receipt' => true]);
+    PrintStoreSetting::query()->create(['store_id' => $this->other->id, 'auto_print_receipt' => true]);
+    [$id] = makePrintingJob($this);
+    PrintJob::query()->findOrFail($id)->update(['status' => 'failed_before_submission']);
+
+    app(PrintAgentService::class)->revoke($this->user, $this->store, $this->agent->id);
+
+    expect($this->profile->fresh()->printer_id)->toBeNull()
+        ->and($this->profile->fresh()->version)->toBe(2)
+        ->and(PrintStoreSetting::query()->find($this->store->id)->auto_print_receipt)->toBeFalse()
+        ->and(PrintStoreSetting::query()->find($this->other->id)->auto_print_receipt)->toBeTrue()
+        ->and(PrintJob::query()->findOrFail($id)->status)->toBe('cancelled');
 });
 
 it('prunes completed PDF files but preserves unknown print outcomes', function (): void {

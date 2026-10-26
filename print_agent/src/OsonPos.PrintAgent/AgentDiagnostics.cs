@@ -7,6 +7,24 @@ namespace OsonPos.PrintAgent;
 
 public static class AgentDiagnostics
 {
+    public static void CheckPrinter(string name, string type, double width, double height, string report)
+    {
+        using var device = new PrintDevice(name, width, height, type);
+        AgentJournal.AtomicWrite(Path.GetFullPath(report), JsonSerializer.Serialize(new
+        {
+            version = AgentVersion.Current,
+            printer = name,
+            document_type = type,
+            requested_width_mm = width,
+            requested_height_mm = height,
+            driver_form = device.DriverPaperName,
+            metrics = device.Metrics,
+            receipt_scale = device.Layout.Scale,
+            output_bounds = device.Layout.Bounds,
+            submitted_to_printer = false
+        }, AgentJson.Options));
+    }
+
     public static async Task CheckPdf(string path, string report)
     {
         var file = await StorageFile.GetFileFromPathAsync(Path.GetFullPath(path));
