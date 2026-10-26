@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/utils/currency_format.dart';
+import '../../printing/presentation/print_dialog.dart';
 
 class ReceiptsScreen extends StatefulWidget {
   final String storeId;
-  const ReceiptsScreen({super.key, required this.storeId});
+  final bool canPrint;
+  const ReceiptsScreen(
+      {super.key, required this.storeId, this.canPrint = false});
   @override
   State<ReceiptsScreen> createState() => _ReceiptsScreenState();
 }
@@ -74,6 +77,18 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
                 title: const Text('Saqlangan chek'),
                 content: SingleChildScrollView(child: SelectableText(text)),
                 actions: [
+                  if (widget.canPrint)
+                    TextButton(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          showDialog<void>(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (_) => PrintDialog(
+                                  storeId: widget.storeId,
+                                  receiptId: sale['local_sale_id'].toString()));
+                        },
+                        child: const Text('Chop etish')),
                   TextButton(
                       onPressed: () => Navigator.pop(ctx),
                       child: const Text('Yopish')),
@@ -91,7 +106,17 @@ class _ReceiptsScreenState extends State<ReceiptsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Saqlangan cheklar')),
+        appBar: AppBar(title: const Text('Saqlangan cheklar'), actions: [
+          if (widget.canPrint)
+            IconButton(
+                tooltip: 'Chop etish tarixi',
+                icon: const Icon(Icons.history),
+                onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            PrintHistoryScreen(storeId: widget.storeId)))),
+        ]),
         body: _sales == null
             ? const Center(child: CircularProgressIndicator())
             : _sales!.isEmpty

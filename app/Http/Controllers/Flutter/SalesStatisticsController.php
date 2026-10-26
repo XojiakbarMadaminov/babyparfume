@@ -35,11 +35,13 @@ class SalesStatisticsController extends Controller
                 'currency'        => 'UZS',
                 'trend'           => $report['trend'] ?? [],
                 'payments'        => collect($report['payments'] ?? [])->map(fn ($p): array => [
-                    'key'    => (string) ($p['key'] ?? ''),
-                    'name'   => (string) ($p['label'] ?? ''),
-                    'amount' => (string) (int) ($p['amount'] ?? 0),
+                    'key'     => (string) ($p['key'] ?? ''),
+                    'name'    => (string) ($p['label'] ?? ''),
+                    'amount'  => (string) (int) ($p['amount'] ?? 0),
+                    'percent' => (float) ($p['percent'] ?? 0),
                 ])->all(),
                 'top_products' => collect($report['topProducts'] ?? [])->map(fn ($tp): array => [
+                    'id'       => isset($tp['id']) ? (string) $tp['id'] : null,
                     'name'     => (string) ($tp['name'] ?? ''),
                     'quantity' => (int) ($tp['quantity'] ?? 0),
                     'amount'   => (string) (int) ($tp['amount'] ?? 0),

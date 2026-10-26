@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../database/app_database.dart';
 import 'outbox_manager.dart';
+import '../printing/print_intent.dart';
 
 class OfflineSaleResult {
   final String localSaleId;
@@ -129,8 +130,14 @@ class OfflineSaleService {
         }
         if (remainingAmount > 0 && paymentType != 'preorder') {
           final existing = await txn.query('debtors',
-              where: 'client_id = ? AND store_id = ?',
-              whereArgs: [serverId ?? customerId, storeId]);
+              where:
+                  'client_id IN (?, ?) AND store_id = ? AND UPPER(currency) = ?',
+              whereArgs: [serverId ?? customerId, customerId, storeId, 'UZS'],
+              orderBy: 'CASE WHEN amount > 0 THEN 0 WHEN EXISTS '
+                  '(SELECT 1 FROM debtor_transactions WHERE debtor_id = debtors.id '
+                  "AND sync_status != 'synced') THEN 1 ELSE 2 END, "
+                  'CAST(COALESCE(server_id, id) AS INTEGER), id',
+              limit: 1);
           if (existing.isNotEmpty) {
             localDebtorId = existing.first['id'] as String;
           } else {
@@ -279,6 +286,10 @@ class OfflineSaleService {
         'sync_status': 'pending',
         'operation_id': operationId
       });
+      final savedSale = (await txn.query('offline_sales',
+              where: 'local_sale_id = ?', whereArgs: [localSaleId]))
+          .single;
+      await PrintIntent.automatic(txn, storeId, savedSale);
       await outboxManager.enqueueOperation(
           executor: txn,
           customOperationId: operationId,
@@ -295,6 +306,8 @@ class OfflineSaleService {
             'payment': {
               'type': paymentType,
               'note': paymentNote,
+              if (paymentType == 'cash' && receivedCash != null)
+                'received_cash': receivedCash.toStringAsFixed(2),
               'cash': (cashAmount ??
                       (paymentType == 'cash' || paymentType == 'partial'
                           ? paidAmount

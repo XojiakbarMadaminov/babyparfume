@@ -82,9 +82,9 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
         ),
         child: Container(
           padding: const EdgeInsets.all(24),
-          decoration: const BoxDecoration(
-            color: AppColors.lightCard,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          decoration: BoxDecoration(
+            color: AppColors.of(context).card,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -146,8 +146,9 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
 
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      isPayment ? AppColors.success : AppColors.primaryButton,
+                  backgroundColor: isPayment
+                      ? AppColors.of(context).success
+                      : AppColors.of(context).button,
                 ),
                 onPressed: () async {
                   if (_transactionSaving) return;
@@ -188,7 +189,6 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
                         content: Text(isPayment
                             ? "To'lov qayd etildi!"
                             : "Qarz qo'shildi!"),
-                        backgroundColor: AppColors.success,
                       ),
                     );
                   }
@@ -231,7 +231,7 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
           _currentDebtor.fullName,
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
-        backgroundColor: AppColors.lightCard,
+        backgroundColor: AppColors.of(context).card,
         elevation: 0,
         actions: [
           if (_currentDebtor.canUpdate)
@@ -255,7 +255,7 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
             const Padding(
                 padding: EdgeInsets.all(8), child: Text('Foto yuklanmagan')),
           if (_currentDebtor.canUpdate)
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Wrap(alignment: WrapAlignment.center, spacing: 8, children: [
               TextButton.icon(
                   onPressed: _photoSaving ? null : () => _changePhoto(false),
                   icon: const Icon(Icons.photo),
@@ -271,15 +271,17 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
             margin: const EdgeInsets.all(16),
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppColors.lightTint,
+              color: AppColors.of(context).tint,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.lightAccent.withOpacity(0.2)),
+              border: Border.all(
+                  color: AppColors.of(context).accent.withOpacity(0.2)),
             ),
             child: Column(
               children: [
-                const Text(
+                Text(
                   "Hozirgi qarz balansi",
-                  style: TextStyle(color: AppColors.lightMuted, fontSize: 13),
+                  style: TextStyle(
+                      color: AppColors.of(context).muted, fontSize: 13),
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -291,8 +293,8 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
                     color: _currentDebtor.amount > 0
-                        ? AppColors.lightDanger
-                        : AppColors.success,
+                        ? AppColors.of(context).danger
+                        : AppColors.of(context).success,
                   ),
                 ),
                 if (_transactions.any((t) => t.syncStatus != 'synced'))
@@ -303,10 +305,10 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
                   const SizedBox(height: 8),
                   Text(
                     PhoneFormat.format(_currentDebtor.phone),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.lightText,
+                      color: AppColors.of(context).text,
                     ),
                   ),
                 ],
@@ -322,7 +324,7 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
                 Expanded(
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.success),
+                        backgroundColor: AppColors.of(context).success),
                     icon: const Icon(Icons.payment),
                     label: const Text("To'lov olish"),
                     onPressed: _currentDebtor.canUpdate
@@ -334,7 +336,7 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
                 Expanded(
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryButton),
+                        backgroundColor: AppColors.of(context).button),
                     icon: const Icon(Icons.add),
                     label: const Text("Qarz qo'shish"),
                     onPressed: _currentDebtor.canUpdate
@@ -364,11 +366,11 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _transactions.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Text(
                           "Hozircha operatsiyalar yo'q",
                           style: TextStyle(
-                              color: AppColors.lightMuted, fontSize: 14),
+                              color: AppColors.of(context).muted, fontSize: 14),
                         ),
                       )
                     : ListView.separated(
@@ -382,9 +384,10 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
                           return Container(
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: AppColors.lightCard,
+                              color: AppColors.of(context).card,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.lightLine),
+                              border:
+                                  Border.all(color: AppColors.of(context).line),
                             ),
                             child: Row(
                               children: [
@@ -393,8 +396,10 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
                                   height: 38,
                                   decoration: BoxDecoration(
                                     color: isPayment
-                                        ? AppColors.successBg
-                                        : AppColors.lightDangerBg,
+                                        ? AppColors.of(context)
+                                            .successBackground
+                                        : AppColors.of(context)
+                                            .dangerBackground,
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Icon(
@@ -403,8 +408,8 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
                                         : Icons.arrow_upward,
                                     size: 18,
                                     color: isPayment
-                                        ? AppColors.success
-                                        : AppColors.lightDanger,
+                                        ? AppColors.of(context).success
+                                        : AppColors.of(context).danger,
                                   ),
                                 ),
                                 const SizedBox(width: 12),
@@ -422,8 +427,8 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
                                       const SizedBox(height: 2),
                                       Text(
                                         AppDateFormat.fromIsoString(txn.date),
-                                        style: const TextStyle(
-                                            color: AppColors.lightMuted,
+                                        style: TextStyle(
+                                            color: AppColors.of(context).muted,
                                             fontSize: 11),
                                       ),
                                       if (txn.note != null &&
@@ -431,8 +436,9 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
                                         const SizedBox(height: 2),
                                         Text(
                                           txn.note!,
-                                          style: const TextStyle(
-                                              color: AppColors.lightMuted,
+                                          style: TextStyle(
+                                              color:
+                                                  AppColors.of(context).muted,
                                               fontSize: 12),
                                         ),
                                       ],
@@ -453,8 +459,8 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
                                         fontWeight: FontWeight.w700,
                                         fontSize: 14,
                                         color: isPayment
-                                            ? AppColors.success
-                                            : AppColors.lightDanger,
+                                            ? AppColors.of(context).success
+                                            : AppColors.of(context).danger,
                                       ),
                                     ),
                                     if (txn.syncStatus != 'synced')
@@ -467,9 +473,10 @@ class _DebtorDetailScreenState extends State<DebtorDetailScreen> {
                                               'rejected': 'Server rad etgan'
                                             }[txn.syncStatus] ??
                                             'Tasdiqlanmagan',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                             fontSize: 10,
-                                            color: AppColors.warning),
+                                            color:
+                                                AppColors.of(context).warning),
                                       ),
                                     IconButton(
                                         icon: const Icon(Icons.receipt_long,

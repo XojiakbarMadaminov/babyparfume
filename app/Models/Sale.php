@@ -19,12 +19,13 @@ class Sale extends Model
     protected $guarded = [];
 
     protected $casts = [
-        'total_amount'      => 'float',
-        'paid_amount'       => 'float',
-        'remaining_amount'  => 'float',
-        'mixed_cash_amount' => 'float',
-        'mixed_card_amount' => 'float',
-        'status'            => 'string',
+        'total_amount'         => 'float',
+        'paid_amount'          => 'float',
+        'remaining_amount'     => 'float',
+        'mixed_cash_amount'    => 'float',
+        'mixed_card_amount'    => 'float',
+        'status'               => 'string',
+        'flutter_receipt_meta' => 'array',
     ];
 
     public function items(): HasMany

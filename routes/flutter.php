@@ -34,12 +34,26 @@ Route::middleware([AuthenticateFlutterDevice::class, 'throttle:flutter-api'])->g
         Route::get('clients', [App\Http\Controllers\Flutter\ClientController::class, 'index'])->name('clients.index');
 
         // Products
+        Route::middleware(App\Http\Middleware\EnsurePrintingEnabled::class)->group(function (): void {
+            $controller = App\Http\Controllers\Flutter\PrintingController::class;
+            Route::get('printing/options', [$controller, 'options'])->name('printing.options');
+            Route::post('printing/preview', [$controller, 'preview'])->name('printing.preview');
+            Route::get('printing/documents/{documentId}', [$controller, 'document'])->whereUuid('documentId')->name('printing.document');
+            Route::get('print-jobs', [$controller, 'index'])->name('printing.jobs');
+            Route::post('print-jobs', [$controller, 'create'])->name('printing.create');
+            Route::get('print-jobs/by-client/{clientId}', [$controller, 'byClient'])->whereUuid('clientId')->name('printing.by-client');
+            Route::get('print-jobs/{jobId}', [$controller, 'show'])->whereUuid('jobId')->name('printing.show');
+            Route::post('print-jobs/{jobId}/cancel', [$controller, 'cancel'])->whereUuid('jobId')->name('printing.cancel');
+            Route::post('print-jobs/{jobId}/reprint', [$controller, 'reprint'])->whereUuid('jobId')->name('printing.reprint');
+        });
+
         Route::get('products', [ProductController::class, 'index'])->name('products.index');
         Route::post('products', [ProductController::class, 'store'])->name('products.store');
         Route::get('products/create-options', [ProductController::class, 'createOptions'])->name('products.create-options');
         Route::get('products/barcode', [ProductController::class, 'generateBarcode'])->name('products.barcode');
         Route::get('products/lookup', [ProductController::class, 'lookup'])->name('products.lookup');
         Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
+        Route::post('products/{product}/stock-in', [ProductController::class, 'receiveStock'])->name('products.stock-in');
         Route::match(['post', 'patch'], 'products/{product}', [ProductController::class, 'update'])->name('products.update');
         Route::delete('products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
 

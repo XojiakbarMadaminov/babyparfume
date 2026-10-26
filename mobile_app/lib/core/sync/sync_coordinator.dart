@@ -9,6 +9,7 @@ import '../database/local_cache.dart';
 import '../lease/lease_manager.dart';
 import 'outbox_manager.dart';
 import 'sync_models.dart';
+import '../../features/printing/data/printing_repository.dart';
 
 class _BootstrapIntegrityException implements Exception {
   final String message;
@@ -372,6 +373,18 @@ class SyncCoordinator {
         throw StateError('Akkaunt mos emas.');
       }
       await apiClient.storage.setSession(session);
+      final printing = session['printing'] as Map?;
+      if (printing?['receipts'] == true) {
+        try {
+          await PrintingRepository(apiClient: apiClient, getDb: _getDb)
+              .options(storeId);
+        } catch (_) {
+          // Printing settings are optional for the sale synchronization.
+        }
+      } else {
+        await (await _getDb()).delete('sync_state',
+            where: 'key = ?', whereArgs: ['printing_options']);
+      }
       final oldPermissions = await _state('permission_hash');
       final newPermissions = session['permission_hash']?.toString();
       if (oldPermissions != null &&

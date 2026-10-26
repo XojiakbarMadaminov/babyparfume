@@ -12,6 +12,10 @@ class SecureStorageService {
       defaultValue: 'https://elyorpf.uz/api/flutter/v1');
   static const _serverKey = 'flutter_server_url';
 
+  Future<String?> getThemeMode() => _storage.read(key: 'flutter_theme_mode');
+  Future<void> setThemeMode(String value) =>
+      _storage.write(key: 'flutter_theme_mode', value: value);
+
   static String normalizeServerUrl(String value) {
     final uri = Uri.parse(value.trim());
     if (uri.scheme != 'https' ||

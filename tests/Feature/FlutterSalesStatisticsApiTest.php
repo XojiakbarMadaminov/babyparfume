@@ -31,7 +31,7 @@ beforeEach(function (): void {
     ]);
     $this->user->stores()->attach([$this->storeA->id, $this->storeB->id]);
 
-    $role = Role::findOrCreate('admin', 'web');
+    $role        = Role::findOrCreate('admin', 'web');
     $permissions = ['View:Pos', 'view_mobile_sales_statistics'];
     foreach ($permissions as $p) {
         $perm = Permission::findOrCreate($p, 'web');
@@ -40,11 +40,11 @@ beforeEach(function (): void {
     }
 
     $loginResponse = $this->postJson('/api/flutter/v1/login', [
-        'email'         => 'stats_user@example.com',
-        'password'      => 'password',
-        'device_uuid'   => (string) Str::uuid(),
-        'device_name'   => 'iPhone 15',
-        'platform'      => 'ios',
+        'email'       => 'stats_user@example.com',
+        'password'    => 'password',
+        'device_uuid' => (string) Str::uuid(),
+        'device_name' => 'iPhone 15',
+        'platform'    => 'ios',
     ])->assertCreated();
 
     $this->token = $loginResponse->json('data.token');
@@ -93,6 +93,9 @@ it('calculates sales statistics scoped strictly to the requested store', functio
         ->assertJsonPath('data.store_id', (string) $this->storeA->id)
         ->assertJsonPath('data.sales_amount', '10000')
         ->assertJsonPath('data.sales_count', 1)
+        ->assertJsonPath('data.payments.0.percent', 100)
+        ->assertJsonPath('data.top_products.0.id', (string) $this->productA->id)
+        ->assertJsonPath('data.top_products.0.quantity', 2)
         ->assertJsonPath('data.currency', 'UZS');
 
     // Store B sales must not leak into Store A statistics
@@ -104,11 +107,11 @@ it('denies access to sales statistics when permissions are missing', function ()
     $limitedUser->stores()->attach($this->storeA);
 
     $loginResp = $this->postJson('/api/flutter/v1/login', [
-        'email'         => 'no_stats@example.com',
-        'password'      => 'password',
-        'device_uuid'   => (string) Str::uuid(),
-        'device_name'   => 'Android',
-        'platform'      => 'android',
+        'email'       => 'no_stats@example.com',
+        'password'    => 'password',
+        'device_uuid' => (string) Str::uuid(),
+        'device_name' => 'Android',
+        'platform'    => 'android',
     ])->assertCreated();
 
     $token = $loginResp->json('data.token');

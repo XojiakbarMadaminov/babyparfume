@@ -4,13 +4,19 @@ import '../data/products_repository.dart';
 import '../../../core/utils/currency_format.dart';
 import '../../../core/utils/date_format.dart';
 import 'product_form_dialog.dart';
+import 'product_stock_in_dialog.dart';
 import 'product_widgets.dart';
+import '../../printing/presentation/print_dialog.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final LocalProduct product;
   final ProductsRepository repository;
+  final bool canPrintBarcodes;
   const ProductDetailScreen(
-      {super.key, required this.product, required this.repository});
+      {super.key,
+      required this.product,
+      required this.repository,
+      this.canPrintBarcodes = false});
   @override
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
 }
@@ -68,6 +74,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             }));
   }
 
+  Future<void> _receiveStock() async {
+    final product = await showDialog<LocalProduct>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => ProductStockInDialog(
+            product: _product, repository: widget.repository));
+    if (!mounted || product == null) return;
+    setState(() => _product = product);
+    await _load();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kirim mahsulot qoldig‘iga qo‘shildi.')));
+  }
+
   Future<void> _delete() async {
     final confirmed = await showDialog<bool>(
         context: context,
@@ -110,6 +130,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
     return Scaffold(
       appBar: AppBar(title: const Text('Mahsulot'), actions: [
+        if (widget.canPrintBarcodes)
+          IconButton(
+              tooltip: 'Barcode chop etish',
+              icon: const Icon(Icons.print_outlined),
+              onPressed: () => showDialog<void>(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) => PrintDialog(
+                      storeId: _product.storeId, products: [_product]))),
         if (_product.canDelete)
           PopupMenuButton<String>(
               tooltip: 'Amallar',
@@ -266,10 +295,31 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               top: false,
               child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                  child: ElevatedButton.icon(
-                      onPressed: _deleting ? null : _edit,
-                      icon: const Icon(Icons.edit_outlined),
-                      label: const Text('Mahsulotni tahrirlash')))),
+                  child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                            flex: 3,
+                            child: OutlinedButton(
+                                style: OutlinedButton.styleFrom(
+                                    minimumSize: const Size(0, 60),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8)),
+                                onPressed: _deleting ? null : _edit,
+                                child: const Text('Mahsulotni tahrirlash',
+                                    textAlign: TextAlign.center))),
+                        const SizedBox(width: 10),
+                        Expanded(
+                            flex: 2,
+                            child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                    minimumSize: const Size(0, 60),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8)),
+                                onPressed: _deleting ? null : _receiveStock,
+                                child: const Text('Kirim qilish',
+                                    textAlign: TextAlign.center))),
+                      ]))),
     );
   }
 }

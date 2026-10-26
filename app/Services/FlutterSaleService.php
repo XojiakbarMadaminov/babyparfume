@@ -7,7 +7,6 @@ use App\Models\User;
 use App\Models\Stock;
 use App\Models\Store;
 use App\Models\Client;
-use App\Models\Debtor;
 use App\Models\ProductStock;
 use Illuminate\Validation\Rule;
 use App\Models\ProductSizeStock;
@@ -37,6 +36,7 @@ class FlutterSaleService
             'payment.type'             => ['required', Rule::in(['cash', 'card', 'transfer', 'mixed', 'partial', 'debt', 'preorder'])],
             'payment.cash'             => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
             'payment.card'             => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
+            'payment.received_cash'    => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
             'client.server_id'         => ['nullable', 'integer', 'min:1'],
             'payment.note'             => ['nullable', 'string', 'max:500'],
         ])->validate();
@@ -96,13 +96,15 @@ class FlutterSaleService
                 $totalAmount += $rowTotal;
 
                 $itemsData[] = [
-                    'product'         => $product,
-                    'product_size_id' => !empty($item['product_size_id']) ? (int) $item['product_size_id'] : null,
-                    'stock_id'        => (int) $item['stock_id'],
-                    'quantity'        => $qty,
-                    'unit_price'      => $unitPrice,
-                    'unit_cost'       => $unitCost,
-                    'total'           => $rowTotal,
+                    'product'          => $product,
+                    'product_size_id'  => !empty($item['product_size_id']) ? (int) $item['product_size_id'] : null,
+                    'stock_id'         => (int) $item['stock_id'],
+                    'quantity'         => $qty,
+                    'unit_price'       => $unitPrice,
+                    'receipt_price'    => (string) $unitPrice,
+                    'receipt_discount' => (string) $discount,
+                    'unit_cost'        => $unitCost,
+                    'total'            => $rowTotal,
                 ];
             }
 
@@ -175,6 +177,20 @@ class FlutterSaleService
                 'created_at'            => $payload['occurred_at'] ?? now(),
             ]);
 
+            if (config('printing.enabled')) {
+                $sizeNames = \App\Models\ProductSize::query()->whereIn('id', array_filter(array_column($itemsData, 'product_size_id')))->pluck('size', 'id');
+                $received  = $paymentType === 'cash' ? max($paidAmount, (float) ($payload['payment']['received_cash'] ?? $paidAmount)) : null;
+                $sale->update(['flutter_receipt_meta' => [
+                    'items' => array_map(fn (array $row): array => ['name' => $row['product']->name,
+                        'size'                                             => $sizeNames[$row['product_size_id']] ?? null, 'qty' => $row['quantity'],
+                        'price'                                            => $row['receipt_price'], 'discount' => $row['receipt_discount']], $itemsData),
+                    'receipt_discount' => (string) $receiptDiscount, 'cash' => (string) ($paymentType === 'cash' ? $paidAmount : $cashAmount),
+                    'card'             => (string) ($paymentType === 'card' ? $paidAmount : $cardAmount),
+                    'received_cash'    => $received === null ? null : (string) $received,
+                    'change'           => $received === null ? null : (string) ($received - $paidAmount),
+                ]]);
+            }
+
             $deficits = [];
 
             foreach ($itemsData as $itemRow) {
@@ -244,35 +260,15 @@ class FlutterSaleService
             $debtNote = filled($payload['payment']['note'] ?? null) ? $payload['payment']['note'] : 'Savdo #' . $sale->id . ' bo‘yicha qarz';
             // Record debt on Debtor model if needed
             if ($remainingAmount > 0 && $clientId && $paymentType !== 'preorder') {
-                $client = Client::findOrFail($clientId);
-                $debtor = Debtor::withoutGlobalScope('current_store')
-                    ->where('store_id', $store->id)
-                    ->where('client_id', $client->id)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (!$debtor) {
-                    $debtor = Debtor::query()->create([
-                        'store_id'  => $store->id,
-                        'client_id' => $client->id,
-                        'amount'    => (int) $remainingAmount,
-                        'currency'  => 'UZS',
-                        'date'      => $sale->created_at->toDateString(),
-                        'note'      => $debtNote,
-                    ]);
-                } else {
-                    $debtor->increment('amount', (int) $remainingAmount);
-                }
-
-                $debtor->transactions()->create([
-                    'type'              => 'debt',
-                    'amount'            => (int) $remainingAmount,
-                    'date'              => $sale->created_at,
-                    'note'              => $debtNote,
-                    'mobile_user_id'    => $user->id,
-                    'mobile_request_id' => $payload['local_sale_id'] ?? null,
-                    'sale_id'           => $sale->id,
-                ]);
+                $debtor = app(SaleDebtService::class)->record(
+                    $sale,
+                    $remainingAmount,
+                    $debtNote,
+                    mobileUserId: $user->id,
+                    mobileRequestId: $payload['local_sale_id'],
+                    occurredAt: $sale->created_at,
+                    preferredDebtorId: isset($payload['debtor_context']['id']) ? (int) $payload['debtor_context']['id'] : null,
+                );
             }
 
             return [

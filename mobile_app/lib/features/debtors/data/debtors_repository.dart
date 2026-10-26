@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/database/app_database.dart';
+import '../../../core/utils/phone_format.dart';
 import '../../../core/sync/outbox_manager.dart';
 
 class LocalDebtor {
@@ -159,14 +160,15 @@ class DebtorsRepository {
       String? note,
       String? photoPath}) async {
     await _ensureWrite();
+    phone = phone == null ? null : PhoneFormat.forStorage(phone);
     if (fullName.trim().isEmpty ||
         phone == null ||
-        !RegExp(r'^\+998[0-9]{9}$').hasMatch(phone) ||
+        !PhoneFormat.isValid(phone) ||
         !initialAmount.isFinite ||
         initialAmount <= 0 ||
         initialAmount != initialAmount.roundToDouble()) {
       throw ArgumentError(
-          "Ism, +998 telefon va butun musbat qarz summasini kiriting.");
+          "Ism, telefon va butun musbat qarz summasini kiriting.");
     }
     if (photoPath != null) throw StateError("Foto yuklash hozircha ulanmagan.");
     final db = await _getDb();
@@ -191,8 +193,11 @@ class DebtorsRepository {
       'can_update': 1
     };
     await db.transaction((txn) async {
+      final aliases = PhoneFormat.aliases(phone!);
       final duplicate = await txn.query('debtors',
-          where: 'phone = ? AND amount > 0', whereArgs: [phone]);
+          where:
+              'phone IN (${List.filled(aliases.length, '?').join(',')}) AND amount > 0',
+          whereArgs: aliases);
       if (duplicate.isNotEmpty) {
         throw StateError("Bu telefon uchun faol qarz mavjud.");
       }
@@ -328,8 +333,9 @@ class DebtorsRepository {
       required String date,
       String? note}) async {
     await _ensureWrite();
+    phone = PhoneFormat.forStorage(phone);
     if (fullName.trim().isEmpty ||
-        !RegExp(r'^\+998[0-9]{9}$').hasMatch(phone) ||
+        !PhoneFormat.isValid(phone) ||
         !amount.isFinite ||
         amount < 0 ||
         amount != amount.roundToDouble() ||

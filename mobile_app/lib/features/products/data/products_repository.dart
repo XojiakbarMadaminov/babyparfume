@@ -27,6 +27,9 @@ class LocalProduct {
   final bool canDelete;
   final String? imageUrl;
   final int revision;
+  final String? categoryId;
+  final String? categoryName;
+  final String? thumbnailUrl;
 
   LocalProduct({
     required this.id,
@@ -46,10 +49,17 @@ class LocalProduct {
     this.canDelete = false,
     this.imageUrl,
     this.revision = 0,
+    this.categoryId,
+    this.categoryName,
+    this.thumbnailUrl,
   });
 
   factory LocalProduct.fromMap(Map<String, dynamic> map,
       {int stockQuantity = 0}) {
+    final catalog = map['catalog_json'] is String
+        ? jsonDecode(map['catalog_json'] as String) as Map<String, dynamic>
+        : map;
+    final category = catalog['category'] as Map?;
     return LocalProduct(
       id: map['id'] as String,
       storeId: map['store_id'] as String,
@@ -68,6 +78,11 @@ class LocalProduct {
       canDelete: map['can_delete'] == 1 || map['can_delete'] == true,
       imageUrl: map['image_url']?.toString() ?? map['image']?.toString(),
       revision: int.tryParse(map['revision']?.toString() ?? '') ?? 0,
+      categoryId: map['category_id']?.toString() ?? category?['id']?.toString(),
+      categoryName:
+          map['category_name']?.toString() ?? category?['name']?.toString(),
+      thumbnailUrl:
+          map['thumbnail_url']?.toString() ?? catalog['thumbnail']?.toString(),
     );
   }
 
@@ -76,6 +91,10 @@ class LocalProduct {
         'store_id': storeId,
         'name': name,
         'barcode': barcode,
+        'category_id': categoryId,
+        'category_name': categoryName,
+        'thumbnail_url': thumbnailUrl,
+        'image_url': imageUrl,
         'type': type,
         'price': price,
         'stock_id': stockId,
@@ -104,9 +123,10 @@ class ProductsRepository {
       {String? query}) async {
     final db = await _getDb();
     String sql = '''
-      SELECT p.*, MIN(s.stock_id) as stock_id, COALESCE(SUM(s.quantity), 0) as total_stock
+      SELECT p.*, c.payload_json AS catalog_json, MIN(s.stock_id) as stock_id, COALESCE(SUM(s.quantity), 0) as total_stock
       FROM products p
       LEFT JOIN product_stocks s ON p.id = s.product_id
+      LEFT JOIN server_cache c ON c.entity = 'products' AND c.id = p.id
       WHERE p.store_id = ?
     ''';
     List<dynamic> args = [storeId];
@@ -218,6 +238,26 @@ class ProductsRepository {
           .data['barcode']
           .toString();
 
+  Future<LocalProduct> receiveStock(LocalProduct product,
+      {required String requestId,
+      required String stockId,
+      String? sizeId,
+      required int quantity}) async {
+    final response = await _api.post(
+        '/stores/${product.storeId}/products/${product.id}/stock-in',
+        data: {
+          'request_id': requestId,
+          'stock_id': stockId,
+          if (sizeId != null) 'product_size_id': sizeId,
+          'quantity': quantity,
+        });
+    final data = Map<String, dynamic>.from(response.data['data'] as Map);
+    final db = await _getDb();
+    await db
+        .transaction((txn) => LocalCache.product(txn, product.storeId, data));
+    return (await getProduct(product.storeId, product.id))!;
+  }
+
   Future<List<LocalProduct>> variants(LocalProduct product) async {
     final db = await _getDb();
     final state = await db
@@ -232,6 +272,9 @@ class ProductsRepository {
     return stocks
         .map((stock) => LocalProduct.fromMap({
               ...product.toMap(),
+              'initial_price': product.initialPrice,
+              'can_update': product.canUpdate,
+              'can_delete': product.canDelete,
               ...stock,
               'id': product.id,
               'stock_name': stockNames[stock['stock_id'].toString()]

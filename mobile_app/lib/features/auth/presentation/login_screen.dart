@@ -50,20 +50,21 @@ class _LoginScreenState extends State<LoginScreen> {
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.dns_outlined, color: AppColors.lightAccent),
-            SizedBox(width: 8),
-            Text("Server manzili"),
+            Icon(Icons.dns_outlined, color: AppColors.of(context).accent),
+            const SizedBox(width: 8),
+            const Text("Server manzili"),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               "Mobil ilova ulanadigan API manzili:",
-              style: TextStyle(fontSize: 13, color: AppColors.lightMuted),
+              style:
+                  TextStyle(fontSize: 13, color: AppColors.of(context).muted),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -156,8 +157,8 @@ class _LoginScreenState extends State<LoginScreen> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings_outlined,
-                color: AppColors.lightMuted),
+            icon: Icon(Icons.settings_outlined,
+                color: AppColors.of(context).muted),
             tooltip: "Server sozlamalari",
             onPressed: _openServerSettings,
           ),
@@ -186,42 +187,42 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     'OSON POS',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 1.5,
-                      color: AppColors.lightText,
+                      color: AppColors.of(context).text,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     'Savdo va ombor boshqaruvi',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 13,
-                      color: AppColors.lightMuted,
+                      color: AppColors.of(context).muted,
                     ),
                   ),
                   const SizedBox(height: 32),
 
                   // Heading
-                  const Text(
+                  Text(
                     'Tizimga kirish',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.lightText,
+                      color: AppColors.of(context).text,
                     ),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
+                  Text(
                     'Do‘kon hisobingizga kirish uchun ma’lumotlarni kiriting.',
                     style: TextStyle(
                       fontSize: 13,
-                      color: AppColors.lightMuted,
+                      color: AppColors.of(context).muted,
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -230,13 +231,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: AppColors.lightDangerBg,
+                        color: AppColors.of(context).dangerBackground,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
                         _errorMessage!,
-                        style: const TextStyle(
-                          color: AppColors.lightDanger,
+                        style: TextStyle(
+                          color: AppColors.of(context).danger,
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                         ),
@@ -289,12 +290,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   ElevatedButton(
                     onPressed: _isLoading ? null : _submit,
                     child: _isLoading
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.white,
+                              color: AppColors.of(context).onButton,
                             ),
                           )
                         : const Text('Kirish'),

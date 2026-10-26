@@ -5,31 +5,39 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dio/dio.dart';
 import 'package:babyparfume_mobile/core/sync/outbox_manager.dart';
 import 'package:babyparfume_mobile/core/theme/app_theme.dart';
 import 'package:babyparfume_mobile/features/products/data/products_repository.dart';
 import 'package:babyparfume_mobile/features/products/presentation/product_detail_screen.dart';
 import 'package:babyparfume_mobile/features/products/presentation/product_form_dialog.dart';
+import 'package:babyparfume_mobile/features/products/presentation/product_stock_in_dialog.dart';
 import 'package:babyparfume_mobile/features/products/presentation/products_screen.dart';
 import 'package:babyparfume_mobile/features/products/presentation/product_widgets.dart';
 
-LocalProduct sampleProduct({bool editable = true}) => LocalProduct(
-    id: '11',
-    storeId: '1',
-    name: 'Dior Sauvage Eau de Parfum 100 ml',
-    barcode: '0012345678905',
-    type: 'package',
-    price: 1500000,
-    initialPrice: editable ? 1200000 : null,
-    stockQuantity: 8,
-    updatedAt: '2026-10-22T10:30:00+05:00',
-    canUpdate: editable,
-    canDelete: editable);
+LocalProduct sampleProduct({bool editable = true, int quantity = 8}) =>
+    LocalProduct(
+        id: '11',
+        storeId: '1',
+        name: 'Dior Sauvage Eau de Parfum 100 ml',
+        barcode: '0012345678905',
+        type: 'package',
+        price: 1500000,
+        initialPrice: editable ? 1200000 : null,
+        stockQuantity: quantity,
+        updatedAt: '2026-10-22T10:30:00+05:00',
+        canUpdate: editable,
+        canDelete: editable);
 
 class PreviewProductsRepository extends ProductsRepository {
   LocalProduct product;
   bool failLoad = false;
   bool sized = false;
+  bool multipleStocks = false;
+  bool includeInactiveStock = false;
+  bool failReceiptOnce = false;
+  int receipts = 0;
+  final receiptRequests = <Map<String, dynamic>>[];
   int saves = 0;
   Map<String, dynamic>? savedPayload;
   Completer<void>? saveGate;
@@ -56,7 +64,7 @@ class PreviewProductsRepository extends ProductsRepository {
             name: product.name,
             type: 'package',
             price: product.price,
-            stockQuantity: 8,
+            stockQuantity: product.stockQuantity,
             stockId: '71',
             stockName: 'Asosiy savdo ombori'),
       ];
@@ -75,7 +83,10 @@ class PreviewProductsRepository extends ProductsRepository {
         },
       'edit': {
         'stocks': [
-          {'id': '71', 'name': 'Asosiy savdo ombori'}
+          {'id': '71', 'name': 'Asosiy savdo ombori'},
+          if (multipleStocks) {'id': '72', 'name': 'Ikkinchi ombor'},
+          if (includeInactiveStock)
+            {'id': '73', 'name': 'Yopiq ombor', 'is_active': false},
         ],
         'quantities': [
           {'stock_id': '71', 'quantity': 8}
@@ -93,6 +104,29 @@ class PreviewProductsRepository extends ProductsRepository {
             : [],
       },
     };
+  }
+
+  @override
+  Future<LocalProduct> receiveStock(LocalProduct product,
+      {required String requestId,
+      required String stockId,
+      String? sizeId,
+      required int quantity}) async {
+    receipts++;
+    receiptRequests.add({
+      'request_id': requestId,
+      'stock_id': stockId,
+      'product_size_id': sizeId,
+      'quantity': quantity
+    });
+    await saveGate?.future;
+    if (failReceiptOnce) {
+      failReceiptOnce = false;
+      throw DioException.connectionError(
+          requestOptions: RequestOptions(path: '/stock-in'), reason: 'Offline');
+    }
+    this.product = sampleProduct(quantity: product.stockQuantity + quantity);
+    return this.product;
   }
 
   @override
@@ -201,6 +235,138 @@ void main() {
 
   Finder field(String label) => find.widgetWithText(TextFormField, label);
 
+  for (final dark in [false, true]) {
+    testWidgets(
+        'stock receipt is readable and adds quantity in ${dark ? 'dark' : 'light'} mode',
+        (tester) async {
+      final repository = PreviewProductsRepository()
+        ..includeInactiveStock = true
+        ..saveGate = Completer<void>();
+      await pumpPage(
+          tester,
+          ProductDetailScreen(
+              product: repository.product, repository: repository),
+          dark: dark);
+      expect(tester.getRect(find.text('Kirim qilish')).left,
+          greaterThan(tester.getRect(find.text('Mahsulotni tahrirlash')).left));
+      await tester.tap(find.text('Kirim qilish'));
+      await tester.pumpAndSettle();
+      expect(
+          tester.widget<TextFormField>(field('Mahsulot nomi')).enabled, false);
+      expect(tester.widget<TextFormField>(field('Shtrix-kod')).enabled, false);
+      expect(find.text('Yopiq ombor'), findsNothing);
+      await tester.tap(find.text('Kirimni saqlash'));
+      await tester.pumpAndSettle();
+      expect(repository.receipts, 0);
+      expect(find.text('Kamida 1 dona kiriting.'), findsOneWidget);
+      await tester.enterText(field('Kirim miqdori'), '5');
+      await tester.pumpAndSettle();
+      expect(find.text('Joriy qoldiq: 8 dona\nKirimdan keyin: 13 dona'),
+          findsOneWidget);
+      await capture(tester, 'product-stock-in-${dark ? 'dark' : 'light'}');
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(tester.getRect(find.text('Kirimni saqlash')).bottom,
+          lessThanOrEqualTo(380));
+      await tester.tap(find.text('Kirimni saqlash'));
+      await tester.pump();
+      await tester.tap(find.text('Saqlanmoqda...'));
+      await tester.pump();
+      expect(repository.receipts, 1);
+      expect(repository.receiptRequests.single['quantity'], 5);
+      expect(repository.receiptRequests.single['stock_id'], '71');
+      repository.saveGate!.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(ProductStockInDialog), findsNothing);
+      expect(repository.product.stockQuantity, 13);
+      expect(find.text('Kirim mahsulot qoldig‘iga qo‘shildi.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets(
+      'stock receipt requires a warehouse and submits the selected size',
+      (tester) async {
+    final repository = PreviewProductsRepository()
+      ..sized = true
+      ..multipleStocks = true;
+    await pumpPage(
+        tester,
+        ProductDetailScreen(
+            product: repository.product, repository: repository));
+    await tester.tap(find.text('Kirim qilish'));
+    await tester.pumpAndSettle();
+    await tester.enterText(field('Kirim miqdori'), '2');
+    await tester.tap(find.text('Kirimni saqlash'));
+    await tester.pumpAndSettle();
+    expect(repository.receipts, 0);
+    expect(find.text('Omborni tanlang.'), findsOneWidget);
+    await tester.tap(find.byType(DropdownButtonFormField<String>).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ikkinchi ombor').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Kirimni saqlash'));
+    await tester.pumpAndSettle();
+    expect(repository.receiptRequests.single['stock_id'], '72');
+    expect(repository.receiptRequests.single['product_size_id'], '21');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'receipt retry retains the same identity after an uncertain network failure',
+      (tester) async {
+    final repository = PreviewProductsRepository()..failReceiptOnce = true;
+    await pumpPage(
+        tester,
+        ProductDetailScreen(
+            product: repository.product, repository: repository));
+    await tester.tap(find.text('Kirim qilish'));
+    await tester.pumpAndSettle();
+    await tester.enterText(field('Kirim miqdori'), '3');
+    await tester.tap(find.text('Kirimni saqlash'));
+    await tester.pumpAndSettle();
+    expect(
+        tester
+            .widget<TextField>(find.descendant(
+                of: field('Kirim miqdori'), matching: find.byType(TextField)))
+            .readOnly,
+        true);
+    await tester.tap(find.text('Qayta urinish'));
+    await tester.pumpAndSettle();
+    expect(repository.receiptRequests, hasLength(2));
+    expect(repository.receiptRequests.first, repository.receiptRequests.last);
+    expect(repository.product.stockQuantity, 11);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'stock receipt retries loading options before permitting submission',
+      (tester) async {
+    final repository = PreviewProductsRepository()..failLoad = true;
+    await pumpPage(
+        tester,
+        ProductDetailScreen(
+            product: repository.product, repository: repository));
+    await tester.tap(find.text('Kirim qilish'));
+    await tester.pumpAndSettle();
+    expect(field('Kirim miqdori'), findsNothing);
+    expect(
+        tester
+            .widget<ElevatedButton>(find.descendant(
+                of: find.byType(ProductStockInDialog),
+                matching: find
+                    .byWidgetPredicate((widget) => widget is ElevatedButton)))
+            .onPressed,
+        isNull);
+    repository.failLoad = false;
+    await tester.tap(find.text('Qayta urinish'));
+    await tester.pumpAndSettle();
+    expect(field('Kirim miqdori'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
       'product detail has readable prices, named stocks and an accessible edit action',
       (tester) async {
@@ -232,6 +398,7 @@ void main() {
         dark: true);
     expect(find.text('Kelish narxi'), findsNothing);
     expect(find.text('Mahsulotni tahrirlash'), findsNothing);
+    expect(find.text('Kirim qilish'), findsNothing);
     expect(find.byType(PopupMenuButton<String>), findsNothing);
     expect(tester.takeException(), isNull);
     await capture(tester, 'product-detail-dark');

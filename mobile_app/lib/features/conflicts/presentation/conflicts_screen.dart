@@ -51,7 +51,6 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
               ? widget.syncCoordinator.currentProgress.message ?? 'Yangilandi.'
               : widget.syncCoordinator.currentProgress.lastError ??
                   'Sinxronlash yakunlanmadi. Navbat saqlangan.'),
-          backgroundColor: success ? AppColors.success : AppColors.lightDanger,
         ),
       );
     }
@@ -65,7 +64,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
           "Sinxronizatsiya va Ziddiyatlar",
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
-        backgroundColor: AppColors.lightCard,
+        backgroundColor: AppColors.of(context).card,
         elevation: 0,
         actions: [
           IconButton(
@@ -75,7 +74,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.sync, color: AppColors.lightAccent),
+                : Icon(Icons.sync, color: AppColors.of(context).accent),
             tooltip: "Sinxronlash",
             onPressed: _isSyncing ? null : _triggerManualSync,
           ),
@@ -89,8 +88,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: _pendingItems.isEmpty
-                  ? AppColors.successBg
-                  : AppColors.warningBg,
+                  ? AppColors.of(context).successBackground
+                  : AppColors.of(context).warningBackground,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
@@ -100,8 +99,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                       ? Icons.cloud_done
                       : Icons.cloud_upload_outlined,
                   color: _pendingItems.isEmpty
-                      ? AppColors.success
-                      : AppColors.warning,
+                      ? AppColors.of(context).success
+                      : AppColors.of(context).warning,
                   size: 28,
                 ),
                 const SizedBox(width: 12),
@@ -117,15 +116,15 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                           fontWeight: FontWeight.w700,
                           fontSize: 14,
                           color: _pendingItems.isEmpty
-                              ? AppColors.success
-                              : AppColors.warning,
+                              ? AppColors.of(context).success
+                              : AppColors.of(context).warning,
                         ),
                       ),
                       const SizedBox(height: 2),
-                      const Text(
+                      Text(
                         "Internet mavjud bo'lganda avtomatik serverga jo'natiladi.",
                         style: TextStyle(
-                            fontSize: 12, color: AppColors.lightMuted),
+                            fontSize: 12, color: AppColors.of(context).muted),
                       ),
                     ],
                   ),
@@ -148,11 +147,11 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
           // List
           Expanded(
             child: _pendingItems.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
                       "Navbatda operatsiyalar mavjud emas",
-                      style:
-                          TextStyle(color: AppColors.lightMuted, fontSize: 14),
+                      style: TextStyle(
+                          color: AppColors.of(context).muted, fontSize: 14),
                     ),
                   )
                 : ListView.separated(
@@ -164,9 +163,9 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                       return Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: AppColors.lightCard,
+                          color: AppColors.of(context).card,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.lightLine),
+                          border: Border.all(color: AppColors.of(context).line),
                         ),
                         child: Row(
                           children: [
@@ -174,11 +173,11 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                               width: 36,
                               height: 36,
                               decoration: BoxDecoration(
-                                color: AppColors.lightSoft,
+                                color: AppColors.of(context).soft,
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Icon(Icons.outbox,
-                                  color: AppColors.lightMuted, size: 18),
+                              child: Icon(Icons.outbox,
+                                  color: AppColors.of(context).muted, size: 18),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -201,16 +200,16 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                   const SizedBox(height: 2),
                                   Text(
                                     AppDateFormat.formatDate(item.createdAt),
-                                    style: const TextStyle(
-                                        color: AppColors.lightMuted,
+                                    style: TextStyle(
+                                        color: AppColors.of(context).muted,
                                         fontSize: 11),
                                   ),
                                   if (item.lastError != null) ...[
                                     const SizedBox(height: 4),
                                     Text(
                                       "Xatolik: ${item.lastError}",
-                                      style: const TextStyle(
-                                          color: AppColors.lightDanger,
+                                      style: TextStyle(
+                                          color: AppColors.of(context).danger,
                                           fontSize: 11),
                                     ),
                                   ],
@@ -221,7 +220,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: AppColors.warningBg,
+                                color: AppColors.of(context).warningBackground,
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
@@ -232,8 +231,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                       'failed': 'Qayta tekshiriladi'
                                     }[item.status] ??
                                     'Kutilmoqda',
-                                style: const TextStyle(
-                                  color: AppColors.warning,
+                                style: TextStyle(
+                                  color: AppColors.of(context).warning,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),

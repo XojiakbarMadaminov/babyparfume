@@ -14,10 +14,12 @@ use Illuminate\Support\Facades\Gate;
 use App\Services\ProductPhotoService;
 use Illuminate\Database\Eloquent\Builder;
 use App\Http\Requests\Flutter\SearchRequest;
+use App\Services\FlutterProductStockService;
 use Illuminate\Validation\ValidationException;
 use App\Http\Resources\Flutter\ProductResource;
 use App\Http\Requests\Flutter\CreateProductRequest;
 use App\Http\Requests\Flutter\UpdateProductRequest;
+use App\Http\Requests\Flutter\ReceiveProductStockRequest;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -252,6 +254,14 @@ class ProductController extends Controller
         }
 
         return new ProductResource($this->productsQuery((int) $store->id)->findOrFail($product->id));
+    }
+
+    public function receiveStock(ReceiveProductStockRequest $request, string $storeId, string $productId, FlutterProductStockService $stocks): ProductResource
+    {
+        $store = $request->attributes->get('flutter_store');
+        $stocks->receive($request->user(), $store, $request->attributes->get('flutter_device'), $productId, $request->validated());
+
+        return new ProductResource($this->productsQuery((int) $store->id)->findOrFail($productId));
     }
 
     public function destroy(Request $request, string $storeId, string $productId): JsonResponse

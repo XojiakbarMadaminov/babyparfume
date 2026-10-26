@@ -14,7 +14,7 @@ class LeaseLockScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.lightBg,
+      backgroundColor: AppColors.of(context).background,
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -25,32 +25,32 @@ class LeaseLockScreen extends StatelessWidget {
                 Container(
                   width: 80,
                   height: 80,
-                  decoration: const BoxDecoration(
-                    color: AppColors.lightDangerBg,
+                  decoration: BoxDecoration(
+                    color: AppColors.of(context).dangerBackground,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.lock_clock_outlined,
                     size: 40,
-                    color: AppColors.lightDanger,
+                    color: AppColors.of(context).danger,
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text(
+                Text(
                   "Oflayn muddat yakunlandi",
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.lightText,
+                    color: AppColors.of(context).text,
                   ),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   reason,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
-                    color: AppColors.lightMuted,
+                    color: AppColors.of(context).muted,
                     height: 1.5,
                   ),
                 ),
@@ -58,15 +58,15 @@ class LeaseLockScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.lightTint,
+                    color: AppColors.of(context).tint,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text(
+                  child: Text(
                     "Maksimal oflayn ishlash muddati: 10 soat. Moliyaviy xavfsizlik uchun internet tarmog'iga ulaning va litsenziyani yangilang.",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 12,
-                      color: AppColors.lightAccent,
+                      color: AppColors.of(context).accent,
                       fontWeight: FontWeight.w500,
                     ),
                   ),

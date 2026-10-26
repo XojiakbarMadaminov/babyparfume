@@ -942,6 +942,8 @@
                                     </label>
                                     <x-filament::input
                                         wire:model="newClient.phone"
+                                        type="tel"
+                                        autocomplete="tel"
                                         placeholder="+998 XX XXX XX XX"
                                     />
                                     @error('newClient.phone')

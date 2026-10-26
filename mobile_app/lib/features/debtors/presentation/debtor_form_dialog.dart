@@ -35,7 +35,8 @@ class _DebtorFormDialogState extends State<DebtorFormDialog> {
     super.initState();
     final existing = widget.existing;
     _nameController.text = existing?.fullName ?? '';
-    _phoneController.text = existing?.phone ?? '';
+    _phoneController.text =
+        existing == null ? PhoneFormat.defaultPrefix : existing.phone ?? '';
     _amountController.text = existing?.amount.toStringAsFixed(0) ?? '';
     _noteController.text = existing?.note ?? '';
     _dateController.text = existing?.date?.substring(0, 10) ??
@@ -62,7 +63,7 @@ class _DebtorFormDialogState extends State<DebtorFormDialog> {
 
     final rawPhone = _phoneController.text.trim();
     final normalizedPhone =
-        rawPhone.isEmpty ? null : PhoneFormat.normalize(rawPhone);
+        rawPhone.isEmpty ? null : PhoneFormat.forStorage(rawPhone);
     final initialAmount = double.tryParse(_amountController.text.trim()) ?? 0.0;
     final note = _noteController.text.trim().isEmpty
         ? null
@@ -125,13 +126,13 @@ class _DebtorFormDialogState extends State<DebtorFormDialog> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.lightDangerBg,
+                    color: AppColors.of(context).dangerBackground,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     _error!,
-                    style: const TextStyle(
-                        color: AppColors.lightDanger, fontSize: 12),
+                    style: TextStyle(
+                        color: AppColors.of(context).danger, fontSize: 12),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -192,11 +193,12 @@ class _DebtorFormDialogState extends State<DebtorFormDialog> {
                     ),
                     onPressed: _isSaving ? null : _submit,
                     child: _isSaving
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
+                                strokeWidth: 2,
+                                color: AppColors.of(context).onButton),
                           )
                         : const Text("Saqlash"),
                   ),

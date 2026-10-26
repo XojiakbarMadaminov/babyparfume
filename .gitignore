@@ -25,3 +25,6 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 /storage/fonts/
+/print_agent/**/bin/
+/print_agent/**/obj/
+/print_agent/artifacts/

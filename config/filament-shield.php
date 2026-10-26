@@ -227,6 +227,12 @@ return [
     */
 
     'custom_permissions' => [
+        'manage_printing'              => 'Chop etish sozlamalari va kompyuterlarni boshqarish',
+        'print_receipts'               => 'Savdo cheklarini chop etish',
+        'print_barcodes'               => 'Barcode etiketkalarini chop etish',
+        'reprint_receipts'             => 'Chek nusxasini qayta chiqarish',
+        'view_print_jobs'              => 'Do‘kon chop etish tarixini ko‘rish',
+        'test_printing'                => 'Printerda test hujjati chiqarish',
         'view_mobile_sales_cost_price' => 'Mobil sotuvda kelgan narxni ko‘rish',
         'view_mobile_sales_statistics' => 'Mobil sotuv statistikasini ko‘rish',
     ],

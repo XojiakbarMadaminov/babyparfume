@@ -25,9 +25,13 @@ class ProductResource extends JsonResource
         );
 
         return [
-            'id'            => (string) $this->id,
-            'revision'      => (string) ($this->sync_revision ?? 0),
-            'name'          => (string) $this->name,
+            'id'       => (string) $this->id,
+            'revision' => (string) ($this->sync_revision ?? 0),
+            'name'     => (string) $this->name,
+            'category' => $this->whenLoaded('category', fn (): array => [
+                'id'   => (string) $this->category->id,
+                'name' => (string) $this->category->name,
+            ]),
             'barcode'       => (string) $this->barcode,
             'type'          => (string) $this->type,
             'price'         => (string) (int) $this->price,

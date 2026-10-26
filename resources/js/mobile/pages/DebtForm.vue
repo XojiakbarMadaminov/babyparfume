@@ -17,7 +17,7 @@ const payment=mode==='payment';
 const title=isNew?'Yangi qarzdor':isEdit?'Qarzdorni tahrirlash':payment?'To‘lov qabul qilish':'Qarz qo‘shish';
 const debtor=ref<Debtor>();
 const fullName=ref('');
-const phone=ref('');
+const phone=ref(isNew?'+998':'');
 const amount=ref<number|string>('');
 const note=ref('');
 const photo=ref<File|null>(null);

@@ -27,6 +27,7 @@ class SessionResource extends JsonResource
             'permissions'       => [
                 'sales'            => $this->resource->can('View:Pos'),
                 'sales_statistics' => $this->resource->can('View:Pos') && $this->resource->can('view_mobile_sales_statistics'),
+                'sales_cost_price' => $this->resource->can('view_mobile_sales_cost_price'),
                 'products'         => \Illuminate\Support\Facades\Gate::forUser($this->resource)->allows('viewAny', \App\Models\Product::class),
                 'create_product'   => \Illuminate\Support\Facades\Gate::forUser($this->resource)->allows('create', \App\Models\Product::class),
                 'debtors'          => \Illuminate\Support\Facades\Gate::forUser($this->resource)->allows('viewAny', \App\Models\Debtor::class),
@@ -37,6 +38,11 @@ class SessionResource extends JsonResource
                 'warning_text'   => \App\Models\GeneralSetting::getSubscriptionWarningText(),
             ],
             'offline_ready' => false,
+            'printing'      => [
+                'enabled'  => (bool) config('printing.enabled'),
+                'receipts' => (bool) config('printing.enabled') && ($this->resource->isSuperAdmin() || $this->resource->can('print_receipts')),
+                'barcodes' => (bool) config('printing.enabled') && ($this->resource->isSuperAdmin() || $this->resource->can('print_barcodes')),
+            ],
         ];
     }
 }
