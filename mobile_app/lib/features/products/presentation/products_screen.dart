@@ -6,6 +6,7 @@ import '../data/products_repository.dart';
 import 'barcode_scanner_sheet.dart';
 import 'product_form_dialog.dart';
 import 'product_detail_screen.dart';
+import 'product_widgets.dart';
 
 class ProductsScreen extends StatefulWidget {
   final String storeId;
@@ -202,16 +203,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
+                                    SizedBox(
                                       width: 44,
                                       height: 44,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.lightSoft,
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: const Icon(
-                                          Icons.inventory_2_outlined,
-                                          color: AppColors.lightMuted),
+                                      child: ProductImage(
+                                          url: item.imageUrl, height: 44),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(

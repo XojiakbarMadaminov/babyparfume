@@ -11,6 +11,7 @@ import 'package:babyparfume_mobile/features/products/data/products_repository.da
 import 'package:babyparfume_mobile/features/products/presentation/product_detail_screen.dart';
 import 'package:babyparfume_mobile/features/products/presentation/product_form_dialog.dart';
 import 'package:babyparfume_mobile/features/products/presentation/products_screen.dart';
+import 'package:babyparfume_mobile/features/products/presentation/product_widgets.dart';
 
 LocalProduct sampleProduct({bool editable = true}) => LocalProduct(
     id: '11',
@@ -330,6 +331,20 @@ void main() {
     expect(field('Mahsulot nomi'), findsOneWidget);
     expect(find.text('Saqlash'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('product list displays the product photo', (tester) async {
+    final repository = PreviewProductsRepository();
+    repository.product = LocalProduct.fromMap({
+      ...repository.product.toMap(),
+      'image': 'https://shop.test/photos/product.webp',
+    });
+    await pumpPage(
+        tester, ProductsScreen(storeId: '1', repository: repository));
+
+    expect(tester.widget<ProductImage>(find.byType(ProductImage)).url,
+        repository.product.imageUrl);
+    expect(find.byType(Image), findsOneWidget);
   });
 
   testWidgets('background product updates preserve the current search',
