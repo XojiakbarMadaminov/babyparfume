@@ -139,27 +139,35 @@ class _PrintDialogState extends State<PrintDialog> {
     });
   }
 
+  Map<String, dynamic> _documentPayload() {
+    final p = _profile!;
+    return {
+      'document_type': _receipt ? 'receipt' : 'barcode',
+      'paper_profile_id': p['id'],
+      'paper_profile_version': p['version'],
+      if (_receipt) ...{'source': _source, 'copies': int.parse(_copies.text)},
+      if (!_receipt)
+        'items': widget.products
+            .map((item) => {
+                  'product_id': item.id,
+                  'copies': int.parse(_quantities[item.id]!.text)
+                })
+            .toList(),
+    };
+  }
+
   Future<void> _makePreview() async {
-    if (_busy || !_form.currentState!.validate()) return;
+    if (_busy ||
+        _profile == null ||
+        !(_form.currentState?.validate() ?? false)) {
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      final p = _profile!;
-      final preview = await _repo.preview(widget.storeId, {
-        'document_type': _receipt ? 'receipt' : 'barcode',
-        'paper_profile_id': p['id'],
-        'paper_profile_version': p['version'],
-        if (_receipt) ...{'source': _source, 'copies': int.parse(_copies.text)},
-        if (!_receipt)
-          'items': widget.products
-              .map((item) => {
-                    'product_id': item.id,
-                    'copies': int.parse(_quantities[item.id]!.text)
-                  })
-              .toList(),
-      });
+      final preview = await _repo.preview(widget.storeId, _documentPayload());
       final bytes = await _repo.pdf(preview['document_path'].toString());
       if (mounted) {
         setState(() {
@@ -179,13 +187,17 @@ class _PrintDialogState extends State<PrintDialog> {
   }
 
   Future<void> _submit() async {
-    if (_busy || _preview == null) return;
+    if (_busy ||
+        _locked ||
+        _profile == null ||
+        !(_form.currentState?.validate() ?? false)) return;
     setState(() {
       _busy = true;
       _error = null;
     });
-    _intentId ??= const Uuid().v4();
     try {
+      _preview ??= await _repo.preview(widget.storeId, _documentPayload());
+      _intentId ??= const Uuid().v4();
       final job = await _repo.submit(
           widget.storeId,
           {
@@ -482,11 +494,7 @@ class _PrintDialogState extends State<PrintDialog> {
                                               (_profile?['max_copies'] as num?)
                                                       ?.toInt() ??
                                                   1))),
-                              OutlinedButton.icon(
-                                  onPressed: _busy ? null : _makePreview,
-                                  icon: const Icon(Icons.preview_outlined),
-                                  label: const Text('Oldindan ko‘rish')),
-                              if (_preview != null) ...[
+                              if (_preview != null && _pdf != null) ...[
                                 const SizedBox(height: 16),
                                 Text(
                                     'Tayyor: ${_receipt ? _preview!['copies'] : _preview!['total_labels']} ta'),
@@ -509,16 +517,30 @@ class _PrintDialogState extends State<PrintDialog> {
               top: false,
               child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: _busy
-                      ? const SizedBox(
-                          height: 48,
-                          child: Center(child: CircularProgressIndicator()))
-                      : _preview != null && !_locked && _job == null
-                          ? ElevatedButton.icon(
-                              onPressed: _submit,
-                              icon: const Icon(Icons.print),
-                              label: const Text('Chop etish'))
-                          : const SizedBox.shrink())),
+                  child: !_loading &&
+                          !_locked &&
+                          _job == null &&
+                          _profiles.isNotEmpty
+                      ? SizedBox(
+                          height: 56,
+                          child: Row(children: [
+                            Expanded(
+                                flex: 3,
+                                child: OutlinedButton.icon(
+                                    onPressed: _busy ? null : _makePreview,
+                                    icon: const Icon(Icons.preview_outlined,
+                                        size: 20),
+                                    label: const Text('Oldindan ko‘rish',
+                                        textAlign: TextAlign.center))),
+                            const SizedBox(width: 12),
+                            Expanded(
+                                flex: 2,
+                                child: FilledButton.icon(
+                                    onPressed: _busy ? null : _submit,
+                                    icon: const Icon(Icons.print, size: 20),
+                                    label: const Text('Print'))),
+                          ]))
+                      : const SizedBox.shrink())),
         ));
     if (MediaQuery.sizeOf(context).width < 600) {
       return Dialog.fullscreen(child: child);

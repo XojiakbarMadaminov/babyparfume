@@ -154,15 +154,15 @@ class _PosScreenState extends State<PosScreen> {
 
   Future<void> _autoPrint(String receiptId) async {
     try {
-      final intent = await _printing.receiptIntent(receiptId);
-      if (intent == null) return;
-      final job = await _printing
-          .retry((intent['payload'] as Map)['client_job_id'].toString());
-      if (mounted) {
+      final job = await _printing.automatic(widget.storeId, receiptId);
+      if (mounted && job != null) {
         _notice(PrintingRepository.statusLabel(job['status'].toString()));
       }
     } catch (e) {
-      if (mounted) _notice(PrintingRepository.error(e));
+      if (mounted) {
+        _notice(
+            'Savdo saqlandi. Avtomatik chek: ${PrintingRepository.error(e)}');
+      }
     }
   }
 

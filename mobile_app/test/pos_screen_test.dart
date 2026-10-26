@@ -13,6 +13,20 @@ import 'package:babyparfume_mobile/features/pos/data/clients_repository.dart';
 import 'package:babyparfume_mobile/features/pos/presentation/pos_screen.dart';
 import 'package:babyparfume_mobile/features/pos/presentation/pos_widgets.dart';
 import 'package:babyparfume_mobile/features/products/data/products_repository.dart';
+import 'package:babyparfume_mobile/features/printing/data/printing_repository.dart';
+import 'package:babyparfume_mobile/features/printing/presentation/print_dialog.dart';
+
+class PosPrinting extends PrintingRepository {
+  final automaticReceipts = <String>[];
+  @override
+  Future<Map<String, dynamic>> options(String storeId) async => {};
+  @override
+  Future<Map<String, dynamic>?> automatic(
+      String storeId, String receiptId) async {
+    automaticReceipts.add(receiptId);
+    return {'status': 'queued'};
+  }
+}
 
 class CartDatabase implements Database {
   final tables = <String, Map<String, Map<String, Object?>>>{};
@@ -199,6 +213,7 @@ void main() {
       {bool cost = false,
       double width = 393,
       PosClients? clients,
+      PosPrinting? printing,
       Brightness brightness = Brightness.dark}) async {
     tester.view.physicalSize = Size(width, 852);
     tester.view.devicePixelRatio = 1;
@@ -219,6 +234,8 @@ void main() {
                     productsRepository: products,
                     clientsRepository: clients ?? PosClients(),
                     saleService: sales,
+                    canPrintReceipts: printing != null,
+                    printingRepository: printing,
                     getDb: () async => db,
                     onViewStatistics: () {})))));
     await tester.pumpAndSettle();
@@ -422,6 +439,23 @@ void main() {
     expect(receipt, contains('Qaytim: 23 000 so‘m'));
     await capture(tester, 'receipt');
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'finishing a sale requests automatic printing once without a printer selection dialog',
+      (tester) async {
+    final printing = PosPrinting();
+    await pumpPage(tester, printing: printing);
+    await add(tester);
+    await cart(tester);
+    await tester.tap(find.textContaining('To‘lash ·'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Savdoni yakunlash'));
+    await tester.pumpAndSettle();
+    expect(sales.submissions, 1);
+    expect(printing.automaticReceipts, hasLength(1));
+    expect(find.byType(PrintDialog), findsNothing);
+    expect(find.text('Qog‘oz / etiketka o‘lchami'), findsNothing);
   });
 
   testWidgets(

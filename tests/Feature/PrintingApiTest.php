@@ -176,6 +176,27 @@ it('requires a fresh confirmation and records reprinted receipt copies', functio
         'client_job_id' => (string) Str::uuid(), 'requested_at' => now()->toIso8601String(), 'reason' => 'Limit yangilangan'])->assertUnprocessable();
 });
 
+it('routes automatic receipts through the current admin default without trusting cached cashier choices', function (): void {
+    $this->printer->update(['loaded_media' => 'receipt', 'capabilities' => ['max_width_mm' => 80]]);
+    $profile = PrintProfile::query()->create(['store_id' => $this->store->id, 'printer_id' => $this->printer->id,
+        'name'                                           => 'Admin chek 80 mm', 'document_type' => 'receipt', 'width_mm' => 80, 'height_mm' => null,
+        'default_copies'                                 => 2, 'max_copies' => 5, 'version' => 3, 'is_default' => true, 'selectable' => false, 'layout' => ['margin_mm' => 1]]);
+    PrintStoreSetting::query()->create(['store_id' => $this->store->id, 'auto_print_receipt' => true]);
+    $body = ['client_job_id' => (string) Str::uuid(), 'requested_at' => now()->toIso8601String(), 'trigger' => 'automatic',
+        'document_type'      => 'receipt', 'paper_profile_id' => $this->profile->id, 'paper_profile_version' => 1, 'copies' => 99,
+        'source'             => ['kind' => 'local_sale', 'local_sale_id' => (string) Str::uuid(), 'operation_id' => (string) Str::uuid(),
+            'snapshot'                  => ['date' => now()->toIso8601String(), 'items' => [['name' => 'Test', 'qty' => 1, 'price' => '10000']],
+                'total_amount'                     => '10000', 'paid_amount' => '10000', 'remaining_amount' => '0', 'payment_type' => 'cash']]];
+    $first = $this->withToken($this->token)->postJson($this->base . '/print-jobs', $body)->assertCreated()
+        ->assertJsonPath('data.profile_name', 'Admin chek 80 mm')->assertJsonPath('data.printer_name', 'XP365')->assertJsonPath('data.copies', 2);
+    $document = PrintJob::query()->findOrFail($first->json('data.id'))->document;
+    expect($document->profile_id)->toBe($profile->id)->and($document->profile_snapshot['width_mm'])->toEqual(80)
+        ->and($document->profile_snapshot['version'])->toBe(3);
+    $this->withToken($this->token)->postJson($this->base . '/print-jobs', $body)->assertOk()->assertJsonPath('data.id', $first->json('data.id'));
+    $this->assertDatabaseCount('print_jobs', 1);
+    $this->assertDatabaseCount('sales', 0);
+});
+
 it('does not reveal documents or claims to a different agent', function (): void {
     [$id]  = makePrintingJob($this);
     $token = str_repeat('a', 64);

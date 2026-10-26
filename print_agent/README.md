@@ -68,10 +68,10 @@ Yangi agentni o‘rnatishda avval traydan **Chiqish**, so‘ng setupni ustiga o�
 
 ## Flutterdagi ish tartibi
 
-- Sotuv natijasi yoki **Cheklar**dan chekni oching, qog‘oz va nusxalar sonini tanlang, PDFni ko‘rib **Chop etish**ni bosing.
+- Sotuv natijasi yoki **Cheklar**dan chekni oching. Qo‘lda chop etish oynalarida **Oldindan ko‘rish** va **Print** yonma-yon turadi: PDF preview ixtiyoriy, **Print** hujjatni tayyorlab darhol navbatga yuboradi.
 - Mahsulot sahifasida barcode chiqarish bor. Mahsulotlar ro‘yxatida tanlab, bir nechta mahsulot uchun har biriga alohida etiketka soni kiritiladi.
 - Ruxsatlar serverdan keladi. Backend flag/ruxsatlar yoqilmaguncha yangi tugmalar ko‘rinmaydi. Server va Flutter buildi birga yangilanishi kerak.
-- Admin yoqqan avtomatik chek savdo saqlangach yuboriladi. Print xatosi saqlangan savdoni qayta yaratmaydi. Offline savdoning print intenti lokal saqlanadi; internet qaytganida eski cheklar ommaviy avtomatik yuborilmaydi. Kassir **Cheklar**dan qayta tekshiradi/tasdiqlaydi.
+- Admin yoqqan avtomatik chek savdo saqlangach printer/o‘lcham tanlash oynasisiz yuboriladi. Server joriy standart chek profilidan printer, o‘lcham va nusxalar sonini oladi; kassir qurilmasidagi eski profil tanlovi marshrutlashni o‘zgartirmaydi. Print xatosi saqlangan savdoni qayta yaratmaydi. Offline savdoning print intenti lokal saqlanadi; internet qaytganida eski cheklar ommaviy avtomatik yuborilmaydi. Kassir **Cheklar**dan qayta tekshiradi/tasdiqlaydi. Qo‘lda va avtomatik yuborish bir vaqtda boshlanganida shu chek uchun mavjud intent qayta ishlatiladi.
 - **Chop etish tarixi** so‘nggi topshiriqlar, holat, bekor qilish va ruxsat bo‘lsa sabab bilan qayta chiqarishni beradi. Qayta chiqarilgan chekda **NUSXA** yoziladi.
 
 ## Navbat, xatolar va ma’lumotlar

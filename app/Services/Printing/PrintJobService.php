@@ -52,8 +52,8 @@ class PrintJobService
                 abort_unless(($data['trigger'] ?? null) === 'automatic' && $data['document_type'] === 'receipt'
                     && PrintStoreSetting::query()->where('store_id', $store->id)->value('auto_print_receipt'), 403, 'Avtomatik chek o‘chirilgan.');
                 $profile = PrintProfile::query()->where('store_id', $store->id)->where('document_type', 'receipt')->where('is_default', true)->where('active', true)->firstOrFail();
-                abort_unless($profile->id === $data['paper_profile_id'] && $profile->default_copies === (int) $data['copies'], 422, 'Standart chek profilidan foydalaning.');
-                $made     = $this->documents->create($user, $store, $deviceId, $data);
+                $made    = $this->documents->create($user, $store, $deviceId, [...$data,
+                    'paper_profile_id' => $profile->id, 'paper_profile_version' => $profile->version, 'copies' => $profile->default_copies]);
                 $document = $made['document'];
             }
             $automaticKey = ($data['trigger'] ?? null) === 'automatic' ? $store->id . ':' . $document->source_key : null;
