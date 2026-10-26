@@ -11,6 +11,13 @@ use Illuminate\Support\Facades\Route;
 
 require __DIR__ . '/mobile.php';
 
+Route::middleware(Filament\Http\Middleware\Authenticate::class)->group(function (): void {
+    Route::post('/mobile-app/releases', [App\Http\Controllers\MobileAppReleaseController::class, 'store'])
+        ->middleware('throttle:10,1')->name('mobile-app.releases.store');
+    Route::get('/mobile-app/download', [App\Http\Controllers\MobileAppReleaseController::class, 'download'])
+        ->name('mobile-app.download');
+});
+
 Route::get('/debtor-photos/{debtor}', App\Http\Controllers\DebtorPhotoController::class)
     ->middleware('auth')->name('debtors.photo');
 
