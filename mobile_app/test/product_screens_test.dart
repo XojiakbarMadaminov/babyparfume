@@ -514,6 +514,52 @@ void main() {
     expect(find.byType(Image), findsOneWidget);
   });
 
+  for (final dark in [false, true]) {
+    testWidgets(
+        'barcode selection preserves photos in ${dark ? 'dark' : 'light'} mode',
+        (tester) async {
+      final repository = PreviewProductsRepository();
+      repository.product = LocalProduct.fromMap({
+        ...repository.product.toMap(),
+        'image': 'https://shop.test/photos/product.webp',
+      });
+      await pumpPage(
+          tester,
+          ProductsScreen(
+              storeId: '1', repository: repository, canPrintBarcodes: true),
+          dark: dark);
+
+      final printButton = find.byWidgetPredicate((widget) =>
+          widget is IconButton &&
+          widget.tooltip == 'Tanlangan barcodelarni chop etish');
+      expect(tester.widget<IconButton>(printButton).onPressed, isNull);
+      expect(find.byTooltip('Chop etish tarixi'), findsOneWidget);
+      expect(find.byType(ProductImage), findsOneWidget);
+
+      await tester.tap(find.byType(Checkbox));
+      await tester.pumpAndSettle();
+      expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isTrue);
+      expect(tester.widget<IconButton>(printButton).onPressed, isNotNull);
+
+      await tester.tap(find.text(repository.product.name));
+      await tester.pumpAndSettle();
+      expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isFalse);
+      expect(tester.widget<IconButton>(printButton).onPressed, isNull);
+      expect(find.byType(ProductDetailScreen), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('barcode actions are hidden without printing permission',
+      (tester) async {
+    await pumpPage(tester,
+        ProductsScreen(storeId: '1', repository: PreviewProductsRepository()));
+
+    expect(find.byType(Checkbox), findsNothing);
+    expect(find.byTooltip('Tanlangan barcodelarni chop etish'), findsNothing);
+    expect(find.byTooltip('Chop etish tarixi'), findsNothing);
+  });
+
   testWidgets('background product updates preserve the current search',
       (tester) async {
     final repository = PreviewProductsRepository();
