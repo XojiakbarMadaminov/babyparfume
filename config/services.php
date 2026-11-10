@@ -35,6 +35,11 @@ return [
         ],
     ],
 
+    'firebase_push' => [
+        'project_id'  => env('FIREBASE_PROJECT_ID'),
+        'credentials' => env('GOOGLE_APPLICATION_CREDENTIALS'),
+    ],
+
     'telegram' => [
         'bot_token'     => env('TELEGRAM_BOT_TOKEN'),
         'sales_chat_id' => env('TELEGRAM_SALES_CHAT_ID'),

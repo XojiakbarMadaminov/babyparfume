@@ -23,6 +23,8 @@ import Darwin
           let milliseconds = Double(mach_continuous_time()) * Double(timebase.numer) / Double(timebase.denom) / 1_000_000
           result(["uptime_ms": Int64(milliseconds), "boot_id": String(boot.tv_sec)])
         }
+      FlutterMethodChannel(name: "babyparfume/product_photo", binaryMessenger: controller.binaryMessenger)
+        .setMethodCallHandler(ProductPhotoSegmenter.handle)
     }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }

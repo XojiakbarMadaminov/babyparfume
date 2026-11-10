@@ -19,6 +19,7 @@ dependencies:
   uuid: ^4.5.1
   mobile_scanner: ^5.2.3
   image_picker: ^1.1.2
+  image: ^4.5.4
   path_provider: ^2.1.4
   cryptography: ^2.7.2
   intl: ^0.19.0

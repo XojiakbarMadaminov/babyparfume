@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "452220797847",
+    "project_id": "oson-pos",
+    "storage_bucket": "oson-pos.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:452220797847:android:07f1942c65e55a94ea7ad2",
+        "android_client_info": {
+          "package_name": "com.babyparfume.babyparfume_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCkzBws40vlABueXRMUrWzxM9c6pXRGeTA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

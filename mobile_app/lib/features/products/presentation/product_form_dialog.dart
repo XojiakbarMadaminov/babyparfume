@@ -2,8 +2,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/utils/photo_picker.dart';
+import '../data/product_photo_effects.dart';
 import '../data/products_repository.dart';
 import 'barcode_scanner_sheet.dart';
+import 'product_photo_preview.dart';
 import 'product_widgets.dart';
 
 class ProductFormDialog extends StatefulWidget {
@@ -209,14 +211,15 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     if (_pickingPhoto || _saving) return;
     setState(() => _pickingPhoto = true);
     try {
-      final bytes = await PhotoPicker.pick(context, maxBytes: 1024 * 1024);
-      if (bytes == null) return;
-      if (mounted) {
-        setState(() {
-          _photo = bytes;
-          _removePhoto = false;
-        });
-      }
+      final bytes =
+          await PhotoPicker.pick(context, maxBytes: productPhotoMaxBytes);
+      if (bytes == null || !mounted) return;
+      final selected = await showProductPhotoPreview(context, bytes);
+      if (selected == null || !mounted) return;
+      setState(() {
+        _photo = selected;
+        _removePhoto = false;
+      });
     } catch (error) {
       if (mounted) {
         final message = error is PhotoPickerException

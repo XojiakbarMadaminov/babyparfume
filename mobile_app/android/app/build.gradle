@@ -1,6 +1,7 @@
 plugins {
     id "com.android.application"
     id "kotlin-android"
+    id "com.google.gms.google-services"
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id "dev.flutter.flutter-gradle-plugin"
 }
@@ -33,6 +34,10 @@ android {
         versionName = flutter.versionName
     }
 
+    androidResources {
+        noCompress += "tflite"
+    }
+
     signingConfigs {
         release {
             if (releaseKeyFile.exists()) {
@@ -57,4 +62,9 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    implementation "com.google.ai.edge.litert:litert:1.4.2"
+    implementation "com.google.firebase:firebase-messaging:24.1.2"
 }

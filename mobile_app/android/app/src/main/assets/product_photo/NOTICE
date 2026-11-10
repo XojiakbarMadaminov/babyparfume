@@ -1,0 +1,8 @@
+U²-Net salient object detection model by Xuebin Qin et al.
+https://github.com/xuebinqin/U-2-Net
+
+The bundled model uses the lightweight U²-Net-P checkpoint from rembg.
+Clearstate pruned it to the d0 output and converted it to TensorFlow Lite with
+FP16 weights. This app ships that conversion unchanged under Apache License 2.0.
+https://huggingface.co/thetechgeekko/latent-android-models/tree/55d15796e728c5e61e9a1c91841db8d7eb10604a
+SHA-256: 357bd5214d6725efd88dc1578de5308f8a80c6df63ac3f35c2021e955f4a4bc5
