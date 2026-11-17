@@ -32,7 +32,7 @@ class McpOAuthController extends Controller
         $client->forceFill(['provider' => 'mcp_users'])->save();
 
         return response()->json([
-            'client_id'                  => $client->id, 'client_name' => $client->name, 'redirect_uris' => $client->redirectUris,
+            'client_id'                  => $client->id, 'client_name' => $client->name, 'redirect_uris' => $client->redirect_uris,
             'grant_types'                => ['authorization_code', 'refresh_token'], 'response_types' => ['code'],
             'token_endpoint_auth_method' => 'none', 'scope' => 'mcp:use',
         ], 201);
@@ -51,7 +51,7 @@ class McpOAuthController extends Controller
         $params = [...$psrRequest->getQueryParams(), 'scope' => 'mcp:use', 'prompt' => 'consent'];
 
         $response = $controller->authorize($psrRequest->withQueryParams($params), $request, $psrResponse, $view);
-        $request->attributes->set('mcp_oauth_callback_uri', $request->query('redirect_uri') ?? $client->redirectUris[0] ?? null);
+        $request->attributes->set('mcp_oauth_callback_uri', $request->query('redirect_uri') ?? $client->redirect_uris[0] ?? null);
 
         return $response;
     }
@@ -63,7 +63,7 @@ class McpOAuthController extends Controller
         $clientId = $authRequest->getClient()->getIdentifier();
         $client   = Client::query()->whereKey($clientId)->where('provider', 'mcp_users')->where('revoked', false)->first();
         abort_unless($client, 403);
-        request()->attributes->set('mcp_oauth_callback_uri', $authRequest->getRedirectUri() ?? $client->redirectUris[0] ?? null);
+        request()->attributes->set('mcp_oauth_callback_uri', $authRequest->getRedirectUri() ?? $client->redirect_uris[0] ?? null);
         $data = $request->validated();
 
         return $request->user()->getConnection()->transaction(function () use ($request, $server, $psrResponse, $authRequest, $clientId, $data): Response {

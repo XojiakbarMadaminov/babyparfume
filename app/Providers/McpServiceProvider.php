@@ -11,6 +11,7 @@ use Illuminate\Support\ServiceProvider;
 use App\Http\Middleware\AuthenticateMcp;
 use Illuminate\Cache\RateLimiting\Limit;
 use App\Http\Middleware\EnsureMcpEnabled;
+use App\Http\Middleware\LogMcpTokenRequest;
 use Illuminate\Support\Facades\RateLimiter;
 
 class McpServiceProvider extends ServiceProvider
@@ -36,7 +37,7 @@ class McpServiceProvider extends ServiceProvider
         ]);
 
         if (!$this->app->routesAreCached()) {
-            Route::middleware([EnsureMcpEnabled::class])->group(function (): void {
+            Route::middleware([LogMcpTokenRequest::class, EnsureMcpEnabled::class])->group(function (): void {
                 Mcp::web('/mcp', PosServer::class)->middleware([AuthenticateMcp::class, 'throttle:mcp'])->name('mcp.endpoint');
                 require base_path('routes/mcp.php');
             });

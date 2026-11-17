@@ -3,7 +3,9 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use Illuminate\Support\Str;
 use Illuminate\Http\Request;
+use Laravel\Passport\Client;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsureMcpEnabled
@@ -12,14 +14,25 @@ class EnsureMcpEnabled
     {
         abort_unless(config('mcp.enabled'), 404);
         if ($request->hasHeader('Origin')) {
-            $allowed = [rtrim((string) config('app.url'), '/'), ...config('mcp.allowed_origins', [])];
-            abort_unless(in_array($request->header('Origin'), $allowed, true), 403);
+            $allowed       = [rtrim((string) config('app.url'), '/'), ...config('mcp.allowed_origins', [])];
+            $originAllowed = in_array($request->header('Origin'), $allowed, true)
+                || $this->isRegisteredTokenOrigin($request);
+            if ($request->routeIs('mcp.oauth.token')) {
+                $request->attributes->set('mcp_token_origin_allowed', $originAllowed);
+            }
+            if (!$originAllowed) {
+                $request->attributes->set('mcp_token_rejection_reason', 'origin_not_allowed');
+                abort(403);
+            }
         }
         if (app()->bound('debugbar')) {
             app('debugbar')->disable();
         }
         abort_if((int) $request->header('Content-Length', 0) > 65536 || strlen($request->getContent()) > 65536, 413);
         if (app()->isProduction()) {
+            if (!$request->isSecure()) {
+                $request->attributes->set('mcp_token_rejection_reason', 'https_required');
+            }
             abort_unless($request->isSecure(), 400, 'HTTPS talab qilinadi.');
         }
         $response = $next($request);
@@ -46,5 +59,27 @@ class EnsureMcpEnabled
         }
 
         return $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '');
+    }
+
+    private function isRegisteredTokenOrigin(Request $request): bool
+    {
+        if (!$request->routeIs('mcp.oauth.token')) {
+            return false;
+        }
+        $clientId = $request->input('client_id') ?? $request->getUser();
+        if (!is_string($clientId) || !Str::isUuid($clientId)) {
+            return false;
+        }
+        $client = Client::query()->whereKey($clientId)->where('provider', 'mcp_users')->where('revoked', false)->first();
+        if (!$client) {
+            return false;
+        }
+        foreach ($client->redirect_uris as $redirectUri) {
+            if ($this->callbackOrigin($redirectUri) === $request->header('Origin')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
