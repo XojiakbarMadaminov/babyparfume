@@ -64,6 +64,11 @@ class AdminPanelProvider extends PanelProvider
             ->resourceCreatePageRedirect('index')
             ->resourceEditPageRedirect('index')
             ->userMenuItems([
+                Action::make('mcpConnections')
+                    ->label('AI / MCP ulanishlari')
+                    ->icon('heroicon-o-link')
+                    ->visible(fn (): bool => (bool) config('mcp.enabled'))
+                    ->url(fn (): string => route('mcp.connections.index')),
                 Action::make('currentStore')
                     ->label(fn () => auth()->user()?->currentStore?->name ?? 'magazin tanlanmagan')
                     ->color(Color::hex('#484ab5'))

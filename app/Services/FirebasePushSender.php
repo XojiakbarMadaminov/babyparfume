@@ -12,6 +12,8 @@ class FirebasePushSender
 {
     public const TOPIC = 'oson_pos_announcements';
 
+    public const PRIVATE_CHANNEL = 'oson_pos_account_updates';
+
     public function isConfigured(): bool
     {
         $project = config('services.firebase_push.project_id');
@@ -50,6 +52,31 @@ class FirebasePushSender
             return null;
         }
 
+        $messageId = $response->throw()->json('name');
+
+        return is_string($messageId) && $messageId !== '' ? $messageId : null;
+    }
+
+    /** @param array<string, string> $data */
+    public function sendToToken(string $token, string $title, string $body, array $data = []): ?string
+    {
+        if (!$this->isConfigured()) {
+            throw new RuntimeException('Firebase push credentials are not configured.');
+        }
+        $project  = config('services.firebase_push.project_id');
+        $response = Http::asJson()->acceptJson()->withToken($this->accessToken())
+            ->connectTimeout(5)->timeout(12)->withoutRedirecting()
+            ->post("https://fcm.googleapis.com/v1/projects/{$project}/messages:send", [
+                'message' => [
+                    'token'        => $token,
+                    'notification' => ['title' => $title, 'body' => $body],
+                    'data'         => $data,
+                    'android'      => ['priority' => 'high', 'notification' => ['channel_id' => self::PRIVATE_CHANNEL]],
+                ],
+            ]);
+        if ($response->serverError() || in_array($response->status(), [408, 429], true)) {
+            return null;
+        }
         $messageId = $response->throw()->json('name');
 
         return is_string($messageId) && $messageId !== '' ? $messageId : null;

@@ -40,6 +40,15 @@ class MainActivity: FlutterActivity() {
             }
 
         val messenger = flutterEngine.dartExecutor.binaryMessenger
+        val pushChannel = MethodChannel(messenger, "babyparfume/push_notifications")
+        AppPushNotifications.tokenListener = {
+            runOnUiThread { pushChannel.invokeMethod("tokenChanged", null) }
+        }
+        pushChannel.setMethodCallHandler { call, result ->
+                if (call.method == "getToken") {
+                    AppPushNotifications.getToken(this) { token -> result.success(token) }
+                } else result.notImplemented()
+            }
         val photoSegmenter = ProductPhotoSegmenter(assets)
         MethodChannel(
             messenger,
@@ -66,5 +75,10 @@ class MainActivity: FlutterActivity() {
                 result.error("segmentation_unavailable", null, null)
             }
         }
+    }
+
+    override fun onDestroy() {
+        AppPushNotifications.tokenListener = null
+        super.onDestroy()
     }
 }

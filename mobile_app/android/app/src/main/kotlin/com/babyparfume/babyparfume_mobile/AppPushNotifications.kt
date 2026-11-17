@@ -19,9 +19,16 @@ import com.google.firebase.messaging.RemoteMessage
 internal object AppPushNotifications {
     const val PERMISSION_REQUEST = 201
     private const val TOPIC = "oson_pos_announcements"
+    private const val PRIVATE_CHANNEL = "oson_pos_account_updates"
     private const val PREFERENCES = "push_notifications"
     private const val PERMISSION_REQUESTED = "permission_requested"
     private var subscribed = false
+    var tokenListener: (() -> Unit)? = null
+
+    fun tokenChanged(context: Context) {
+        subscribe(context, tokenChanged = true)
+        tokenListener?.invoke()
+    }
 
     fun onResume(activity: Activity) {
         if (!isAvailable(activity)) return
@@ -62,7 +69,9 @@ internal object AppPushNotifications {
             context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val builder = if (Build.VERSION.SDK_INT >= 26) {
-            Notification.Builder(context, context.getString(R.string.announcement_channel_id))
+            val channelId = if (message.data["type"] == "mcp_debt_changed") PRIVATE_CHANNEL
+                else context.getString(R.string.announcement_channel_id)
+            Notification.Builder(context, channelId)
         } else {
             @Suppress("DEPRECATION")
             Notification.Builder(context).setDefaults(Notification.DEFAULT_ALL)
@@ -74,6 +83,7 @@ internal object AppPushNotifications {
             .setStyle(Notification.BigTextStyle().bigText(content.body))
             .setContentIntent(openApp)
             .setAutoCancel(true)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
             .build()
 
         try {
@@ -81,6 +91,16 @@ internal object AppPushNotifications {
         } catch (_: SecurityException) {
             // The permission can be revoked after the initial check.
         }
+    }
+
+    fun getToken(context: Context, callback: (String?) -> Unit) {
+        if (!isAvailable(context) || !canShow(context)) {
+            callback(null)
+            return
+        }
+        FirebaseMessaging.getInstance().token
+            .addOnSuccessListener { callback(it) }
+            .addOnFailureListener { callback(null) }
     }
 
     private fun createChannel(context: Context) {
@@ -91,6 +111,11 @@ internal object AppPushNotifications {
             NotificationManager.IMPORTANCE_DEFAULT
         )
         manager(context).createNotificationChannel(channel)
+        manager(context).createNotificationChannel(NotificationChannel(
+            PRIVATE_CHANNEL,
+            "Oson POS qarz amallari",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply { lockscreenVisibility = Notification.VISIBILITY_PRIVATE })
     }
 
     private fun isAvailable(context: Context): Boolean =

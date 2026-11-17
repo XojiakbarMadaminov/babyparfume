@@ -59,7 +59,7 @@ class FlutterDeviceSessionService
             }
 
             $lockedDevice->token()->delete();
-            $lockedDevice->forceFill(['personal_access_token_id' => null, 'revoked_at' => now()])->save();
+            $lockedDevice->forceFill(['personal_access_token_id' => null, 'revoked_at' => now(), 'push_token' => null, 'push_token_hash' => null])->save();
         });
     }
 }

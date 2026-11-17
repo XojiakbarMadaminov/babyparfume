@@ -25,6 +25,7 @@ Route::middleware([AuthenticateFlutterDevice::class, 'throttle:flutter-api'])->g
         ]);
     })->name('stores.index');
     Route::post('logout', [SessionController::class, 'destroy'])->name('logout');
+    Route::post('devices/push-token', [DeviceController::class, 'pushToken'])->name('devices.push-token');
     Route::delete('devices/{device}', [DeviceController::class, 'destroy'])->whereUuid('device')->name('devices.destroy');
 
     Route::middleware(EnsureFlutterStore::class)->prefix('stores/{store}')->name('stores.')->group(function (): void {

@@ -36,6 +36,10 @@ return [
     */
 
     'guards' => [
+        'mcp' => [
+            'driver'   => 'passport',
+            'provider' => 'mcp_users',
+        ],
         'flutter' => [
             'driver'   => 'sanctum',
             'provider' => 'users',
@@ -64,6 +68,10 @@ return [
     */
 
     'providers' => [
+        'mcp_users' => [
+            'driver' => 'eloquent',
+            'model'  => App\Models\McpUser::class,
+        ],
         'users' => [
             'driver' => 'eloquent',
             'model'  => env('AUTH_MODEL', App\Models\User::class),

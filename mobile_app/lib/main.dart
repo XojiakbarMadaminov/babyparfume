@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:async';
 import 'core/api/api_client.dart';
 import 'core/database/app_database.dart';
 import 'core/storage/secure_storage.dart';
@@ -18,7 +20,8 @@ class BabyParfumeApp extends StatefulWidget {
   State<BabyParfumeApp> createState() => _BabyParfumeAppState();
 }
 
-class _BabyParfumeAppState extends State<BabyParfumeApp> {
+class _BabyParfumeAppState extends State<BabyParfumeApp>
+    with WidgetsBindingObserver {
   late final AuthRepository _auth;
   bool _initialized = false;
   bool _loggedIn = false;
@@ -26,6 +29,7 @@ class _BabyParfumeAppState extends State<BabyParfumeApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final storage = SecureStorageService();
     _auth = AuthRepository(
         storage: storage,
@@ -35,10 +39,37 @@ class _BabyParfumeAppState extends State<BabyParfumeApp> {
               if (mounted) setState(() => _loggedIn = false);
             }));
     _initialize();
+    const MethodChannel('babyparfume/push_notifications')
+        .setMethodCallHandler((call) async {
+      if (call.method == 'tokenChanged' && _loggedIn) {
+        await _auth.syncPushToken();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    const MethodChannel('babyparfume/push_notifications')
+        .setMethodCallHandler(null);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _loggedIn) {
+      unawaited(_auth.syncPushToken());
+    }
+  }
+
+  void _onLoginSuccess() {
+    setState(() => _loggedIn = true);
+    unawaited(_auth.syncPushToken());
   }
 
   Future<void> _initialize() async {
     final loggedIn = await _auth.isLoggedIn();
+    if (loggedIn) unawaited(_auth.syncPushToken());
     final themeMode = await _auth.storage.getThemeMode();
     if (mounted) {
       setState(() {
@@ -73,8 +104,7 @@ class _BabyParfumeAppState extends State<BabyParfumeApp> {
             ? const Scaffold(body: Center(child: CircularProgressIndicator()))
             : !_loggedIn
                 ? LoginScreen(
-                    authRepository: _auth,
-                    onLoginSuccess: () => setState(() => _loggedIn = true))
+                    authRepository: _auth, onLoginSuccess: _onLoginSuccess)
                 : AppShell(
                     authRepository: _auth,
                     onLogout: _logout,

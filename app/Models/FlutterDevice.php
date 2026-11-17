@@ -23,8 +23,10 @@ class FlutterDevice extends Model
 
     protected function casts(): array
     {
-        return ['revoked_at' => 'immutable_datetime', 'personal_access_token_id' => 'integer'];
+        return ['revoked_at' => 'immutable_datetime', 'personal_access_token_id' => 'integer', 'push_token' => 'encrypted'];
     }
+
+    protected $hidden = ['push_token', 'push_token_hash'];
 
     public function user(): BelongsTo
     {

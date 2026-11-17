@@ -19,6 +19,9 @@ class DebtorObserver
      */
     public function created(Debtor $debtor): void
     {
+        if (request()->attributes->has('mcp_operation_id')) {
+            return;
+        }
         if ($debtor->getConnection()->transactionLevel() > 0 && request()->is('api/flutter/*')) {
             $snapshot = clone $debtor;
             $debtor->getConnection()->afterCommit(fn () => $this->notifyCreated($snapshot));
@@ -28,10 +31,15 @@ class DebtorObserver
         $this->notifyCreated($debtor);
     }
 
-    protected function notifyCreated(Debtor $debtor): void
+    protected function notifyCreated(Debtor $debtor, string $channel = 'all'): void
     {
         $message = "Siz uchun {$debtor->store->address}da joylashgan {$debtor->store->name} do'konidan {$debtor->amount} UZS qarzdorlik qayd etildi. To'lov uchun +998913291187.";
-        $this->sms->sendSms($debtor->client->phone, $message);
+        if ($channel !== 'telegram') {
+            $result = $this->sms->sendSms($debtor->client->phone, $message);
+            if ($channel !== 'all' && ($result['success'] ?? false) !== true) {
+                throw new \RuntimeException('SMS provider rejected the message.');
+            }
+        }
 
         $header = '🏬 <b>Do\'kon: ' . ($debtor->store->name ?? '-') . '</b>';
 
@@ -44,7 +52,12 @@ class DebtorObserver
             '📅 ' . $this->formatDate($debtor->date),
         ]);
 
-        $this->telegram->sendMessage($telegramMessage);
+        if ($channel !== 'sms') {
+            $sent = $this->telegram->sendMessage($telegramMessage);
+            if ($channel !== 'all' && !$sent) {
+                throw new \RuntimeException('Telegram rejected the message.');
+            }
+        }
     }
 
     /**
@@ -52,6 +65,9 @@ class DebtorObserver
      */
     public function updated(Debtor $debtor): void
     {
+        if (request()->attributes->has('mcp_operation_id')) {
+            return;
+        }
         if ($debtor->getConnection()->transactionLevel() > 0 && request()->is('api/flutter/*')) {
             $snapshot = clone $debtor;
             $debtor->getConnection()->afterCommit(fn () => $this->notifyUpdated($snapshot));
@@ -61,7 +77,7 @@ class DebtorObserver
         $this->notifyUpdated($debtor);
     }
 
-    protected function notifyUpdated(Debtor $debtor): void
+    protected function notifyUpdated(Debtor $debtor, string $channel = 'all'): void
     {
         if ($debtor->isDirty('amount')) {
             $originalAmount = (int) $debtor->getOriginal('amount');
@@ -74,12 +90,37 @@ class DebtorObserver
                 $message = "{$debtor->store->name} do'konida qarzingiz yangilandi. Joriy qarzdorlik: {$debtor->amount} {$debtor->currency}. Savollar bo'lsa +998913291187.";
             }
 
-            $this->sms->sendSms($debtor->client->phone, $message);
-            $this->sendTelegramUpdate($debtor, $diff);
+            if ($channel !== 'telegram') {
+                $result = $this->sms->sendSms($debtor->client->phone, $message);
+                if ($channel !== 'all' && ($result['success'] ?? false) !== true) {
+                    throw new \RuntimeException('SMS provider rejected the message.');
+                }
+            }
+            if ($channel !== 'sms') {
+                $this->sendTelegramUpdate($debtor, $diff, $channel !== 'all');
+            }
         }
     }
 
-    protected function sendTelegramUpdate(Debtor $debtor, int $diff): void
+    /** @param array<string, mixed> $payload */
+    public function sendMcpChannel(array $payload, string $channel): void
+    {
+        $debtor = new Debtor;
+        $debtor->forceFill($payload['debtor']);
+        $amount         = $debtor->amount;
+        $debtor->amount = $payload['before'];
+        $debtor->syncOriginal();
+        $debtor->amount = $amount;
+        $debtor->setRelation('client', (new \App\Models\Client)->forceFill($payload['client']));
+        $debtor->setRelation('store', (new \App\Models\Store)->forceFill($payload['store']));
+        if ($payload['event'] === 'created') {
+            $this->notifyCreated($debtor, $channel);
+        } else {
+            $this->notifyUpdated($debtor, $channel);
+        }
+    }
+
+    protected function sendTelegramUpdate(Debtor $debtor, int $diff, bool $requireSuccess = false): void
     {
         if ($diff === 0) {
             return;
@@ -111,7 +152,10 @@ class DebtorObserver
             }
         }
 
-        $this->telegram->sendMessage($telegramMessage);
+        $sent = $this->telegram->sendMessage($telegramMessage);
+        if ($requireSuccess && !$sent) {
+            throw new \RuntimeException('Telegram rejected the message.');
+        }
     }
 
     protected function formatAmount(?int $amount, ?string $currency): string

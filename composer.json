@@ -14,6 +14,8 @@
         "google/auth": "^1.50",
         "irazasyed/telegram-bot-sdk": "*",
         "laravel/framework": "^12.0",
+        "laravel/mcp": "^0.3",
+        "laravel/passport": "13.10.*",
         "laravel/sanctum": "^4.3.3",
         "laravel/tinker": "^2.10.1",
         "milon/barcode": "^12.0",

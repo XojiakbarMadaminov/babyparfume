@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
 import 'package:babyparfume_mobile/core/api/api_client.dart';
 import 'package:babyparfume_mobile/core/storage/secure_storage.dart';
 
@@ -42,6 +43,19 @@ class AuthRepository {
   Future<bool> isLoggedIn() async {
     final token = await storage.getToken();
     return token != null && token.isNotEmpty;
+  }
+
+  Future<void> syncPushToken() async {
+    if (!Platform.isAndroid || !await isLoggedIn()) return;
+    try {
+      final token = await const MethodChannel('babyparfume/push_notifications')
+          .invokeMethod<String>('getToken');
+      if (token != null && token.isNotEmpty) {
+        await apiClient.post('/devices/push-token', data: {'token': token});
+      }
+    } catch (_) {
+      // Push registration must not interrupt login or offline work.
+    }
   }
 
   Future<bool> login({required String email, required String password}) async {
