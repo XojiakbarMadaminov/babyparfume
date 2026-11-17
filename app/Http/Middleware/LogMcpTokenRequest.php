@@ -27,14 +27,14 @@ class LogMcpTokenRequest
         } catch (Throwable $exception) {
             $errorResponse = $exception instanceof HttpResponseException ? $exception->getResponse() : null;
             $status        = $errorResponse?->getStatusCode() ?? ($exception instanceof HttpExceptionInterface ? $exception->getStatusCode() : 500);
-            $this->record($request, $requestId, $status, $exception);
+            $this->record($request, $requestId, $status, $exception, $errorResponse);
             if ($errorResponse instanceof Response) {
                 $this->decorate($request, $errorResponse, $requestId);
             }
 
             throw $exception;
         }
-        $this->record($request, $requestId, $response->getStatusCode());
+        $this->record($request, $requestId, $response->getStatusCode(), response: $response);
 
         return $this->decorate($request, $response, $requestId);
     }
@@ -51,13 +51,26 @@ class LogMcpTokenRequest
         return $response;
     }
 
-    private function record(Request $request, string $requestId, int $status, ?Throwable $exception = null): void
+    private function record(Request $request, string $requestId, int $status, ?Throwable $exception = null, ?Response $response = null): void
     {
-        $grant  = $request->input('grant_type');
-        $oauth  = $exception instanceof OAuthServerException ? $exception->getPrevious() : null;
-        $reason = $request->attributes->get('mcp_token_rejection_reason');
-        if ($oauth instanceof LeagueOAuthException) {
-            $reason = $this->oauthReason($oauth);
+        $grant      = $request->input('grant_type');
+        $oauth      = $exception instanceof OAuthServerException ? $exception->getPrevious() : null;
+        $oauthError = $oauth instanceof LeagueOAuthException ? $oauth->getErrorType() : null;
+        $hint       = $oauth instanceof LeagueOAuthException ? $oauth->getHint() : null;
+        $reason     = $request->attributes->get('mcp_token_rejection_reason');
+        if ($oauthError === null && $status >= 400 && $response !== null
+            && str_starts_with((string) $response->headers->get('Content-Type'), 'application/json')) {
+            $body = json_decode((string) $response->getContent(), true, 8);
+            if (is_array($body) && in_array($body['error'] ?? null, [
+                'invalid_request', 'invalid_client', 'invalid_grant', 'unauthorized_client',
+                'unsupported_grant_type', 'invalid_scope', 'access_denied', 'server_error', 'temporarily_unavailable',
+            ], true)) {
+                $oauthError = $body['error'];
+                $hint       = is_string($body['hint'] ?? null) ? $body['hint'] : null;
+            }
+        }
+        if ($oauthError !== null) {
+            $reason ??= $this->oauthReason($hint, $oauthError);
         }
         Log::log($status >= 400 ? 'error' : 'info', 'MCP OAuth token request finished', [
             'request_id'               => $requestId,
@@ -73,7 +86,7 @@ class LogMcpTokenRequest
             'has_redirect_uri'         => $request->filled('redirect_uri'),
             'has_origin'               => $request->hasHeader('Origin'),
             'origin_allowed'           => $request->attributes->get('mcp_token_origin_allowed'),
-            'oauth_error'              => $oauth instanceof LeagueOAuthException ? $oauth->getErrorType() : null,
+            'oauth_error'              => $oauthError,
             'reason'                   => $reason ?? match (true) {
                 $status === 429 => 'rate_limited',
                 $status === 413 => 'payload_too_large',
@@ -85,9 +98,9 @@ class LogMcpTokenRequest
         ]);
     }
 
-    private function oauthReason(LeagueOAuthException $exception): string
+    private function oauthReason(?string $hint, string $oauthError): string
     {
-        return match ($exception->getHint()) {
+        return match ($hint) {
             'Failed to verify `code_verifier`.'                         => 'pkce_verification_failed',
             'Code Verifier must follow the specifications of RFC-7636.' => 'pkce_format_invalid',
             'Cannot validate the provided authorization code'           => 'authorization_code_invalid',
@@ -107,7 +120,13 @@ class LogMcpTokenRequest
             'Token is not linked to client'                             => 'refresh_token_client_mismatch',
             'Token has expired'                                         => 'refresh_token_expired',
             'Token has been revoked'                                    => 'refresh_token_revoked',
-            default                                                     => 'oauth_rejected',
+            default                                                     => match ($oauthError) {
+                'invalid_client'         => 'client_authentication_failed',
+                'unauthorized_client'    => 'client_grant_not_allowed',
+                'unsupported_grant_type' => 'unsupported_grant_type',
+                'invalid_scope'          => 'scope_invalid',
+                default                  => 'oauth_rejected',
+            },
         };
     }
 }

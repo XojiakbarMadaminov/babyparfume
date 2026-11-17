@@ -14,11 +14,25 @@ beforeEach(function (): void {
 
 it('requires a bearer token even with an authenticated web session and hides disabled endpoints', function (): void {
     $this->actingAs($this->ctx['user'])->postJson('/mcp', ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/list'])->assertUnauthorized()
-        ->assertHeader('WWW-Authenticate');
+        ->assertHeader('WWW-Authenticate', 'Bearer resource_metadata="' . route('mcp.resource-metadata') . '"');
     config()->set('mcp.enabled', false);
     $this->get('/mcp/connections')->assertNotFound();
     $this->postJson('/mcp')->assertNotFound();
     $this->postJson('/mcp/oauth/register', [])->assertNotFound();
+});
+
+it('advertises custom oauth discovery when rejecting invalid bearer tokens', function (): void {
+    $this->withToken('invalid-token')->postJson('/mcp', ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/list'])
+        ->assertUnauthorized()
+        ->assertHeader('WWW-Authenticate', 'Bearer resource_metadata="' . route('mcp.resource-metadata') . '"');
+    $this->getJson(route('mcp.resource-metadata'))->assertOk()
+        ->assertJsonPath('resource', route('mcp.endpoint'))
+        ->assertJsonPath('authorization_servers', [url('/')]);
+    $this->getJson('/.well-known/oauth-authorization-server')->assertOk()
+        ->assertJsonPath('issuer', url('/'))
+        ->assertJsonPath('authorization_endpoint', route('mcp.oauth.authorize'))
+        ->assertJsonPath('token_endpoint', route('mcp.oauth.token'))
+        ->assertJsonPath('token_endpoint_auth_methods_supported', ['none']);
 });
 
 it('authenticates actual oauth tokens and preserves the current store', function (): void {

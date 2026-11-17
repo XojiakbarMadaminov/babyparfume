@@ -141,6 +141,7 @@ it('validates pkce for form encoded token requests from the registered client or
         'default_store_id' => $this->connection->default_store_id, 'permissions' => $this->connection->permissions,
     ])->assertRedirect();
     parse_str(parse_url($response->headers->get('Location'), PHP_URL_QUERY), $query);
+    Illuminate\Support\Facades\Log::spy();
     $tokenResponse = $this->withHeader('Origin', 'https://chatgpt.com')->post('/mcp/oauth/token', [
         'grant_type' => 'authorization_code', 'client_id' => $this->connection->client_id,
         'code'       => $query['code'], 'code_verifier' => $correctVerifier ? $verifier : str_repeat('d', 64), 'redirect_uri' => $redirectUri,
@@ -149,10 +150,25 @@ it('validates pkce for form encoded token requests from the registered client or
     if (!$correctVerifier) {
         $tokenResponse->assertBadRequest()->assertJsonPath('error', 'invalid_grant');
         $this->assertDatabaseCount('oauth_access_tokens', 0);
+        Illuminate\Support\Facades\Log::shouldHaveReceived('log')->withArgs(fn (string $level, string $message, array $context): bool => $level === 'error'
+            && $message === 'MCP OAuth token request finished'
+            && $context['oauth_error'] === 'invalid_grant'
+            && $context['reason'] === 'pkce_verification_failed')->once();
 
         return;
     }
     $tokenResponse->assertOk()->assertJsonStructure(['access_token', 'refresh_token']);
+    Illuminate\Support\Facades\Log::shouldHaveReceived('log')->withArgs(function (string $level, string $message, array $context) use ($tokenResponse): bool {
+        expect($level)->toBe('info')
+            ->and($message)->toBe('MCP OAuth token request finished')
+            ->and($context['reason'])->toBe('issued')
+            ->and($context['oauth_error'])->toBeNull()
+            ->and(json_encode($context, JSON_THROW_ON_ERROR))
+            ->not->toContain($tokenResponse->json('access_token'))
+            ->not->toContain($tokenResponse->json('refresh_token'));
+
+        return true;
+    })->once();
     $this->post('/mcp/oauth/token', [
         'grant_type'    => 'refresh_token', 'client_id' => $this->connection->client_id,
         'refresh_token' => $tokenResponse->json('refresh_token'),
@@ -172,7 +188,9 @@ it('records token failure reasons without recording credentials or authorization
             ->and($message)->toBe('MCP OAuth token request finished')
             ->and($context['http_status'])->toBe(400)
             ->and($context['has_code'])->toBeTrue()
-            ->and($context['has_code_verifier'])->toBeTrue();
+            ->and($context['has_code_verifier'])->toBeTrue()
+            ->and($context['oauth_error'])->toBe('invalid_grant')
+            ->and($context['reason'])->toBe('authorization_code_invalid');
         $encoded = json_encode($context, JSON_THROW_ON_ERROR);
         foreach ($secrets as $secret) {
             expect($encoded)->not->toContain($secret);
@@ -181,6 +199,21 @@ it('records token failure reasons without recording credentials or authorization
         return true;
     })->once();
 });
+
+it('records standard oauth errors from rendered token responses', function (array $parameters, string $oauthError, string $reason): void {
+    Illuminate\Support\Facades\Log::spy();
+    $this->post('/mcp/oauth/token', $parameters)->assertClientError()->assertJsonPath('error', $oauthError);
+    Illuminate\Support\Facades\Log::shouldHaveReceived('log')->withArgs(fn (string $level, string $message, array $context): bool => $level === 'error'
+        && $message === 'MCP OAuth token request finished'
+        && $context['oauth_error'] === $oauthError
+        && $context['reason'] === $reason)->once();
+})->with([
+    'unsupported grant' => [['grant_type' => 'diagnostic_unsupported_grant'], 'unsupported_grant_type', 'unsupported_grant_type'],
+    'unknown client'    => [[
+        'grant_type' => 'authorization_code', 'client_id' => '00000000-0000-4000-8000-000000000000',
+        'code'       => 'invalid-code', 'code_verifier' => str_repeat('a', 64), 'redirect_uri' => 'https://agent.example/callback',
+    ], 'invalid_client', 'client_authentication_failed'],
+]);
 
 it('rejects token origins outside the requested clients registered callbacks', function (string $origin): void {
     $this->withHeader('Origin', $origin)->post('/mcp/oauth/token', [

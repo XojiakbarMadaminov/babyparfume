@@ -13,6 +13,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use App\Http\Middleware\EnsureMcpEnabled;
 use App\Http\Middleware\LogMcpTokenRequest;
 use Illuminate\Support\Facades\RateLimiter;
+use Laravel\Mcp\Server\Middleware\AddWwwAuthenticateHeader;
 
 class McpServiceProvider extends ServiceProvider
 {
@@ -38,7 +39,10 @@ class McpServiceProvider extends ServiceProvider
 
         if (!$this->app->routesAreCached()) {
             Route::middleware([LogMcpTokenRequest::class, EnsureMcpEnabled::class])->group(function (): void {
-                Mcp::web('/mcp', PosServer::class)->middleware([AuthenticateMcp::class, 'throttle:mcp'])->name('mcp.endpoint');
+                Mcp::web('/mcp', PosServer::class)
+                    ->withoutMiddleware(AddWwwAuthenticateHeader::class)
+                    ->middleware([AuthenticateMcp::class, 'throttle:mcp'])
+                    ->name('mcp.endpoint');
                 require base_path('routes/mcp.php');
             });
         }
