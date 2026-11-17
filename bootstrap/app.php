@@ -12,6 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [App\Http\Middleware\MobileSalesSession::class]);
+        $middleware->validateCsrfTokens(except: [
+            'mcp',
+            'mcp/*',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(fn (Illuminate\Http\Request $request, Throwable $exception): bool => $request->is('api/flutter/v1', 'api/flutter/v1/*') || $request->expectsJson());
