@@ -7,6 +7,6 @@ return [
     'access_token_minutes' => 60,
     'refresh_token_days'   => 30,
     'approval_minutes'     => 15,
-    'allowed_origins'      => [],
+    'allowed_origins'      => array_values(array_filter(array_map('trim', explode(',', (string) env('MCP_ALLOWED_ORIGINS', 'https://chatgpt.com,https://chat.openai.com'))))),
     'permissions'          => ['products:read', 'debts:read', 'sales:read', 'debts:write'],
 ];

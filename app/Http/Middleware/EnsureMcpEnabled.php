@@ -13,6 +13,27 @@ class EnsureMcpEnabled
     public function handle(Request $request, Closure $next): Response
     {
         abort_unless(config('mcp.enabled'), 404);
+
+        if ($request->isMethod('OPTIONS')) {
+            $origin = $request->header('Origin');
+            $allowed = [rtrim((string) config('app.url'), '/'), ...config('mcp.allowed_origins', [])];
+            $isAllowed = $origin && in_array($origin, $allowed, true);
+
+            $corsResponse = response('', 204)
+                ->header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+                ->header('Access-Control-Allow-Headers', 'Authorization, Content-Type, Mcp-Session-Id, Accept, X-Request-ID')
+                ->header('Access-Control-Expose-Headers', 'Mcp-Session-Id, X-Request-ID')
+                ->header('Access-Control-Max-Age', '86400');
+
+            if ($isAllowed) {
+                $corsResponse->header('Access-Control-Allow-Origin', $origin);
+                $corsResponse->header('Vary', 'Origin');
+            }
+
+            return $corsResponse;
+        }
+
+        $originAllowed = false;
         if ($request->hasHeader('Origin')) {
             $allowed       = [rtrim((string) config('app.url'), '/'), ...config('mcp.allowed_origins', [])];
             $originAllowed = in_array($request->header('Origin'), $allowed, true)
@@ -46,6 +67,11 @@ class EnsureMcpEnabled
             $formAction .= ' ' . $origin;
         }
         $response->headers->set('Content-Security-Policy', "frame-ancestors 'none'; base-uri 'self'; form-action {$formAction}");
+
+        if ($originAllowed && $request->hasHeader('Origin')) {
+            $response->headers->set('Access-Control-Allow-Origin', $request->header('Origin'));
+            $response->headers->set('Access-Control-Expose-Headers', 'Mcp-Session-Id, X-Request-ID');
+        }
 
         return $response;
     }
