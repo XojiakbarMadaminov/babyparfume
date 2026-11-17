@@ -42,14 +42,18 @@ class McpOAuthController extends Controller
     {
         abort_unless($request->query('code_challenge_method') === 'S256' && is_string($request->query('code_challenge')) && preg_match('/^[A-Za-z0-9_-]{43}$/', $request->query('code_challenge')), 400, 'PKCE S256 kerak.');
         abort_unless($request->query('scope', 'mcp:use') === 'mcp:use', 400);
-        abort_unless(Client::query()->whereKey($request->query('client_id'))->where('provider', 'mcp_users')->where('revoked', false)->exists(), 400);
+        $client = Client::query()->whereKey($request->query('client_id'))->where('provider', 'mcp_users')->where('revoked', false)->first();
+        abort_unless($client, 400);
         if ($request->has('resource')) {
             abort_unless($request->query('resource') === route('mcp.endpoint'), 400);
         }
         $request->merge(['prompt' => 'consent']);
         $params = [...$psrRequest->getQueryParams(), 'scope' => 'mcp:use', 'prompt' => 'consent'];
 
-        return $controller->authorize($psrRequest->withQueryParams($params), $request, $psrResponse, $view);
+        $response = $controller->authorize($psrRequest->withQueryParams($params), $request, $psrResponse, $view);
+        $request->attributes->set('mcp_oauth_callback_uri', $request->query('redirect_uri') ?? $client->redirectUris[0] ?? null);
+
+        return $response;
     }
 
     public function approve(McpConsentRequest $request, AuthorizationServer $server, ResponseInterface $psrResponse): Response
@@ -57,7 +61,9 @@ class McpOAuthController extends Controller
         $authRequest = $this->getAuthRequestFromSession($request);
         abort_unless((string) $authRequest->getUser()?->getIdentifier() === (string) $request->user()->id, 403);
         $clientId = $authRequest->getClient()->getIdentifier();
-        abort_unless(Client::query()->whereKey($clientId)->where('provider', 'mcp_users')->where('revoked', false)->exists(), 403);
+        $client   = Client::query()->whereKey($clientId)->where('provider', 'mcp_users')->where('revoked', false)->first();
+        abort_unless($client, 403);
+        request()->attributes->set('mcp_oauth_callback_uri', $authRequest->getRedirectUri() ?? $client->redirectUris[0] ?? null);
         $data = $request->validated();
 
         return $request->user()->getConnection()->transaction(function () use ($request, $server, $psrResponse, $authRequest, $clientId, $data): Response {
