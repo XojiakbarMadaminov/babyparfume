@@ -19,7 +19,10 @@ beforeEach(function (): void {
     Cache::flush();
     app()->instance(SmsService::class, new SmsService);
     Cache::put(app(SmsService::class)->tokenCacheKey(), 'test-token', now()->addDay());
-    Http::fake(['*' => Http::response(['status' => 'success', 'data' => ['balance' => 5000]])]);
+    $this->balanceAmount = 5000;
+    Http::fake(fn () => $this->balanceAmount === null
+        ? Http::response(['message' => 'Unavailable'], 503)
+        : Http::response(['status' => 'success', 'data' => ['balance' => $this->balanceAmount]]));
     $this->user = User::factory()->create();
     $token      = $this->user->createToken('flutter:test', ['flutter:access'], now()->addDay());
     FlutterDevice::factory()->create(['user_id' => $this->user->id, 'personal_access_token_id' => $token->accessToken->id]);
@@ -63,8 +66,36 @@ it('renders and refreshes the admin indicator with a low balance color', functio
     $this->user->givePermissionTo(Permission::findOrCreate('view_sms_balance', 'web'));
     $this->actingAs($this->user);
     Livewire::test(SmsBalanceIndicator::class)->call('loadBalance')
-        ->assertSet('balance.balance', 5000.0)->assertSee('5 000 so‘m')->assertSee('bg-amber-50', false)
+        ->assertSet('balance.balance', 5000.0)->assertSee('5 000 so‘m')->assertSee('bg-red-50', false)
         ->assertSee('Umumiy SMS balansi')->call('refreshBalance')->assertSet('balance.stale', false);
+});
+
+it('colors the admin balance using both warning thresholds', function (?int $amount, string $class): void {
+    $this->user->givePermissionTo(Permission::findOrCreate('view_sms_balance', 'web'));
+    $this->actingAs($this->user);
+    $this->balanceAmount = $amount;
+    Livewire::test(SmsBalanceIndicator::class)->call('loadBalance')
+        ->assertSee($class, false)->assertSee('Har 5 daqiqada avtomatik yangilanadi.');
+})->with([
+    [20001, 'bg-green-50'],
+    [20000, 'bg-green-50'],
+    [19999, 'bg-amber-50'],
+    [10000, 'bg-amber-50'],
+    [9999, 'bg-red-50'],
+    [50, 'bg-red-50'],
+    [0, 'bg-red-50'],
+    [-100, 'bg-red-50'],
+    [null, 'bg-gray-50'],
+]);
+
+it('renders the balance details below the toolbar with viewport constrained positioning', function (): void {
+    $this->user->givePermissionTo(Permission::findOrCreate('view_sms_balance', 'web'));
+    $this->actingAs($this->user);
+    Livewire::test(SmsBalanceIndicator::class)->call('loadBalance')
+        ->assertSee('x-float.placement.bottom-end.size.shift.teleport.offset', false)
+        ->assertDontSee('x-float.placement.bottom-end.size.flip', false)
+        ->assertSee('Umumiy SMS balansi')->assertSee('Eskiz · barcha do‘konlar uchun')
+        ->assertSee('Yangilangan:')->assertSee('Yangilash');
 });
 
 it('rechecks admin permission before refreshing a mounted indicator', function (): void {
