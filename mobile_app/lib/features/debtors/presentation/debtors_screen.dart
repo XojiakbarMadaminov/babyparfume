@@ -11,12 +11,14 @@ class DebtorsScreen extends StatefulWidget {
   final String storeId;
   final DebtorsRepository? repository;
   final bool canCreate;
+  final Widget? smsBalanceCard;
 
   const DebtorsScreen({
     super.key,
     required this.storeId,
     this.repository,
     this.canCreate = false,
+    this.smsBalanceCard,
   });
 
   @override
@@ -40,6 +42,12 @@ class _DebtorsScreenState extends State<DebtorsScreen> {
     _repository =
         widget.repository ?? DebtorsRepository(outboxManager: OutboxManager());
     _loadDebtors();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadDebtors() async {
@@ -93,10 +101,53 @@ class _DebtorsScreenState extends State<DebtorsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          "Qarzdorlar",
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-        ),
+        titleSpacing: 16,
+        title: Row(children: [
+          const Text('Qarzdorlar',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: SizedBox(
+              height: 42,
+              child: TextField(
+                key: const ValueKey('debtors-search'),
+                controller: _searchController,
+                style: const TextStyle(fontSize: 13),
+                textInputAction: TextInputAction.search,
+                onChanged: (value) {
+                  _searchQuery = value;
+                  _loadDebtors();
+                },
+                decoration: InputDecoration(
+                  hintText: 'Ism yoki telefon',
+                  hintStyle: const TextStyle(fontSize: 12),
+                  prefixIcon: Icon(Icons.search,
+                      size: 19, color: AppColors.of(context).muted),
+                  prefixIconConstraints: const BoxConstraints(minWidth: 34),
+                  suffixIcon: _searchQuery.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Qidiruvni tozalash',
+                          padding: EdgeInsets.zero,
+                          icon: const Icon(Icons.close, size: 17),
+                          onPressed: () {
+                            _searchController.clear();
+                            _searchQuery = '';
+                            _loadDebtors();
+                          }),
+                  suffixIconConstraints: const BoxConstraints(minWidth: 32),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  fillColor: AppColors.of(context).soft,
+                  filled: true,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none),
+                ),
+              ),
+            ),
+          ),
+        ]),
         backgroundColor: AppColors.of(context).card,
         elevation: 0,
       ),
@@ -122,76 +173,58 @@ class _DebtorsScreenState extends State<DebtorsScreen> {
                                 _loadDebtors();
                               })))
                       .toList())),
-          // Total debt summary card
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.of(context).tint,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                  color: AppColors.of(context).accent.withOpacity(0.2)),
-            ),
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 12,
-              runSpacing: 8,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Jami qarz miqdori",
-                      style: TextStyle(
-                          color: AppColors.of(context).muted, fontSize: 13),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      "${_debtors.length} ta qarzdor",
-                      style: TextStyle(
-                          color: AppColors.of(context).muted, fontSize: 11),
-                    ),
-                  ],
-                ),
-                Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: _totals.entries
-                        .map((entry) => Text(
-                            CurrencyFormat.format(entry.value,
-                                suffix:
-                                    entry.key == 'UZS' ? "so'm" : entry.key),
-                            style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.of(context).accent)))
-                        .toList()),
-              ],
-            ),
-          ),
-
-          // Search bar
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (val) {
-                _searchQuery = val;
-                _loadDebtors();
-              },
-              decoration: InputDecoration(
-                hintText: "Ism yoki telefon raqami bo'yicha qidirish...",
-                prefixIcon:
-                    Icon(Icons.search, color: AppColors.of(context).muted),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                fillColor: AppColors.of(context).soft,
-                filled: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
+            child: IntrinsicHeight(
+              child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Container(
+                        key: const ValueKey('debtors-summary'),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.of(context).tint,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                              color: AppColors.of(context)
+                                  .accent
+                                  .withOpacity(0.2)),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Jami qarz miqdori',
+                                style: TextStyle(
+                                    color: AppColors.of(context).muted,
+                                    fontSize: 13)),
+                            const SizedBox(height: 2),
+                            Text('${_debtors.length} ta qarzdor',
+                                style: TextStyle(
+                                    color: AppColors.of(context).muted,
+                                    fontSize: 11)),
+                            const SizedBox(height: 8),
+                            for (final entry in _totals.entries)
+                              Text(
+                                  CurrencyFormat.format(entry.value,
+                                      suffix: entry.key == 'UZS'
+                                          ? "so'm"
+                                          : entry.key),
+                                  style: TextStyle(
+                                      fontSize: 19,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.of(context).accent)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (widget.smsBalanceCard != null) ...[
+                      const SizedBox(width: 10),
+                      Expanded(child: widget.smsBalanceCard!),
+                    ],
+                  ]),
             ),
           ),
 

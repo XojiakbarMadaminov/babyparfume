@@ -11,6 +11,8 @@ import '../../../core/sync/sync_models.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../conflicts/presentation/conflicts_screen.dart';
 import '../../debtors/presentation/debtors_screen.dart';
+import '../../debtors/data/sms_balance_controller.dart';
+import '../../debtors/presentation/sms_balance_card.dart';
 import '../../pos/presentation/pos_screen.dart';
 import '../../pos/presentation/pos_widgets.dart';
 import '../../products/presentation/products_screen.dart';
@@ -37,6 +39,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   late final LeaseManager _lease;
   late final OutboxManager _outbox;
   late final SyncCoordinator _sync;
+  late final SmsBalanceController _smsBalance;
   StreamSubscription<LeaseState>? _leaseSubscription;
   StreamSubscription<SyncProgress>? _syncSubscription;
   Timer? _timer;
@@ -62,6 +65,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     final auth = widget.authRepository;
+    _smsBalance = SmsBalanceController(apiClient: auth.apiClient, storage: auth.storage)
+      ..addListener(_smsBalanceChanged);
     _lease = LeaseManager(storage: auth.storage);
     _outbox = OutboxManager();
     _sync = SyncCoordinator(
@@ -95,6 +100,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       _legacyData = await AppDatabase.hasLegacyDatabase();
       _stores = await widget.authRepository.getStores();
       _session = await widget.authRepository.storage.getSession() ?? {};
+      unawaited(_smsBalance.updateSession(_session));
       final saved = widget.initialStoreId ??
           await widget.authRepository.storage.getSelectedStoreId();
       if (_stores.isEmpty) throw StateError('Ruxsatli do‘kon mavjud emas.');
@@ -166,6 +172,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         }
         _hasData = true;
       });
+      unawaited(_smsBalance.updateSession(session));
     }
   }
 
@@ -183,6 +190,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _smsBalance.removeListener(_smsBalanceChanged);
+    _smsBalance.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _leaseSubscription?.cancel();
@@ -190,6 +199,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _lease.dispose();
     _sync.dispose();
     super.dispose();
+  }
+
+  void _smsBalanceChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _logout() async {
@@ -272,6 +285,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           DebtorsScreen(
               key: ValueKey('debtors_${id}_$_revision'),
               storeId: id,
+              smsBalanceCard: _smsBalance.enabled
+                  ? SmsBalanceCard(compact: true, balance: _smsBalance.balance, loading: _smsBalance.loading,
+                      onRefresh: () => _smsBalance.refresh(force: true))
+                  : null,
               canCreate: permissions['create_debtor'] == true),
           Icons.people_outline,
           'Qarzdorlar');

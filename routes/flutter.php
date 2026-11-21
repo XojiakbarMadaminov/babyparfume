@@ -17,6 +17,8 @@ Route::get('health', CapabilitiesController::class)->middleware('throttle:60,1')
 Route::post('login', [SessionController::class, 'store'])->middleware('throttle:flutter-login')->name('login');
 
 Route::middleware([AuthenticateFlutterDevice::class, 'throttle:flutter-api'])->group(function (): void {
+    Route::get('sms-balance', [App\Http\Controllers\Flutter\SmsBalanceController::class, 'show'])->name('sms-balance.show');
+    Route::post('sms-balance/refresh', [App\Http\Controllers\Flutter\SmsBalanceController::class, 'refresh'])->middleware('throttle:6,1')->name('sms-balance.refresh');
     Route::get('session', [SessionController::class, 'show'])->name('session');
     Route::get('stores', function (Illuminate\Http\Request $request) {
         return response()->json([

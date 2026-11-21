@@ -69,7 +69,7 @@ internal object AppPushNotifications {
             context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val builder = if (Build.VERSION.SDK_INT >= 26) {
-            val channelId = if (message.data["type"] == "mcp_debt_changed") PRIVATE_CHANNEL
+            val channelId = if (message.data["type"] in setOf("mcp_debt_changed", "sms_balance_low", "daily_debtor_summary")) PRIVATE_CHANNEL
                 else context.getString(R.string.announcement_channel_id)
             Notification.Builder(context, channelId)
         } else {
@@ -113,7 +113,7 @@ internal object AppPushNotifications {
         manager(context).createNotificationChannel(channel)
         manager(context).createNotificationChannel(NotificationChannel(
             PRIVATE_CHANNEL,
-            "Oson POS qarz amallari",
+            "Oson POS hisob bildirishnomalari",
             NotificationManager.IMPORTANCE_DEFAULT
         ).apply { lockscreenVisibility = Notification.VISIBILITY_PRIVATE })
     }

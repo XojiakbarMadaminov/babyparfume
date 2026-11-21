@@ -10,7 +10,8 @@ Artisan::command('inspire', function () {
 
 Schedule::command('debtors:send-sms')->dailyAt('9:30')->timezone('Asia/Tashkent');
 Schedule::command('debtors:send-overdue-ranking')->dailyAt('04:00')->timezone('Asia/Tashkent');
-Schedule::command('debtors:send-daily-summary')->dailyAt('22:00')->timezone('Asia/Tashkent');
+Schedule::command('debtors:send-daily-summary')->dailyAt('22:00')->timezone('Asia/Tashkent')->withoutOverlapping();
 Schedule::command('sales:send-daily-summary')->dailyAt('22:00')->timezone('Asia/Tashkent');
 Schedule::command('printing:prune')->dailyAt('03:30')->timezone('Asia/Tashkent');
+Schedule::command('sms:check-balance')->dailyAt('20:00')->timezone('Asia/Tashkent')->withoutOverlapping();
 Schedule::command('mcp:dispatch-notifications')->everyMinute()->withoutOverlapping()->when(fn (): bool => (bool) config('mcp.enabled'));

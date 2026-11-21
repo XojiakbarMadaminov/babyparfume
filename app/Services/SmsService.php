@@ -22,10 +22,20 @@ class SmsService
     /**
      * Get or refresh Eskiz token
      */
-    public function getToken()
+    public function tokenCacheKey(): string
+    {
+        return 'eskiz_token:' . hash('sha256', $this->email . '|' . $this->password);
+    }
+
+    public function forgetToken(): void
+    {
+        Cache::forget($this->tokenCacheKey());
+    }
+
+    public function getToken(): ?string
     {
         // Tokenni cache da 29 kun saqlaymiz
-        $cacheKey = 'eskiz_token';
+        $cacheKey = $this->tokenCacheKey();
 
         // Cacheda bo‘lsa va muddat tugamagan bo‘lsa — ishlatamiz
         if (Cache::has($cacheKey)) {
@@ -33,7 +43,7 @@ class SmsService
         }
 
         // Login orqali token olamiz
-        $response = Http::asForm()->post('https://notify.eskiz.uz/api/auth/login', [
+        $response = Http::asForm()->connectTimeout(3)->timeout(5)->post('https://notify.eskiz.uz/api/auth/login', [
             'email'    => $this->email,
             'password' => $this->password,
         ]);

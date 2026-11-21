@@ -70,4 +70,9 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->hasRole('super_admin');
     }
+
+    public function canViewSmsBalance(): bool
+    {
+        return $this->isSuperAdmin() || $this->can('view_sms_balance');
+    }
 }

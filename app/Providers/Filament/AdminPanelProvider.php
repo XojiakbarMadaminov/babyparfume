@@ -60,6 +60,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->maxContentWidth('screen-2xl')
             ->topNavigation()
+            ->renderHook(\Filament\View\PanelsRenderHook::GLOBAL_SEARCH_AFTER, fn (): \Illuminate\Contracts\View\View => view('filament.sms-balance'))
             ->brandName('Oson-POS')
             ->resourceCreatePageRedirect('index')
             ->resourceEditPageRedirect('index')

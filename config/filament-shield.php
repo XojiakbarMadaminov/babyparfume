@@ -227,6 +227,7 @@ return [
     */
 
     'custom_permissions' => [
+        'view_sms_balance'             => 'Umumiy SMS balansini ko‘rish va push ogohlantirish olish',
         'manage_printing'              => 'Chop etish sozlamalari va kompyuterlarni boshqarish',
         'print_receipts'               => 'Savdo cheklarini chop etish',
         'print_barcodes'               => 'Barcode etiketkalarini chop etish',

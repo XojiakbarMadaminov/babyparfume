@@ -59,6 +59,18 @@ class SecureStorageService {
       _storage.write(key: await _key('session'), value: jsonEncode(value));
   Future<String?> getUserId() async =>
       (await getSession())?['user']?['id']?.toString();
+
+  Future<Map<String, dynamic>?> getSmsBalance(String userId) async {
+    final value = await _storage.read(key: await _key('sms_balance_$userId'));
+    return value == null ? null : jsonDecode(value) as Map<String, dynamic>;
+  }
+
+  Future<void> setSmsBalance(String userId, Map<String, dynamic> value) async =>
+      _storage.write(
+          key: await _key('sms_balance_$userId'), value: jsonEncode(value));
+
+  Future<void> clearSmsBalance(String userId) async =>
+      _storage.delete(key: await _key('sms_balance_$userId'));
   Future<String?> getSelectedStoreId() async =>
       _storage.read(key: await _key('store_${await getUserId()}'));
   Future<void> setSelectedStoreId(String storeId) async => _storage.write(
@@ -74,6 +86,8 @@ class SecureStorageService {
       _storage.write(key: await _leaseKey(), value: jsonEncode(value));
   Future<void> clearLease() async => _storage.delete(key: await _leaseKey());
   Future<void> clearSession() async {
+    final userId = await getUserId();
+    if (userId != null) await clearSmsBalance(userId);
     await clearToken();
     await _storage.delete(key: await _key('session'));
   }

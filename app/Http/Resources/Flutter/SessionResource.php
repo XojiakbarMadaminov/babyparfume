@@ -25,6 +25,7 @@ class SessionResource extends JsonResource
             'server_time'       => now()->toISOString(),
             'permission_hash'   => app(\App\Services\FlutterSyncService::class)->permissionFingerprint($this->resource),
             'permissions'       => [
+                'sms_balance'      => $this->resource->canViewSmsBalance(),
                 'sales'            => $this->resource->can('View:Pos'),
                 'sales_statistics' => $this->resource->can('View:Pos') && $this->resource->can('view_mobile_sales_statistics'),
                 'sales_cost_price' => $this->resource->can('view_mobile_sales_cost_price'),
