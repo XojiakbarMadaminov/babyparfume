@@ -8,6 +8,7 @@ use App\Models\FlutterDevice;
 use Illuminate\Support\Carbon;
 use App\Models\DebtorTransaction;
 use App\Services\TelegramNotifier;
+use App\Services\SmsBalanceService;
 use App\Services\FirebasePushSender;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
@@ -28,11 +29,15 @@ beforeEach(function (): void {
     $this->user   = User::factory()->create(['current_store_id' => $this->storeA->id]);
     $this->user->stores()->attach([$this->storeA->id, $this->storeB->id]);
     $this->user->givePermissionTo(Permission::findOrCreate('ViewAny:Debtor', 'web'));
+    $this->user->givePermissionTo(Permission::findOrCreate('view_sms_balance', 'web'));
     $token        = $this->user->createToken('flutter:daily-report', ['flutter:access'], now()->addDays(3));
     $this->device = FlutterDevice::factory()->create(['user_id' => $this->user->id, 'personal_access_token_id' => $token->accessToken->id]);
     $this->device->forceFill(['push_token' => 'daily-private-token', 'push_token_hash' => hash('sha256', 'daily-private-token')])->save();
     $this->sender = $this->mock(FirebasePushSender::class);
     $this->sender->shouldReceive('isConfigured')->andReturnTrue()->byDefault();
+    $this->balanceSnapshot = ['balance' => 15000.0, 'stale' => false];
+    $this->balances        = $this->mock(SmsBalanceService::class);
+    $this->balances->shouldReceive('getBalance')->andReturnUsing(fn (): array => $this->balanceSnapshot)->byDefault();
     $this->summaries      = app(DailyDebtorSummaryService::class);
     $this->addTransaction = function (Store $store, string $type, int $amount, string $currency = 'UZS', ?string $date = null): void {
         $client = Client::query()->create(['full_name' => fake()->name(), 'phone' => '+99890' . fake()->unique()->numerify('#######')]);
@@ -52,7 +57,7 @@ beforeEach(function (): void {
     ($this->addTransaction)($this->storeB, 'debt', 888888, 'UZS', '2026-11-22 00:00:00');
 });
 
-it('uses the same daily totals and text for Telegram and the private APK notification', function (): void {
+it('uses the same daily totals with the emoji layout and SMS balance for the APK', function (): void {
     $telegramBody = null;
     $telegram     = Mockery::mock(TelegramNotifier::class);
     $telegram->shouldReceive('sendMessage')->once()->withArgs(function (string $body) use (&$telegramBody): bool {
@@ -67,8 +72,16 @@ it('uses the same daily totals and text for Telegram and the private APK notific
     app()->instance(TelegramNotifier::class, $telegram);
     $this->artisan('debtors:send-daily-summary')->assertSuccessful();
     Queue::assertPushed(SendDailyDebtorSummaryPush::class, 1);
-    $this->sender->shouldReceive('sendToToken')->once()->withArgs(function ($token, $title, $body, $data) use (&$telegramBody): bool {
-        return $token === 'daily-private-token' && $body === $telegramBody
+    $this->sender->shouldReceive('sendToToken')->once()->withArgs(function ($token, $title, $body, $data): bool {
+        return $token === 'daily-private-token'
+            && str_contains($body, '🏪 Do‘kon: Do‘kon A')
+            && str_contains($body, '📊 Bugungi qarzdorlik: 350 000 so‘m')
+            && str_contains($body, '💳 Bugungi to‘lovlar: 50 000 so‘m')
+            && str_contains($body, '📊 Bugungi qarzdorlik: 100 USD')
+            && str_contains($body, '💳 Bugungi to‘lovlar: 20 USD')
+            && str_contains($body, '🏪 Do‘kon: Do‘kon B')
+            && str_contains($body, '📊 Bugungi qarzdorlik: 900 000 so‘m')
+            && str_contains($body, '💰 SMS balansi: 15 000 so‘m')
             && $title === 'Kunlik qarzdorlik: 21.11.2026' && $data['type'] === 'daily_debtor_summary';
     })->andReturn('projects/test/messages/daily');
     $job = Queue::pushed(SendDailyDebtorSummaryPush::class)->first();
@@ -82,6 +95,56 @@ it('preserves the existing Telegram layout and empty day text', function (): voi
         str_replace("\n", PHP_EOL, "KUNLIK QARZDORLIK: 21.11.2026\n\nDo'kon: Do‘kon A\nUZS:\n  - Qarzdorlik: 350 000 UZS\n  - To'lov: 50 000 UZS")
     );
     expect($this->summaries->message('2026-11-21', []))->toBe("Kunlik hisobot 21.11.2026\nBugun yangi qarz yoki to'lov qayd etilmadi.");
+});
+
+it('formats the selected four line notification layout exactly', function (): void {
+    $totals = [$this->storeA->id => ['name' => 'MILLION PARFUME', 'data' => ['UZS' => ['debt' => 1250000, 'payment' => 750000]]]];
+    expect($this->summaries->pushMessage($totals, $this->balanceSnapshot))->toBe(
+        "🏪 Do‘kon: MILLION PARFUME\n📊 Bugungi qarzdorlik: 1 250 000 so‘m\n💳 Bugungi to‘lovlar: 750 000 so‘m\n💰 SMS balansi: 15 000 so‘m"
+    );
+});
+
+it('marks unavailable or stale SMS balances without hiding the debt report', function (?float $amount, bool $stale, string $text): void {
+    $this->balanceSnapshot = ['balance' => $amount, 'stale' => $stale];
+    $this->artisan('debtors:send-daily-summary')->assertSuccessful();
+    $this->sender->shouldReceive('sendToToken')->once()->withArgs(
+        fn ($token, $title, $body): bool => str_contains($body, $text) && str_contains($body, '📊 Bugungi qarzdorlik: 350 000 so‘m')
+    )->andReturn('projects/test/messages/sms-state');
+    Queue::pushed(SendDailyDebtorSummaryPush::class)->first()->handle($this->sender, $this->summaries);
+})->with([
+    [null, true, '💰 SMS balansi: ma’lumot olinmadi'],
+    [15000.0, true, '💰 SMS balansi: 15 000 so‘m (oxirgi ma’lumot)'],
+    [0.0, false, '💰 SMS balansi: 0 so‘m'],
+]);
+
+it('omits the global SMS balance when permission is absent or revoked', function (bool $revokeAfterQueue): void {
+    if (!$revokeAfterQueue) {
+        $this->user->revokePermissionTo('view_sms_balance');
+        $this->balances->shouldNotReceive('getBalance');
+    }
+    $this->artisan('debtors:send-daily-summary')->assertSuccessful();
+    $job = Queue::pushed(SendDailyDebtorSummaryPush::class)->first();
+    if ($revokeAfterQueue) {
+        $this->user->revokePermissionTo('view_sms_balance');
+    } else {
+        expect($job->smsBalance)->toBeNull();
+    }
+    $this->sender->shouldReceive('sendToToken')->once()->withArgs(
+        fn ($token, $title, $body): bool => str_contains($body, '📊 Bugungi qarzdorlik:') && !str_contains($body, 'SMS balansi:')
+    )->andReturn('projects/test/messages/without-sms');
+    $job->handle($this->sender, $this->summaries);
+})->with([false, true]);
+
+it('captures the shared SMS balance once for all devices', function (): void {
+    $token = $this->user->createToken('flutter:second-device', ['flutter:access'], now()->addDay());
+    FlutterDevice::factory()->create(['user_id' => $this->user->id, 'personal_access_token_id' => $token->accessToken->id])
+        ->forceFill(['push_token' => 'second-token', 'push_token_hash' => hash('sha256', 'second-token')])->save();
+    $this->balances->shouldReceive('getBalance')->once()->andReturn($this->balanceSnapshot);
+    $this->artisan('debtors:send-daily-summary')->assertSuccessful();
+    Queue::assertPushed(SendDailyDebtorSummaryPush::class, 2);
+    foreach (Queue::pushed(SendDailyDebtorSummaryPush::class) as $job) {
+        expect($job->smsBalance)->toBe($this->balanceSnapshot);
+    }
 });
 
 it('scopes the queued report to the recipients authorized stores', function (): void {
@@ -151,7 +214,7 @@ it('sends the empty day message to the APK too', function (): void {
     $this->travelTo(Carbon::parse('2026-11-23 22:00:00', 'Asia/Tashkent'));
     $this->artisan('debtors:send-daily-summary')->assertSuccessful();
     $this->sender->shouldReceive('sendToToken')->once()->withArgs(
-        fn ($token, $title, $body): bool => $body === "Kunlik hisobot 23.11.2026\nBugun yangi qarz yoki to'lov qayd etilmadi."
+        fn ($token, $title, $body): bool => $body === "📊 Bugun yangi qarz yoki to‘lov qayd etilmadi.\n💰 SMS balansi: 15 000 so‘m"
     )->andReturn('projects/test/messages/empty');
     Queue::pushed(SendDailyDebtorSummaryPush::class)->first()->handle($this->sender, $this->summaries);
 });
@@ -177,7 +240,7 @@ it('does not deliver the report before twenty two hundred or on another date', f
 })->with(['2026-11-21 21:59:00', '2026-11-22 00:00:00']);
 
 it('splits long reports without losing text or breaking UTF8', function (): void {
-    $text  = str_repeat("Do‘kon: O‘zbekiston\nUZS:\n  - Qarzdorlik: 350 000 UZS\n  - To'lov: 50 000 UZS\n", 100);
+    $text  = str_repeat("🏪 Do‘kon: O‘zbekiston\n📊 Bugungi qarzdorlik: 350 000 so‘m\n💳 Bugungi to‘lovlar: 50 000 so‘m\n", 100);
     $parts = $this->summaries->notificationParts($text);
     expect(count($parts))->toBeGreaterThan(1)->and(implode('', $parts))->toBe($text);
     foreach ($parts as $part) {
@@ -200,7 +263,7 @@ it('resumes a multipart report without sending accepted parts again', function (
         $this->user->stores()->attach($store);
         $totals[$store->id] = ['name' => $store->name, 'data' => ['UZS' => ['debt' => 350000, 'payment' => 50000]]];
     }
-    $parts  = $this->summaries->notificationParts($this->summaries->message('2026-11-21', $totals));
+    $parts  = $this->summaries->notificationParts($this->summaries->pushMessage($totals));
     $bodies = [];
     $this->sender->shouldReceive('sendToToken')->times(count($parts) + 1)->andReturnUsing(function ($token, $title, $body) use (&$bodies): ?string {
         $bodies[] = $body;

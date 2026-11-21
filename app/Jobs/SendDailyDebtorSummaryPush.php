@@ -24,8 +24,17 @@ class SendDailyDebtorSummaryPush implements ShouldBeEncrypted, ShouldQueue
 
     public int $backoff = 60;
 
-    /** @param array<int, array{name: string, data: array<string, array<string, int>>}> $totals */
-    public function __construct(public int $deviceId, public string $tokenHash, public string $reportDate, public array $totals) {}
+    /** @var array{balance: ?float, stale: bool}|null */
+    public ?array $smsBalance = null;
+
+    /**
+     * @param  array<int, array{name: string, data: array<string, array<string, int>>}>  $totals
+     * @param  array{balance: ?float, stale: bool}|null  $smsBalance
+     */
+    public function __construct(public int $deviceId, public string $tokenHash, public string $reportDate, public array $totals, ?array $smsBalance = null)
+    {
+        $this->smsBalance = $smsBalance;
+    }
 
     /**
      * Execute the job.
@@ -46,10 +55,11 @@ class SendDailyDebtorSummaryPush implements ShouldBeEncrypted, ShouldQueue
         if ($storeIds === []) {
             return;
         }
-        $totals = array_intersect_key($this->totals, array_flip($storeIds));
-        $parts  = $summaries->notificationParts($summaries->message($this->reportDate, $totals));
-        $key    = 'daily_debtor_summary:' . $this->reportDate . ':' . $device->id;
-        $lock   = Cache::lock($key . ':lock', 90);
+        $totals     = array_intersect_key($this->totals, array_flip($storeIds));
+        $smsBalance = $user->canViewSmsBalance() ? $this->smsBalance : null;
+        $parts      = $summaries->notificationParts($summaries->pushMessage($totals, $smsBalance));
+        $key        = 'daily_debtor_summary:' . $this->reportDate . ':' . $device->id;
+        $lock       = Cache::lock($key . ':lock', 90);
         if (!$lock->get()) {
             return;
         }
